@@ -48,11 +48,9 @@ interface TodayScreenProps {
   copy: TaskCopy;
   language: AppLanguage;
   viewModel: TasksViewModel;
-  /** Starts a focus block from the now band. The intent crosses screens, so
-   * it is owned by the composition root rather than by this screen. */
-  onFocusTask?: (task: Task) => void;
-  /** Opens the focus screen on this task without starting it, so the duration
-   * can be changed first. */
+  /** Opens the focus screen on this task, where the length is chosen before
+   * anything starts. The intent crosses screens, so it is owned by the
+   * composition root rather than by this one. */
   onChooseFocusDuration?: (task: Task) => void;
 }
 
@@ -64,7 +62,6 @@ export function TodayScreen({
   copy,
   language,
   viewModel,
-  onFocusTask,
   onChooseFocusDuration,
 }: TodayScreenProps) {
   const theme = useTheme();
@@ -182,9 +179,12 @@ export function TodayScreen({
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
       >
+        {/* No headline. "Em aberto" never changed, said what the screen
+            below already showed, and spent the first third of the phone
+            saying it. The date carries the context; the lens under it says
+            how the list is ordered. */}
         <ScreenHeader
           eyebrow={formatDayLabel(viewModel.nowMs, language)}
-          title={copy.today.title}
           trailing={
             <FilterToggle
               accessibilityLabel={copy.today.groupBy}
@@ -284,7 +284,6 @@ export function TodayScreen({
             listOf={listInfoOf}
             nowMs={viewModel.nowMs}
             onChooseDuration={task => onChooseFocusDuration?.(task)}
-            onFocus={task => onFocusTask?.(task)}
             onShowRest={() =>
               scrollRef.current?.scrollTo({
                 y: Math.max(0, todayRestTop.current - theme.spacing.medium),
@@ -345,21 +344,12 @@ export function TodayScreen({
                       index={index}
                       key={task.id}
                       lens={grouping}
-                      listColor={
-                        task.listId === INBOX_LIST_ID
-                          ? null
-                          : viewModel.listOf(task.listId)?.color ?? null
-                      }
-                      listIcon={
-                        task.listId === INBOX_LIST_ID
-                          ? null
-                          : viewModel.listOf(task.listId)?.icon ?? null
-                      }
-                      listName={
-                        task.listId === INBOX_LIST_ID
-                          ? null
-                          : viewModel.listOf(task.listId)?.name ?? null
-                      }
+                      // The inbox is passed like any other list. Hiding it
+                      // left the fact column blank on exactly the tasks that
+                      // had never been filed, which is not what blank means.
+                      listColor={viewModel.listOf(task.listId)?.color ?? null}
+                      listIcon={viewModel.listOf(task.listId)?.icon ?? null}
+                      listName={viewModel.listOf(task.listId)?.name ?? null}
                       nowMs={viewModel.nowMs}
                       onEdit={() => setEditing(task)}
                       onToggle={() => viewModel.toggle(task.id)}

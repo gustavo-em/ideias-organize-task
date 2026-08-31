@@ -4,7 +4,9 @@ import styled from 'styled-components/native';
 
 interface ScreenHeaderProps {
   eyebrow: string;
-  title: string;
+  /** Optional: a screen whose content already names itself does not need a
+   * headline repeating it. */
+  title?: string;
   subtitle?: string;
   /** Sits on the right of the eyebrow line: a streak, a count, a control. */
   trailing?: ReactNode;
@@ -28,7 +30,7 @@ export function ScreenHeader({
         <Eyebrow>{eyebrow}</Eyebrow>
         {trailing}
       </TopLine>
-      <Title accessibilityRole="header">{title}</Title>
+      {title == null ? null : <Title accessibilityRole="header">{title}</Title>}
       {subtitle == null ? null : <Subtitle>{subtitle}</Subtitle>}
     </Header>
   );
