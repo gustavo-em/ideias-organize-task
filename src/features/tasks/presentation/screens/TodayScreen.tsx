@@ -267,10 +267,6 @@ export function TodayScreen({ copy, language, viewModel }: TodayScreenProps) {
           />
         ) : null}
 
-        {isFullyEmpty ? null : (
-          <OpenCount>{copy.today.taskCount(viewModel.openTaskCount)}</OpenCount>
-        )}
-
         {restSections.map(section => {
           const policy = sectionDisclosurePolicy(
             grouping,
@@ -393,8 +389,11 @@ export function TodayScreen({ copy, language, viewModel }: TodayScreenProps) {
   );
 }
 
-/** Room under the last card for the floating capture button. */
-const styles = StyleSheet.create({ scroll: { paddingBottom: 120 } });
+/** Room under the last card for the floating capture button. The FAB sits
+ * at bottom:32 with a 54px+ pill and its own shadow, so the scroll needs
+ * clearance past that plus a real gap, or the last expanded row hides
+ * behind it. */
+const styles = StyleSheet.create({ scroll: { paddingBottom: 168 } });
 
 const sectionLayout = LinearTransition.duration(DISCLOSURE.duration)
   .easing(DISCLOSURE.easing)
@@ -415,13 +414,6 @@ const FilterToggle = styled(PressableScale)`
   align-items: center;
   justify-content: center;
   border-radius: ${({ theme }) => theme.radii.pill}px;
-`;
-
-const OpenCount = styled.Text`
-  color: ${({ theme }) => theme.colors.muted};
-  font-size: ${({ theme }) => theme.type.caption + 1}px;
-  font-weight: 600;
-  margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 
 const Grouping = styled(Animated.View)`
@@ -465,5 +457,7 @@ const GroupingButtonText = styled.Text<{ $selected: boolean }>`
 `;
 
 const Section = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
+  margin-top: ${({ theme }) => theme.spacing.large}px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px
+    ${({ theme }) => theme.spacing.small}px;
 `;

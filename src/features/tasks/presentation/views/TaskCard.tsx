@@ -164,7 +164,7 @@ export function TaskCard({
                 scaleTo={0.84}
                 testID={`task-delete-${task.id}`}
               >
-                <TrashGlyph color={theme.colors.danger} size={18} />
+                <TrashGlyph color={theme.colors.mutedStrong} size={18} />
               </IconButton>
             )}
             {compact || !clipped ? null : (

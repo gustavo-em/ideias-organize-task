@@ -119,10 +119,13 @@ const SectionCount = styled.Text`
   font-weight: 700;
 `;
 
+/* Typographic rule, not a progress indicator — constant hairline,
+   never partially filled or animated. */
 const SectionRule = styled.View`
   flex: 1;
   min-width: 0px;
   height: 1px;
+  align-self: center;
   background-color: ${({ theme }) => theme.colors.border};
 `;
 

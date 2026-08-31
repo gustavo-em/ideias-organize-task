@@ -78,11 +78,21 @@ export function EmptyStateCard({ copy, onCapture }: EmptyStateCardProps) {
   );
 }
 
+// Calm, neutral ground: the accent yellow stays owned by the floating
+// capture button, so this card never competes with it for attention.
 const Card = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
   padding: ${({ theme }) => theme.spacing.large}px;
   border-radius: ${({ theme }) => theme.radii.large}px;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  background-color: ${({ theme }) => theme.colors.card};
+  border: 1px solid ${({ theme }) => theme.colors.borderSubtle};
+  /* Same lift as TaskCard: without it the card only differs from the page
+     by a few per cent of white and reads as flat, not as a surface. */
+  elevation: 2;
+  shadow-color: #1b1710;
+  shadow-opacity: ${({ theme }) => (theme.mode === 'dark' ? 0 : 0.07)};
+  shadow-radius: 10px;
+  shadow-offset: 0px 3px;
 `;
 
 const IconWrap = styled.View<{ $tone?: 'accent' }>`
@@ -92,7 +102,11 @@ const IconWrap = styled.View<{ $tone?: 'accent' }>`
   justify-content: center;
   border-radius: ${({ theme }) => theme.radii.pill}px;
   margin-bottom: ${({ theme }) => theme.spacing.small}px;
-  background-color: ${({ theme }) => theme.colors.card};
+  /* The invitation (never written anything down) borrows the brand's own
+     surface; the confirmation (caught up) gets a quiet tint of its own
+     success colour, so the two states read as distinct pictures. */
+  background-color: ${({ theme, $tone }) =>
+    $tone === 'accent' ? theme.colors.cardElevated : `${theme.colors.success}26`};
 `;
 
 const Title = styled.Text`
