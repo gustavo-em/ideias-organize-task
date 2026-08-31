@@ -383,6 +383,40 @@ export function FilterGlyph({ color, size = 16 }: GlyphProps) {
   );
 }
 
+/** Two bars: the session is held, not ended. */
+export function PauseGlyph({ color, size = 16 }: GlyphProps) {
+  return (
+    <Svg height={size} viewBox="0 0 16 16" width={size}>
+      <Rect fill={color} height={11} rx={1.2} width={3.2} x={4} y={2.5} />
+      <Rect fill={color} height={11} rx={1.2} width={3.2} x={8.8} y={2.5} />
+    </Svg>
+  );
+}
+
+/** The same shape pointing forward: the held session moves again. */
+export function PlayGlyph({ color, size = 16 }: GlyphProps) {
+  return (
+    <Svg height={size} viewBox="0 0 16 16" width={size}>
+      <Path
+        d="M4.6 3.1 12.6 8l-8 4.9Z"
+        fill={color}
+        stroke={color}
+        strokeLinejoin="round"
+        strokeWidth={1.4}
+      />
+    </Svg>
+  );
+}
+
+/** A square, not a cross: ending a block is not an error. */
+export function StopGlyph({ color, size = 16 }: GlyphProps) {
+  return (
+    <Svg height={size} viewBox="0 0 16 16" width={size}>
+      <Rect fill={color} height={9.5} rx={1.6} width={9.5} x={3.25} y={3.25} />
+    </Svg>
+  );
+}
+
 export function CheckGlyph({ color, size = 16 }: GlyphProps) {
   return (
     <Svg height={size} viewBox="0 0 16 16" width={size}>
