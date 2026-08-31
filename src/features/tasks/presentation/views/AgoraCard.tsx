@@ -83,7 +83,7 @@ export function AgoraCard({
 }
 
 const Card = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 
 const Eyebrow = styled.Text`
