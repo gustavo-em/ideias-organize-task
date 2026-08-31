@@ -1,0 +1,8 @@
+<resources>
+    <!-- The brand yellow. The system paints this while the process starts, so
+         the launch window and the animated splash inside the app are the same
+         colour and the opening never flashes white. -->
+    <color name="brand_sun">#FFC63D</color>
+    <color name="brand_ink">#1B1710</color>
+    <color name="brand_launch_background">#FFFDF7</color>
+</resources>

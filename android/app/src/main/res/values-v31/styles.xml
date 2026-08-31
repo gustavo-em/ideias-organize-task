@@ -1,0 +1,10 @@
+<resources>
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <item name="android:windowBackground">@drawable/launch_screen</item>
+        <item name="android:windowSplashScreenBackground">@color/brand_launch_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/launch_mark</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+        <item name="android:windowSplashScreenAnimationDuration">0</item>
+    </style>
+</resources>

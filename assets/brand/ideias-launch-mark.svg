@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="288" height="288" viewBox="0 0 120 120">
+  <title>Estado inicial estático da marca Ideias</title>
+  <rect width="120" height="120" rx="30" fill="#FFC63D"/>
+  <path d="M31 36 L79 36" fill="none" stroke="#1B1710" stroke-width="14" stroke-linecap="round"/>
+  <path d="M31 59 L89 59" fill="none" stroke="#1B1710" stroke-width="14" stroke-linecap="round"/>
+  <path d="M31 82 L65 82" fill="none" stroke="#4B3A8F" stroke-width="14" stroke-linecap="round"/>
+</svg>
