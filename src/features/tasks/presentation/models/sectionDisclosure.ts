@@ -85,13 +85,14 @@ export function reconcileCollapsedSectionIds(
 ): ReadonlySet<string> {
   const collapsibleIds = new Set(
     sections
-      .filter(section =>
-        sectionDisclosurePolicy(
-          grouping,
-          section.id,
-          section.tasks.length,
-          mode,
-        ).collapsible,
+      .filter(
+        section =>
+          sectionDisclosurePolicy(
+            grouping,
+            section.id,
+            section.tasks.length,
+            mode,
+          ).collapsible,
       )
       .map(section => section.id),
   );
