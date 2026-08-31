@@ -84,8 +84,14 @@ describe('the one fact a task row shows', () => {
     ).toMatchObject({ kind: 'estimate', text: '45 min', weight: 600 });
 
     expect(
-      rowFact(input({ sectionId: 'tomorrow', estimatedMinutes: 45 })),
-    ).toBeNull();
+      rowFact(
+        input({
+          facts: facts({ listName: 'Casa' }),
+          sectionId: 'tomorrow',
+          estimatedMinutes: 45,
+        }),
+      )?.kind,
+    ).toBe('project');
   });
 
   it('drops the date under the deadline lens and keeps it elsewhere', () => {
@@ -100,10 +106,9 @@ describe('the one fact a task row shows', () => {
     });
   });
 
-  it('drops the project name under the project lens and keeps it elsewhere', () => {
+  it('names the project it belongs to', () => {
     const named = facts({ listName: 'Lançamento' });
 
-    expect(rowFact(input({ facts: named, lens: 'list' }))).toBeNull();
     expect(
       rowFact(input({ facts: named, lens: 'deadline', listIcon: 'briefcase' })),
     ).toMatchObject({
@@ -113,24 +118,39 @@ describe('the one fact a task row shows', () => {
     });
   });
 
-  it('falls back to age for something old and undated', () => {
+  it('names the inbox like any other list, so the column never goes blank', () => {
+    // The screen passes the real list for every task, inbox included. A column
+    // that fills on some rows and not others reads as a bug in the layout
+    // rather than as a fact about the task.
     expect(
       rowFact(
-        input({ facts: facts({ stale: { label: 'parada há 9 dias' } }) }),
+        input({
+          facts: facts({ listName: 'Caixa' }),
+          listColor: 'sun',
+          listIcon: 'inbox',
+        }),
+      ),
+    ).toMatchObject({
+      kind: 'project',
+      text: 'Caixa',
+      project: { color: 'sun', icon: 'inbox' },
+    });
+  });
+
+  it('goes quiet under the project lens, where the heading already said it', () => {
+    expect(
+      rowFact(input({ facts: facts({ listName: 'Casa' }), lens: 'list' })),
+    ).toBeNull();
+  });
+
+  it('falls back to age when the project is already on the heading', () => {
+    expect(
+      rowFact(
+        input({
+          facts: facts({ stale: { label: 'parada há 9 dias' } }),
+          lens: 'list',
+        }),
       ),
     ).toMatchObject({ kind: 'stale', weight: 500 });
-  });
-
-  it('prefers the project name over the age', () => {
-    const both = facts({
-      listName: 'Casa',
-      stale: { label: 'parada há 9 dias' },
-    });
-
-    expect(rowFact(input({ facts: both }))?.kind).toBe('project');
-  });
-
-  it('leaves the right side empty when nothing is worth saying', () => {
-    expect(rowFact(input())).toBeNull();
   });
 });

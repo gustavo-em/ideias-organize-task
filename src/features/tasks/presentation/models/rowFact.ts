@@ -91,6 +91,9 @@ export function rowFact({
     };
   }
 
+  // Where it lives, always. The inbox is a place too, so the row is given the
+  // real list rather than a null: a column that fills on some rows and not
+  // others reads as a bug in the layout instead of a fact about the task.
   if (facts.listName != null && lens !== 'list') {
     return {
       kind: 'project',
