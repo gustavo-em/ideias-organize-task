@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "676891253849",
+    "project_id": "ideiasorganizetask",
+    "storage_bucket": "ideiasorganizetask.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:676891253849:android:5bee969304b101b828a548",
+        "android_client_info": {
+          "package_name": "com.gustavoem.ideiasorganizetask"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZin3FfPn74D2CdX5WrVR06H8hPjhEvqw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
