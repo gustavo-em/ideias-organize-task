@@ -84,12 +84,24 @@ function AppContent({
    * view model already publishes `focus.started`, and no subscriber cares
    * which tap began it.
    */
+  const [durationTask, setDurationTask] = useState<Task | null>(null);
+
   const startFocusOn = useCallback(
     (task: Task) => {
+      setDurationTask(null);
       focus.start(task, focusMinutesFor(task.estimatedMinutes));
       app.selectTab('focus');
     },
     [app, focus],
+  );
+
+  /** The other half of the band: go to focus, but decide the length first. */
+  const chooseFocusDurationFor = useCallback(
+    (task: Task) => {
+      setDurationTask(task);
+      app.selectTab('focus');
+    },
+    [app],
   );
 
   useEffect(() => {
@@ -103,6 +115,7 @@ function AppContent({
           <TodayScreen
             copy={app.copy}
             language={app.language}
+            onChooseFocusDuration={chooseFocusDurationFor}
             onFocusTask={startFocusOn}
             viewModel={tasks}
           />
@@ -117,7 +130,12 @@ function AppContent({
         ) : null}
 
         {app.activeTab === 'focus' ? (
-          <FocusScreen copy={app.copy} focus={focus} viewModel={tasks} />
+          <FocusScreen
+            copy={app.copy}
+            focus={focus}
+            openDurationFor={durationTask}
+            viewModel={tasks}
+          />
         ) : null}
 
         {app.activeTab === 'you' ? (
