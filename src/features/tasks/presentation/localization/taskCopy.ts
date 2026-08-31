@@ -97,6 +97,13 @@ export interface TaskCopy {
     complete: string;
     ofTrio: (position: number, total: number) => string;
     finished: string;
+    chooseDuration: string;
+    customDuration: string;
+    increaseDuration: string;
+    decreaseDuration: string;
+    start: string;
+    cancel: string;
+    newFocus: string;
   };
   progress: {
     title: string;
@@ -251,7 +258,7 @@ const ptBR: TaskCopy = {
     title: 'Foco',
     idle: 'Escolha uma para começar',
     idleEmpty: 'Nada aberto no dia. Feche o app e vá viver.',
-    idleHint: 'O cronômetro usa o tempo estimado da tarefa, ou 25 minutos.',
+    idleHint: 'Escolha o tempo que você acha que vai levar.',
     remaining: 'restantes',
     pause: 'Pausar',
     resume: 'Continuar',
@@ -259,6 +266,13 @@ const ptBR: TaskCopy = {
     complete: 'Concluir',
     ofTrio: (position, total) => `${position} de ${total} do dia`,
     finished: 'Tempo cumprido.',
+    chooseDuration: 'Quanto tempo você quer focar?',
+    customDuration: 'Personalizado',
+    increaseDuration: 'Aumentar tempo',
+    decreaseDuration: 'Diminuir tempo',
+    start: 'Começar',
+    cancel: 'Cancelar',
+    newFocus: 'Novo foco',
   },
   progress: {
     title: 'Seu ritmo',
@@ -433,7 +447,7 @@ const enUS: TaskCopy = {
     title: 'Focus',
     idle: 'Pick one to start',
     idleEmpty: 'Nothing open today. Close the app and go live.',
-    idleHint: 'The timer uses the task estimate, or 25 minutes.',
+    idleHint: 'Pick how long you think it will take.',
     remaining: 'remaining',
     pause: 'Pause',
     resume: 'Resume',
@@ -441,6 +455,13 @@ const enUS: TaskCopy = {
     complete: 'Complete',
     ofTrio: (position, total) => `${position} of ${total} today`,
     finished: 'Time served.',
+    chooseDuration: 'How long do you want to focus?',
+    customDuration: 'Custom',
+    increaseDuration: 'Increase time',
+    decreaseDuration: 'Decrease time',
+    start: 'Start',
+    cancel: 'Cancel',
+    newFocus: 'New focus',
   },
   progress: {
     title: 'Your pace',

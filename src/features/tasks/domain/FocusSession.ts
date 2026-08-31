@@ -3,7 +3,16 @@ export const DEFAULT_FOCUS_MINUTES = 25;
 
 /** Longest block offered. Past this the timer stops being focus and starts
  * being a stopwatch nobody looks at. */
-const MAX_FOCUS_MINUTES = 90;
+export const MAX_FOCUS_MINUTES = 180;
+
+/** Shortest block a user can choose by hand. Below this it is not a session,
+ * it is a reminder. */
+export const MIN_FOCUS_MINUTES = 5;
+
+/** Keeps a hand-picked duration inside the range the timer was built for. */
+export function clampFocusMinutes(minutes: number): number {
+  return Math.min(MAX_FOCUS_MINUTES, Math.max(MIN_FOCUS_MINUTES, Math.round(minutes)));
+}
 
 export type FocusPhase = 'running' | 'paused' | 'finished';
 
@@ -22,7 +31,7 @@ export function focusMinutesFor(estimatedMinutes: number | null): number {
     return DEFAULT_FOCUS_MINUTES;
   }
 
-  return Math.min(estimatedMinutes, MAX_FOCUS_MINUTES);
+  return Math.min(estimatedMinutes, 90);
 }
 
 export function startFocus(

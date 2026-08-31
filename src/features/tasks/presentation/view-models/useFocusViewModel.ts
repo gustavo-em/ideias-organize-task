@@ -3,9 +3,9 @@ import { useSharedValue } from 'react-native-reanimated';
 
 import type { Clock } from '../../application/ports/Clock';
 import {
+  clampFocusMinutes,
   finishFocus,
   focusFraction,
-  focusMinutesFor,
   formatRemaining,
   hasElapsed,
   pauseFocus,
@@ -72,13 +72,9 @@ export function useFocusViewModel({ bus, clock }: FocusDependencies) {
   }, [bus, clock, fraction, session]);
 
   const start = useCallback(
-    (task: Task) => {
+    (task: Task, minutes: number) => {
       const now = clock.now();
-      const next = startFocus(
-        task.id,
-        focusMinutesFor(task.estimatedMinutes),
-        now,
-      );
+      const next = startFocus(task.id, clampFocusMinutes(minutes), now);
 
       sessionRef.current = next;
       setSession(next);
