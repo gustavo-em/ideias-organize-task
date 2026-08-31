@@ -11,13 +11,19 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
-import { isOpen } from '../../domain/Task';
+import { isOpen, type Task } from '../../domain/Task';
 import { clampFocusMinutes, focusMinutesFor } from '../../domain/FocusSession';
 import { FADE, GROUND } from '../animation/motion';
 import type { TaskCopy } from '../localization/taskCopy';
 import type { FocusViewModel } from '../view-models/useFocusViewModel';
 import type { TasksViewModel } from '../view-models/useTasksViewModel';
 import { DurationPicker } from '../views/DurationPicker';
+import {
+  CheckGlyph,
+  PauseGlyph,
+  PlayGlyph,
+  StopGlyph,
+} from '../views/FieldGlyphs';
 import { FocusAchievement } from '../views/FocusAchievement';
 import { PressableScale } from '../views/PressableScale';
 import { ProgressRing } from '../views/ProgressRing';
@@ -27,6 +33,11 @@ interface FocusScreenProps {
   copy: TaskCopy;
   focus: FocusViewModel;
   viewModel: TasksViewModel;
+  /** Arrived here from the now band's time block: this task opens with its
+   * duration ready to change, and nothing has started. It is passed whole
+   * because the idle list only holds the trio, and this task may not be in
+   * it — arriving from the band must not land on an empty screen. */
+  openDurationFor?: Task | null;
 }
 
 const RING_SIZE = 232;
@@ -38,20 +49,43 @@ const RING_SIZE = 232;
  * a warm, deep ground while a session runs, so a glance from across the desk
  * says whether work is happening without reading a word.
  */
-export function FocusScreen({ copy, focus, viewModel }: FocusScreenProps) {
+export function FocusScreen({
+  copy,
+  focus,
+  viewModel,
+  openDurationFor,
+}: FocusScreenProps) {
   const theme = useTheme();
-  const open = viewModel.today.filter(isOpen);
+  const trio = viewModel.today.filter(isOpen);
+  const open =
+    openDurationFor != null &&
+    isOpen(openDurationFor) &&
+    !trio.some(entry => entry.id === openDurationFor.id)
+      ? [openDurationFor, ...trio]
+      : trio;
   const active = useSharedValue(focus.session == null ? 0 : 1);
   const running = focus.session != null;
-  const task = viewModel.today.find(
+  // Looked up in every task, not only the trio: a session can be started from
+  // the now band, and then the title would come back empty.
+  const task = viewModel.tasks.find(
     entry => entry.id === focus.session?.taskId,
   );
-  const position =
-    task == null
-      ? 0
-      : viewModel.today.findIndex(entry => entry.id === task.id) + 1;
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Every edge and track on the session used to be white at low alpha, which
+  // only works when the ground is dark. Now that light mode keeps a light
+  // ground, the veil has to follow the ink.
+  const veil = (alpha: number) =>
+    theme.mode === 'dark'
+      ? `rgba(255, 255, 255, ${alpha})`
+      : `rgba(27, 23, 16, ${alpha})`;
+
+  const [expandedId, setExpandedId] = useState<string | null>(
+    openDurationFor?.id ?? null,
+  );
+
+  useEffect(() => {
+    if (openDurationFor != null) setExpandedId(openDurationFor.id);
+  }, [openDurationFor]);
   const [minutesById, setMinutesById] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -130,7 +164,10 @@ export function FocusScreen({ copy, focus, viewModel }: FocusScreenProps) {
 
           {open.map(candidate => {
             const expanded = expandedId === candidate.id;
-            const minutes = minutesFor(candidate.id, candidate.estimatedMinutes);
+            const minutes = minutesFor(
+              candidate.id,
+              candidate.estimatedMinutes,
+            );
 
             return (
               <Choice key={candidate.id}>
@@ -193,21 +230,21 @@ export function FocusScreen({ copy, focus, viewModel }: FocusScreenProps) {
         </Idle>
       ) : (
         <Session entering={FadeIn.duration(240)} testID="focus-session">
-          <EyebrowPill>
-            <Eyebrow>
-              {copy.focus.ofTrio(Math.max(1, position), viewModel.today.length)}
-            </Eyebrow>
-          </EyebrowPill>
-
           <RingStage
             style={pulseStyle}
-            testID={focus.isFinished ? 'focus-session-finished' : 'focus-session-running'}
+            testID={
+              focus.isFinished
+                ? 'focus-session-finished'
+                : 'focus-session-running'
+            }
           >
             <ProgressRing
-              color={focus.isFinished ? theme.colors.success : theme.colors.accent}
+              color={
+                focus.isFinished ? theme.colors.success : theme.colors.accent
+              }
               fraction={focus.fraction}
               size={RING_SIZE}
-              trackColor="rgba(255, 255, 255, 0.16)"
+              trackColor={veil(theme.mode === 'dark' ? 0.16 : 0.12)}
             />
             <RingCentre pointerEvents="none">
               <Clock style={bumpStyle}>{focus.label}</Clock>
@@ -231,6 +268,11 @@ export function FocusScreen({ copy, focus, viewModel }: FocusScreenProps) {
                 onPress={focus.isRunning ? focus.pause : focus.resume}
                 testID="focus-toggle"
               >
+                {focus.isRunning ? (
+                  <PauseGlyph color={theme.colors.onAccent} size={15} />
+                ) : (
+                  <PlayGlyph color={theme.colors.onAccent} size={15} />
+                )}
                 <PrimaryText>
                   {focus.isRunning ? copy.focus.pause : copy.focus.resume}
                 </PrimaryText>
@@ -246,6 +288,14 @@ export function FocusScreen({ copy, focus, viewModel }: FocusScreenProps) {
               }}
               testID="focus-complete"
             >
+              <CheckGlyph
+                color={
+                  focus.isFinished
+                    ? theme.colors.onAccent
+                    : theme.colors.onFocus
+                }
+                size={15}
+              />
               <CompleteText filled={focus.isFinished}>
                 {copy.focus.complete}
               </CompleteText>
@@ -258,6 +308,7 @@ export function FocusScreen({ copy, focus, viewModel }: FocusScreenProps) {
               onPress={focus.stop}
               testID="focus-stop"
             >
+              <StopGlyph color={theme.colors.onFocus} size={13} />
               <SecondaryText>
                 {focus.isFinished ? copy.focus.newFocus : copy.focus.finish}
               </SecondaryText>
@@ -369,21 +420,6 @@ const Session = styled(Animated.View)`
   justify-content: center;
 `;
 
-const EyebrowPill = styled.View`
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: ${({ theme }) => theme.radii.pill}px;
-  padding: 6px 14px;
-`;
-
-const Eyebrow = styled.Text`
-  color: ${({ theme }) => theme.colors.onFocus};
-  font-size: ${({ theme }) => theme.type.caption}px;
-  font-weight: 700;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
-  opacity: 0.75;
-`;
-
 const RingStage = styled(Animated.View)`
   margin-top: ${({ theme }) => theme.spacing.large}px;
   align-items: center;
@@ -426,9 +462,12 @@ const Actions = styled.View`
 `;
 
 const Primary = styled(PressableScale)`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small - 1}px;
   background-color: ${({ theme }) => theme.colors.accent};
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 12px 24px;
+  padding: 12px 20px;
 `;
 
 const PrimaryText = styled.Text`
@@ -438,13 +477,20 @@ const PrimaryText = styled.Text`
 `;
 
 const Complete = styled(PressableScale)<{ filled: boolean }>`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small - 1}px;
   background-color: ${({ theme, filled }) =>
     filled ? theme.colors.success : 'transparent'};
   border: 1px solid
     ${({ theme, filled }) =>
-      filled ? theme.colors.success : 'rgba(255, 255, 255, 0.28)'};
+      filled
+        ? theme.colors.success
+        : theme.mode === 'dark'
+        ? 'rgba(255, 255, 255, 0.28)'
+        : 'rgba(27, 23, 16, 0.22)'};
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 12px 18px;
+  padding: 12px 16px;
 `;
 
 const CompleteText = styled.Text<{ filled: boolean }>`
@@ -455,9 +501,16 @@ const CompleteText = styled.Text<{ filled: boolean }>`
 `;
 
 const Secondary = styled(PressableScale)`
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small - 1}px;
+  border: 1px solid
+    ${({ theme }) =>
+      theme.mode === 'dark'
+        ? 'rgba(255, 255, 255, 0.28)'
+        : 'rgba(27, 23, 16, 0.22)'};
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 12px 18px;
+  padding: 12px 16px;
 `;
 
 const SecondaryText = styled.Text`

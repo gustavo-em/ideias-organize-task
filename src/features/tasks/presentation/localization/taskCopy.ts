@@ -40,6 +40,8 @@ export interface TaskCopy {
     /** The time block on the now band. A screen reader must never hear just
      * the number. */
     focusFor: (minutes: number, title: string) => string;
+    /** The time block no longer starts the session; it opens the duration. */
+    changeDuration: (minutes: number) => string;
     /** Stacked under the number inside the block, where "45 min" would not
      * fit on one line. */
     minutesUnit: string;
@@ -109,7 +111,6 @@ export interface TaskCopy {
     resume: string;
     finish: string;
     complete: string;
-    ofTrio: (position: number, total: number) => string;
     finished: string;
     chooseDuration: string;
     customDuration: string;
@@ -193,6 +194,7 @@ const ptBR: TaskCopy = {
     lateDays: days => (days === 1 ? '1 dia' : `${days} dias`),
     earned: weight => `+${weight}`,
     focusFor: (minutes, title) => `Focar ${minutes} minutos em ${title}`,
+    changeDuration: minutes => `Mudar o tempo, agora ${minutes} minutos`,
     minutesUnit: 'min',
     caughtUpTitle: 'Você está em dia.',
     caughtUpNext: title => `Próxima: ${title}`,
@@ -283,7 +285,6 @@ const ptBR: TaskCopy = {
     resume: 'Continuar',
     finish: 'Encerrar',
     complete: 'Concluir',
-    ofTrio: (position, total) => `${position} de ${total} do dia`,
     finished: 'Tempo cumprido.',
     chooseDuration: 'Quanto tempo você quer focar?',
     customDuration: 'Personalizado',
@@ -387,6 +388,7 @@ const enUS: TaskCopy = {
     lateDays: days => (days === 1 ? '1 day' : `${days} days`),
     earned: weight => `+${weight}`,
     focusFor: (minutes, title) => `Focus ${minutes} minutes on ${title}`,
+    changeDuration: minutes => `Change the time, now ${minutes} minutes`,
     minutesUnit: 'min',
     caughtUpTitle: "You're caught up.",
     caughtUpNext: title => `Next: ${title}`,
@@ -477,7 +479,6 @@ const enUS: TaskCopy = {
     resume: 'Resume',
     finish: 'Stop',
     complete: 'Complete',
-    ofTrio: (position, total) => `${position} of ${total} today`,
     finished: 'Time served.',
     chooseDuration: 'How long do you want to focus?',
     customDuration: 'Custom',

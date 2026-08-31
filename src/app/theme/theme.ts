@@ -20,7 +20,9 @@ interface ThemeColors {
   muted: string;
   mutedStrong: string;
   /** The focus screen's own ground. The colour change is the signal that the
-   * phone left the list and entered the work. */
+   * phone left the list and entered the work — a warmer, more saturated
+   * version of the current mode, never an inversion of it. A light phone that
+   * turns black to run a timer reads as a different app. */
   focus: string;
   focusInk: string;
   onFocus: string;
@@ -112,9 +114,9 @@ export const lightTheme: AppTheme = {
     text: '#1B1710',
     muted: '#8A7F6D',
     mutedStrong: '#5E5545',
-    focus: '#241B10',
+    focus: '#FFEFCB',
     focusInk: '#FF9A44',
-    onFocus: '#FBF3E1',
+    onFocus: '#1B1710',
     success: '#0A8F60',
     successInk: '#077A52',
     projectCoral: '#B8653C',
