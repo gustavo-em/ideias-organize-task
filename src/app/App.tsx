@@ -8,6 +8,8 @@ import type {
   TaskEvent,
   TaskEventBus,
 } from '../features/tasks/domain/TaskEvent';
+import { focusMinutesFor } from '../features/tasks/domain/FocusSession';
+import type { Task } from '../features/tasks/domain/Task';
 import { systemClock } from '../features/tasks/infrastructure/clock/systemClock';
 import { systemHaptics } from '../features/tasks/infrastructure/haptics/systemHaptics';
 import {
@@ -73,6 +75,23 @@ function AppContent({
   });
   const focus = useFocusViewModel({ bus, clock: systemClock });
 
+  /**
+   * Starting a focus block from the list.
+   *
+   * It lives here because it crosses two screens: the tab switch belongs to
+   * the shell and the session belongs to the focus view model, so neither
+   * screen can own it without reaching into the other. No new event — the
+   * view model already publishes `focus.started`, and no subscriber cares
+   * which tap began it.
+   */
+  const startFocusOn = useCallback(
+    (task: Task) => {
+      focus.start(task, focusMinutesFor(task.estimatedMinutes));
+      app.selectTab('focus');
+    },
+    [app, focus],
+  );
+
   useEffect(() => {
     if (tasks.isRestored) onReady();
   }, [onReady, tasks.isRestored]);
@@ -84,6 +103,7 @@ function AppContent({
           <TodayScreen
             copy={app.copy}
             language={app.language}
+            onFocusTask={startFocusOn}
             viewModel={tasks}
           />
         ) : null}
