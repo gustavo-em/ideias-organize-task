@@ -1,0 +1,1595 @@
+<title>Ideias — Lista de tarefas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+  :root {
+    --paper: #FFFBF0;
+    --surface: #FFFFFF;
+    --surface-2: #FFF5DF;
+    --line: #E9DDC2;
+    --line-soft: #F3EBD8;
+    --ink: #1B1710;
+    --ink-2: #6E6353;
+    --ink-3: #9C9080;
+    --sol: #FFC63D;
+    --mel: #D98A00;
+    --uva: #4B3A8F;
+    --uva-soft: #EDE8FB;
+    --menta: #0A8F60;
+    --coral: #D8412A;
+    --on-sol: #1B1710;
+    --shadow: 0 1px 2px rgba(27, 23, 16, .06), 0 12px 32px -12px rgba(27, 23, 16, .18);
+    --shadow-lift: 0 2px 4px rgba(27, 23, 16, .08), 0 28px 60px -24px rgba(27, 23, 16, .32);
+    --radius: 18px;
+    --maxw: 1120px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #141008;
+      --surface: #1E1810;
+      --surface-2: #2A2216;
+      --line: #3A3122;
+      --line-soft: #2A2317;
+      --ink: #FBF3E1;
+      --ink-2: #AA9E88;
+      --ink-3: #7C7160;
+      --sol: #FFC63D;
+      --mel: #FFB524;
+      --uva: #A895F5;
+      --uva-soft: #241D3D;
+      --menta: #3FD69B;
+      --coral: #FF8A73;
+      --on-sol: #1B1710;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 12px 32px -12px rgba(0, 0, 0, .7);
+      --shadow-lift: 0 2px 4px rgba(0, 0, 0, .5), 0 28px 60px -24px rgba(0, 0, 0, .8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #141008;
+    --surface: #1E1810;
+    --surface-2: #2A2216;
+    --line: #3A3122;
+    --line-soft: #2A2317;
+    --ink: #FBF3E1;
+    --ink-2: #AA9E88;
+    --ink-3: #7C7160;
+    --sol: #FFC63D;
+    --mel: #FFB524;
+    --uva: #A895F5;
+    --uva-soft: #241D3D;
+    --menta: #3FD69B;
+    --coral: #FF8A73;
+    --on-sol: #1B1710;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 12px 32px -12px rgba(0, 0, 0, .7);
+    --shadow-lift: 0 2px 4px rgba(0, 0, 0, .5), 0 28px 60px -24px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: "Bricolage Grotesque", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 800;
+    line-height: 1.02;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  p { margin: 0; }
+  a { color: inherit; }
+
+  .wrap {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ---------- sequence spine ---------- */
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    padding: 64px 0 40px;
+    border-bottom: 1px solid var(--line);
+  }
+  .masthead-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 40px;
+    align-items: center;
+  }
+  @media (max-width: 760px) {
+    .masthead-grid { grid-template-columns: 1fr; }
+  }
+
+  .lockup {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 26px;
+  }
+  .wordmark {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 27px;
+    letter-spacing: -.035em;
+    line-height: 1;
+  }
+  .wordmark span {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 400;
+    font-size: 10px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-top: 6px;
+  }
+
+  h1.title {
+    font-size: clamp(40px, 7.2vw, 78px);
+    max-width: 15ch;
+  }
+  h1.title em {
+    font-style: normal;
+    color: var(--mel);
+  }
+  .deck {
+    margin-top: 22px;
+    font-size: 18px;
+    color: var(--ink-2);
+    max-width: 54ch;
+  }
+
+  .mark-stage {
+    width: 216px;
+    height: 216px;
+    display: grid;
+    place-items: center;
+  }
+  .replay {
+    margin-top: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .replay:hover { border-color: var(--mel); color: var(--mel); }
+  .replay:focus-visible { outline: 2px solid var(--mel); outline-offset: 3px; }
+
+  /* mark animation: a list that becomes a tick */
+  #markA, #markB, #markC {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .mark-run { animation: dropIn .5s cubic-bezier(.2, .9, .3, 1.1) both; }
+  .mark-run #markA { animation: toArmLong .95s cubic-bezier(.2, .9, .25, 1.06) .6s both; }
+  .mark-run #markB { animation: toArmShort .95s cubic-bezier(.2, .9, .25, 1.06) .72s both; }
+  .mark-run #markC { animation: toSpark .85s cubic-bezier(.34, 1.4, .5, 1) .84s both; }
+
+  @keyframes toArmLong {
+    0% { transform: none; }
+    100% { transform: translate(8px, 19px) rotate(-45deg) scaleX(1.03); }
+  }
+  @keyframes toArmShort {
+    0% { transform: none; }
+    100% { transform: translate(-20px, 10px) rotate(45deg) scaleX(.5); }
+  }
+  @keyframes toSpark {
+    0% { transform: none; }
+    100% { transform: translate(31px, -50px) scaleX(.22); }
+  }
+  @keyframes dropIn {
+    from { opacity: 0; transform: scale(.88) rotate(-5deg); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mark-run, .mark-run #markA, .mark-run #markB, .mark-run #markC {
+      animation-duration: .01ms !important;
+      animation-delay: 0ms !important;
+    }
+  }
+
+  /* ---------- sections ---------- */
+  section { padding: 74px 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: 0; }
+  .sec-head { max-width: 62ch; }
+  .sec-head h2 { font-size: clamp(28px, 4vw, 42px); margin-top: 18px; }
+  .sec-head p { margin-top: 16px; color: var(--ink-2); }
+
+  /* ---------- data strip ---------- */
+  .figures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 40px;
+  }
+  .figure {
+    background: var(--surface);
+    padding: 24px 22px 22px;
+  }
+  .figure b {
+    display: block;
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 46px;
+    font-weight: 800;
+    letter-spacing: -.04em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .figure .lbl {
+    margin-top: 12px;
+    font-size: 13.5px;
+    color: var(--ink-2);
+    line-height: 1.45;
+  }
+  .figure.hot b { color: var(--coral); }
+  .figure.good b { color: var(--menta); }
+  .figure.key b { color: var(--mel); }
+
+  /* ---------- competitor table ---------- */
+  .scroller { overflow-x: auto; margin-top: 40px; -webkit-overflow-scrolling: touch; }
+  table {
+    width: 100%;
+    min-width: 720px;
+    border-collapse: collapse;
+    font-size: 14.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: top;
+  }
+  thead th {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--line);
+    font-weight: 600;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td .name {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    display: block;
+  }
+  td .price {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+  .take {
+    display: inline-block;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px 9px;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .take.yes { border-color: var(--mel); color: var(--mel); background: transparent; }
+  .take.no { color: var(--ink-3); }
+
+  /* ---------- thesis ---------- */
+  .thesis {
+    margin-top: 44px;
+    background: var(--sol);
+    color: var(--on-sol);
+    border-radius: 28px;
+    padding: 48px 44px;
+  }
+  .thesis q {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: clamp(30px, 5vw, 52px);
+    letter-spacing: -.035em;
+    line-height: 1.04;
+    quotes: none;
+    display: block;
+    max-width: 18ch;
+  }
+  .thesis .why {
+    margin-top: 24px;
+    max-width: 58ch;
+    font-size: 16.5px;
+    opacity: .82;
+  }
+
+  .stages {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    margin-top: 36px;
+  }
+  .stage {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px 22px;
+    background: var(--surface);
+    position: relative;
+  }
+  .stage .step {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    letter-spacing: .1em;
+    color: var(--mel);
+    font-weight: 600;
+  }
+  .stage h3 { font-size: 24px; margin-top: 10px; }
+  .stage p { margin-top: 10px; color: var(--ink-2); font-size: 14.5px; }
+  .stage .rule {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--line);
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+
+  /* ---------- identity ---------- */
+  .id-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 22px;
+    margin-top: 40px;
+  }
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 26px 24px;
+  }
+  .panel h3 {
+    font-size: 15px;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .panel .note { font-size: 13.5px; color: var(--ink-2); margin-top: 14px; }
+
+  .swatches { display: grid; gap: 10px; margin-top: 20px; }
+  .sw {
+    display: grid;
+    grid-template-columns: 42px 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 7px 8px;
+    border-radius: 12px;
+  }
+  .sw i {
+    display: block;
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    border: 1px solid rgba(27, 23, 16, .12);
+  }
+  .sw .n { font-weight: 600; font-size: 14.5px; }
+  .sw .n small { display: block; font-weight: 400; color: var(--ink-3); font-size: 12.5px; }
+  .sw code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+
+  .type-row { border-top: 1px solid var(--line-soft); padding: 16px 0; }
+  .type-row:first-of-type { border-top: 0; }
+  .type-row .meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 8px;
+  }
+  .sample-display { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 34px; letter-spacing: -.03em; }
+  .sample-body { font-family: "Instrument Sans", sans-serif; font-size: 17px; }
+  .sample-mono { font-family: "JetBrains Mono", monospace; font-size: 14px; }
+
+  .icon-row { display: flex; align-items: flex-end; gap: 20px; margin-top: 20px; flex-wrap: wrap; }
+  .icon-row figure { margin: 0; text-align: center; }
+  .icon-row figcaption {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-3);
+    margin-top: 8px;
+    letter-spacing: .08em;
+  }
+
+  /* ---------- phones ---------- */
+  .phones {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(262px, 1fr));
+    gap: 34px 26px;
+    margin-top: 44px;
+  }
+  .phone-cell { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .phone-cap { text-align: center; max-width: 30ch; }
+  .phone-cap b {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 17px;
+    display: block;
+  }
+  .phone-cap span { font-size: 13px; color: var(--ink-2); }
+
+  .phone {
+    width: 262px;
+    height: 540px;
+    border-radius: 38px;
+    padding: 9px;
+    background: linear-gradient(160deg, #2B2419, #100D07);
+    box-shadow: var(--shadow-lift);
+    flex: none;
+  }
+  .screen {
+    width: 100%;
+    height: 100%;
+    border-radius: 30px;
+    overflow: hidden;
+    position: relative;
+    background: #FFFBF0;
+    color: #1B1710;
+    font-size: 11px;
+    line-height: 1.4;
+    display: flex;
+    flex-direction: column;
+  }
+  .screen.dark { background: #141008; color: #FBF3E1; }
+  .screen.sol { background: #FFC63D; color: #1B1710; }
+  .screen.uva { background: #3A2C74; color: #F2EEFF; }
+
+  .statusbar {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 18px 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    opacity: .55;
+    letter-spacing: .04em;
+  }
+  .sbody { padding: 14px 18px 0; flex: 1; overflow: hidden; }
+
+  .s-eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8.5px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    opacity: .5;
+  }
+  .s-h1 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 25px;
+    letter-spacing: -.035em;
+    line-height: 1.02;
+    margin-top: 6px;
+  }
+  .s-sub { font-size: 11px; opacity: .62; margin-top: 7px; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-size: 9.5px;
+    font-weight: 600;
+    background: rgba(27, 23, 16, .06);
+  }
+  .chip.flame { background: #FFE7B0; color: #7A4E00; }
+  .screen.dark .chip { background: rgba(255, 255, 255, .09); }
+  .screen.dark .chip.flame { background: #3A2E10; color: #FFC63D; }
+
+  .task {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    gap: 11px;
+    align-items: start;
+    background: #FFFFFF;
+    border: 1px solid #EFE4CA;
+    border-radius: 15px;
+    padding: 12px 13px;
+    margin-top: 9px;
+    position: relative;
+    overflow: hidden;
+  }
+  .screen.dark .task { background: #1E1810; border-color: #33291A; }
+  .task::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 10px; bottom: 10px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--stripe, transparent);
+  }
+  .box {
+    width: 22px; height: 22px;
+    border-radius: 8px;
+    border: 2px solid #D9CBAA;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    background: none;
+    padding: 0;
+    transition: transform .18s cubic-bezier(.34, 1.6, .5, 1), background-color .18s, border-color .18s;
+  }
+  .screen.dark .box { border-color: #4A3E2A; }
+  .box svg { width: 12px; height: 12px; }
+  .box path {
+    stroke: #1B1710;
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    stroke-dasharray: 22;
+    stroke-dashoffset: 22;
+    transition: stroke-dashoffset .24s ease-out;
+  }
+  .row-action {
+    align-self: center;
+    border: 1px solid #E5D6B4;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #B36F00;
+    white-space: nowrap;
+  }
+  .task.done .box { background: #FFC63D; border-color: #FFC63D; transform: scale(1.06); }
+  .task.done .box path { stroke-dashoffset: 0; }
+  .task.done .t-title { text-decoration: line-through; opacity: .45; }
+  .t-title { font-weight: 600; font-size: 12.5px; letter-spacing: -.01em; }
+  .t-meta { font-size: 9.5px; margin-top: 5px; display: flex; gap: 4px 9px; align-items: center; flex-wrap: wrap; }
+  /* Each fact wears the glyph of its own kind. Words alone never said whether
+     "média" was a size and "amanhã" a duration. */
+  .t-meta .f { display: inline-flex; align-items: center; gap: 3px; font-style: normal; opacity: .62; }
+  .t-meta .f[style] { opacity: 1; font-weight: 600; }
+  .dot { width: 5px; height: 5px; border-radius: 999px; display: inline-block; }
+
+  .tabbar {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 11px 12px 16px;
+    border-top: 1px solid #EFE4CA;
+    background: rgba(255, 251, 240, .92);
+  }
+  .screen.dark .tabbar { border-color: #2A2317; background: rgba(20, 16, 8, .92); }
+  .tabbar i {
+    width: 17px; height: 17px;
+    border-radius: 6px;
+    border: 2px solid currentColor;
+    opacity: .3;
+    display: block;
+  }
+  .tabbar .on i { opacity: 1; border-color: #D98A00; background: #FFC63D; }
+  .screen.dark .tabbar .on i { border-color: #FFC63D; }
+  .tabbar span { display: block; text-align: center; }
+  .tabbar em { font-style: normal; font-size: 8px; opacity: .5; display: block; margin-top: 4px; }
+  .tabbar .on em { opacity: 1; font-weight: 600; }
+
+  .fab {
+    position: absolute;
+    right: 14px;
+    bottom: 62px;
+    height: 34px;
+    padding: 0 14px 0 11px;
+    border-radius: 999px;
+    background: #FFC63D;
+    color: #1B1710;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 15px;
+    font-weight: 300;
+    box-shadow: 0 10px 22px -8px rgba(217, 138, 0, .75);
+  }
+  .fab b { font-size: 10px; font-weight: 800; }
+  /* The three, drawn. "0 de 3" is a sentence to decode; this is a picture. */
+  .seg { display: flex; gap: 3px; margin-top: 9px; }
+  .seg i { flex: 1; height: 4px; border-radius: 999px; background: #E9DDC2; }
+  .seg i.on { background: #FFC63D; }
+  .backlog {
+    margin-top: 12px;
+    border: 1px dashed #E0D3B6;
+    border-radius: 12px;
+    padding: 9px 11px;
+    font-size: 9.5px;
+    color: #8A7F6D;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .sheet {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: #FFFBF0;
+    border-radius: 24px 24px 0 0;
+    padding: 14px 18px 20px;
+    box-shadow: 0 -18px 40px -20px rgba(27, 23, 16, .5);
+  }
+  .grabber { width: 34px; height: 4px; border-radius: 999px; background: #E0D3B6; margin: 0 auto 14px; }
+  .field {
+    border: 2px solid #FFC63D;
+    border-radius: 14px;
+    padding: 11px 12px;
+    font-size: 12.5px;
+    background: #FFFFFF;
+    line-height: 1.45;
+  }
+  .caret { display: inline-block; width: 1.5px; height: 13px; background: #D98A00; vertical-align: -2px; }
+  .parsed { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 11px; }
+  .pchip {
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #FFF1CF;
+    color: #7A4E00;
+  }
+  .pchip.p2 { background: #EFE9FE; color: #4B3A8F; }
+  .pchip.p3 { background: #FFE0DA; color: #B23A24; }
+  .pchip { display: inline-flex; align-items: center; gap: 4px; }
+  /* Three unrelated fields, three silhouettes: a square-cornered date that
+     opens a calendar, a coloured priority level, a rounded list tag. */
+  .pchip.chip-date { border: 1px solid #E5D6B4; background: #FFFBF0; border-radius: 7px; color: #8A7F6D; }
+  .pchip.chip-priority { border: 1px solid #D8412A; background: transparent; color: #D8412A; }
+  .pchip.chip-list { border: 1px solid #E5D6B4; background: #FFFBF0; color: #8A7F6D; }
+
+  .ring { display: block; margin: 0 auto; }
+  .bars { display: flex; align-items: flex-end; gap: 7px; height: 96px; margin-top: 18px; }
+  .bars div {
+    flex: 1;
+    border-radius: 5px 5px 3px 3px;
+    background: #FFC63D;
+    opacity: .35;
+  }
+  .bars div.hi { opacity: 1; }
+  .barlabels { display: flex; gap: 7px; margin-top: 7px; }
+  .barlabels span { flex: 1; text-align: center; font-size: 8px; opacity: .5; font-family: "JetBrains Mono", monospace; }
+
+  .listrow {
+    display: grid;
+    grid-template-columns: 10px 1fr auto;
+    gap: 11px;
+    align-items: center;
+    padding: 12px 13px;
+    border: 1px solid #EFE4CA;
+    border-radius: 15px;
+    background: #FFFFFF;
+    margin-top: 9px;
+  }
+  .screen.dark .listrow { background: #1E1810; border-color: #33291A; }
+  .listrow .track { grid-column: 1 / -1; height: 4px; border-radius: 999px; background: #F0E6D0; overflow: hidden; }
+  .screen.dark .listrow .track { background: #2E2618; }
+  .listrow .track i { display: block; height: 100%; border-radius: 999px; background: #FFC63D; }
+  .count { font-family: "JetBrains Mono", monospace; font-size: 10px; opacity: .6; }
+
+  .splash-mark { position: absolute; inset: 0; display: grid; place-items: center; }
+  .splash-word {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 46px;
+    text-align: center;
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 17px;
+    letter-spacing: -.03em;
+  }
+  .splash-word em {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-style: normal;
+    font-weight: 400;
+    font-size: 8px;
+    letter-spacing: .24em;
+    text-transform: uppercase;
+    opacity: .6;
+    margin-top: 5px;
+  }
+
+  /* ---------- motion table ---------- */
+  .motion { margin-top: 40px; }
+  .motion td:first-child { width: 34%; }
+  .motion .cue {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--mel);
+  }
+
+  /* ---------- architecture ---------- */
+  .layers { display: grid; gap: 12px; margin-top: 40px; }
+  .layer {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
+    background: var(--surface);
+    display: grid;
+    grid-template-columns: 132px 1fr;
+    gap: 20px;
+    align-items: baseline;
+  }
+  @media (max-width: 620px) { .layer { grid-template-columns: 1fr; gap: 8px; } }
+  .layer .lname {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--mel);
+  }
+  .layer .ldesc { font-size: 14.5px; color: var(--ink-2); }
+  .layer code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12.5px;
+    color: var(--ink);
+    background: var(--surface-2);
+    padding: 1px 6px;
+    border-radius: 6px;
+  }
+  .layer.inward { border-left: 3px solid var(--sol); }
+
+  .events {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px;
+    margin-top: 24px;
+  }
+  .ev {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    background: var(--surface);
+  }
+  .ev b {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12.5px;
+    color: var(--uva);
+    font-weight: 600;
+  }
+  .ev p { font-size: 13px; color: var(--ink-2); margin-top: 7px; }
+
+  .flow {
+    margin-top: 24px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12.5px;
+    line-height: 1.9;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 22px;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--ink);
+  }
+
+  /* ---------- roadmap ---------- */
+  .cuts { margin-top: 36px; display: grid; gap: 10px; }
+  .cut {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: 18px;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    align-items: baseline;
+  }
+  @media (max-width: 620px) { .cut { grid-template-columns: 1fr; gap: 6px; } }
+  .cut .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 600;
+  }
+  .cut b { font-family: "Bricolage Grotesque", sans-serif; font-size: 16px; }
+  .cut p { font-size: 14px; color: var(--ink-2); margin-top: 4px; }
+
+  footer {
+    padding: 48px 0 72px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-3);
+    font-size: 13px;
+  }
+  footer a { color: var(--ink-2); }
+  footer ul { margin: 14px 0 0; padding-left: 18px; display: grid; gap: 6px; }
+</style>
+
+<div class="wrap masthead">
+  <div class="masthead-grid">
+    <div>
+      <div class="lockup">
+        <svg width="46" height="46" viewBox="0 0 120 120" aria-hidden="true">
+          <rect width="120" height="120" rx="30" fill="#FFC63D"></rect>
+          <g fill="#1B1710">
+            <rect x="30" y="32" width="60" height="14" rx="7" style="transform-box: fill-box; transform-origin: center; transform: translate(8px,19px) rotate(-45deg) scaleX(1.03);"></rect>
+            <rect x="30" y="53" width="60" height="14" rx="7" style="transform-box: fill-box; transform-origin: center; transform: translate(-20px,10px) rotate(45deg) scaleX(.5);"></rect>
+          </g>
+          <rect x="30" y="74" width="60" height="14" rx="7" fill="#4B3A8F" style="transform-box: fill-box; transform-origin: center; transform: translate(31px,-50px) scaleX(.22);"></rect>
+        </svg>
+        <div class="wordmark">Ideias<span>Lista de tarefas</span></div>
+      </div>
+
+      <h1 class="title">A lista inteira cabe no app. <em>O dia cabe em três.</em></h1>
+      <p class="deck">
+        Marca, telas e arquitetura do Ideias — um gerenciador de tarefas
+        que captura sem limite e compromete com pouco. Este documento é a fonte da
+        verdade para o time: pesquisa de mercado, identidade, especificação de movimento
+        e o desenho das camadas do app React Native.
+      </p>
+    </div>
+
+    <div>
+      <div class="mark-stage">
+        <svg id="markSvg" width="200" height="200" viewBox="0 0 120 120" role="img" aria-label="Marca do Ideias: três linhas de lista que viram um sinal de concluído.">
+          <rect id="markIn1" width="120" height="120" rx="30" fill="#FFC63D"></rect>
+          <rect id="markA" x="30" y="32" width="60" height="14" rx="7" fill="#1B1710"></rect>
+          <rect id="markB" x="30" y="53" width="60" height="14" rx="7" fill="#1B1710"></rect>
+          <rect id="markC" x="30" y="74" width="60" height="14" rx="7" fill="#4B3A8F"></rect>
+        </svg>
+      </div>
+      <button class="replay" id="replay" type="button">Rever a abertura</button>
+    </div>
+  </div>
+</div>
+
+<section class="wrap" id="mercado">
+  <div class="sec-head">
+    <div class="eyebrow">Pesquisa de mercado</div>
+    <h2>O nicho não perde por falta de recurso. Perde por abandono.</h2>
+    <p>
+      Todo app de tarefa promete organização e entrega uma lista longa demais para
+      encarar na segunda-feira. Os números do setor mostram onde o usuário escorrega —
+      e eles apontam para o mesmo lugar: velocidade na entrada, sobriedade na saída.
+    </p>
+  </div>
+
+  <div class="figures">
+    <div class="figure hot">
+      <b>40%</b>
+      <div class="lbl">abandonam um app de tarefas em <strong>duas semanas</strong>. Em 100 dias, a mediana de desistência chega a 70%.</div>
+    </div>
+    <div class="figure key">
+      <b>10s</b>
+      <div class="lbl">é o teto de atrito para capturar. Passou disso, a pessoa volta a confiar na memória — e o app morre.</div>
+    </div>
+    <div class="figure good">
+      <b>0,2s</b>
+      <div class="lbl"><strong>Medido no app.</strong> É tudo o que ele custa da abertura da folha até a tarefa salva. O resto dos dez segundos é da pessoa escrevendo.</div>
+    </div>
+    <div class="figure good">
+      <b>−3,7%</b>
+      <div class="lbl">de churn e +22% de duração de sessão com gamificação bem calibrada (dado do estudo de caso do Karma, do Todoist).</div>
+    </div>
+    <div class="figure">
+      <b>2–8%</b>
+      <div class="lbl">é a conversão típica de freemium em 30 dias. Paywall duro converte ~5× mais, mas queima a descoberta de um utilitário.</div>
+    </div>
+  </div>
+
+  <div class="scroller">
+    <table>
+      <thead>
+        <tr>
+          <th>Concorrente</th>
+          <th>Maior valor que entrega</th>
+          <th>Ponto mais forte</th>
+          <th>Onde falha</th>
+          <th>Levamos?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="name">Todoist</span><span class="price">Free / ~US$ 4 mês</span></td>
+          <td>Tirar a ideia da cabeça e colocar na lista em segundos.</td>
+          <td>Entrada em linguagem natural (“relatório toda quinta 15h p1”) e sincronia impecável.</td>
+          <td>Karma premia volume: quem entende o jogo enche a caixa de tarefas de dois minutos.</td>
+          <td><span class="take yes">Sim — a captura</span></td>
+        </tr>
+        <tr>
+          <td><span class="name">TickTick</span><span class="price">~US$ 36 ano</span></td>
+          <td>Um app só no lugar de quatro.</td>
+          <td>Tarefa + calendário + pomodoro + hábito + matriz de Eisenhower juntos.</td>
+          <td>Densidade: o app faz tudo e não diz por onde começar hoje.</td>
+          <td><span class="take yes">Só o foco</span></td>
+        </tr>
+        <tr>
+          <td><span class="name">Things 3</span><span class="price">Compra única, só Apple</span></td>
+          <td>Calma. É o app que não dá medo de abrir.</td>
+          <td>Acabamento: tipografia, espaço, movimento discreto e a tela “Hoje” como centro.</td>
+          <td>Só Apple, sem colaboração, sem versão web.</td>
+          <td><span class="take yes">O acabamento</span></td>
+        </tr>
+        <tr>
+          <td><span class="name">Structured</span><span class="price">Free / assinatura</span></td>
+          <td>Ver o dia como linha do tempo, não como pilha.</td>
+          <td>Responde “o que eu faço agora” sem interpretação.</td>
+          <td>Exige planejar hora a hora; um dia bagunçado quebra o modelo.</td>
+          <td><span class="take">Parcial</span></td>
+        </tr>
+        <tr>
+          <td><span class="name">Finch</span><span class="price">Free / assinatura</span></td>
+          <td>Reforço positivo sem vergonha por tarefa não feita.</td>
+          <td>Crescimento visual em vez de pontos; notificação que encoraja em vez de cobrar.</td>
+          <td>Leve demais para trabalho: não organiza projeto.</td>
+          <td><span class="take yes">O tom</span></td>
+        </tr>
+        <tr>
+          <td><span class="name">Habitica</span><span class="price">Free / assinatura</span></td>
+          <td>Transformar rotina em RPG que segura por anos.</td>
+          <td>Gamificação profunda que escala e tudo essencial gratuito.</td>
+          <td>Estética e curva de RPG afastam quem só quer resolver o dia.</td>
+          <td><span class="take no">Não</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="wrap" id="posicionamento">
+  <div class="sec-head">
+    <div class="eyebrow">Posicionamento</div>
+    <h2>Capture sem limite. Comprometa-se com três.</h2>
+    <p>
+      A pesquisa converge: quem ganha na captura ganha o hábito, e quem mostra a
+      pilha inteira perde o usuário. O Ideias separa as duas coisas com
+      firmeza — a caixa aceita tudo, a tela de hoje mostra três.
+    </p>
+  </div>
+
+  <div class="thesis">
+    <q>O dia cabe em três.</q>
+    <p class="why">
+      Três tarefas comprometidas por dia. O resto continua guardado, contado e
+      pesquisável — só não é jogado na cara de ninguém às 8h da manhã. O progresso é
+      medido pelo peso do que foi concluído, nunca pela quantidade: assim ninguém
+      ganha nível fatiando a lista em tarefas de dois minutos.
+    </p>
+  </div>
+
+  <div class="stages">
+    <div class="stage">
+      <div class="step">1 · IDEIA</div>
+      <h3>Captura em três segundos</h3>
+      <p>
+        Um campo, linguagem natural, sem formulário. “ligar pro contador sexta 9h
+        urgente” vira data e prioridade antes do teclado fechar. Pontuação como
+        <code>!alta</code> é atalho de quem aprendeu, nunca o único caminho.
+      </p>
+      <div class="rule">Meta dura: da intenção à tarefa salva em menos de 3 s, sem rede e sem sair do aparelho. Medido em emulador: 0,9 s de arranque a frio e 0,00–0,20 s de custo do app na captura.</div>
+    </div>
+    <div class="stage">
+      <div class="step">2 · ORGANIZE</div>
+      <h3>O trio do dia</h3>
+      <p>
+        Toda manhã o app propõe três tarefas com base em prazo, peso e há quanto
+        tempo estão paradas. A pessoa aceita, troca ou escolhe as suas.
+      </p>
+      <div class="rule">A caixa nunca aparece como lista aberta na tela de hoje.</div>
+    </div>
+    <div class="stage">
+      <div class="step">3 · TASK</div>
+      <h3>Fechar tem peso</h3>
+      <p>
+        Concluir anima, vibra e soma pontos proporcionais ao peso da tarefa.
+        Fechar o trio inteiro é o único evento que acende a comemoração grande.
+      </p>
+      <div class="rule">Sequência conta dias com trio fechado, não dias com app aberto.</div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap" id="identidade">
+  <div class="sec-head">
+    <div class="eyebrow">Identidade</div>
+    <h2>Amarelo que trabalha, tinta quente que segura.</h2>
+    <p>
+      O amarelo é a promessa de alegria do produto; sozinho, é ilegível. A solução é
+      hierárquica: o amarelo é sempre superfície ou preenchimento e nunca texto, e
+      toda leitura acontece em tinta quente sobre papel amanteigado. Nada de cinza
+      neutro — o cinza deste produto tem o mesmo calor do amarelo.
+    </p>
+  </div>
+
+  <div class="id-grid">
+    <div class="panel">
+      <h3>Marca</h3>
+      <div class="icon-row">
+        <figure>
+          <svg width="76" height="76" viewBox="0 0 120 120" aria-label="Ícone do app">
+            <rect width="120" height="120" rx="30" fill="#FFC63D"></rect>
+            <g fill="#1B1710">
+              <rect x="30" y="32" width="60" height="14" rx="7" style="transform-box: fill-box; transform-origin: center; transform: translate(8px,19px) rotate(-45deg) scaleX(1.03);"></rect>
+              <rect x="30" y="53" width="60" height="14" rx="7" style="transform-box: fill-box; transform-origin: center; transform: translate(-20px,10px) rotate(45deg) scaleX(.5);"></rect>
+            </g>
+            <rect x="30" y="74" width="60" height="14" rx="7" fill="#4B3A8F" style="transform-box: fill-box; transform-origin: center; transform: translate(31px,-50px) scaleX(.22);"></rect>
+          </svg>
+          <figcaption>76 PX</figcaption>
+        </figure>
+        <figure>
+          <svg width="44" height="44" viewBox="0 0 120 120" aria-hidden="true">
+            <rect width="120" height="120" rx="30" fill="#FFC63D"></rect>
+            <g fill="#1B1710">
+              <rect x="30" y="32" width="60" height="14" rx="7" style="transform-box: fill-box; transform-origin: center; transform: translate(8px,19px) rotate(-45deg) scaleX(1.03);"></rect>
+              <rect x="30" y="53" width="60" height="14" rx="7" style="transform-box: fill-box; transform-origin: center; transform: translate(-20px,10px) rotate(45deg) scaleX(.5);"></rect>
+            </g>
+            <rect x="30" y="74" width="60" height="14" rx="7" fill="#4B3A8F" style="transform-box: fill-box; transform-origin: center; transform: translate(31px,-50px) scaleX(.22);"></rect>
+          </svg>
+          <figcaption>44 PX</figcaption>
+        </figure>
+        <figure>
+          <svg width="24" height="24" viewBox="0 0 120 120" aria-hidden="true">
+            <rect width="120" height="120" rx="30" fill="#FFC63D"></rect>
+            <g fill="#1B1710">
+              <rect x="30" y="32" width="60" height="14" rx="7" style="transform-box: fill-box; transform-origin: center; transform: translate(8px,19px) rotate(-45deg) scaleX(1.03);"></rect>
+              <rect x="30" y="53" width="60" height="14" rx="7" style="transform-box: fill-box; transform-origin: center; transform: translate(-20px,10px) rotate(45deg) scaleX(.5);"></rect>
+            </g>
+            <rect x="30" y="74" width="60" height="14" rx="7" fill="#4B3A8F" style="transform-box: fill-box; transform-origin: center; transform: translate(31px,-50px) scaleX(.22);"></rect>
+          </svg>
+          <figcaption>24 PX</figcaption>
+        </figure>
+        <figure>
+          <svg width="76" height="76" viewBox="0 0 120 120" aria-label="Estado de repouso da marca: três linhas de lista">
+            <rect width="120" height="120" rx="30" fill="#1B1710"></rect>
+            <rect x="30" y="32" width="60" height="14" rx="7" fill="#FFC63D"></rect>
+            <rect x="30" y="53" width="60" height="14" rx="7" fill="#FBF3E1"></rect>
+            <rect x="30" y="74" width="60" height="14" rx="7" fill="#FBF3E1"></rect>
+          </svg>
+          <figcaption>ESTADO LISTA</figcaption>
+        </figure>
+      </div>
+      <p class="note">
+        A marca tem dois estados da mesma geometria: <strong>lista</strong> (três barras)
+        e <strong>feito</strong> (as mesmas barras viradas em sinal de concluído, com a
+        terceira virando faísca roxa). A abertura do app é literalmente a passagem de um
+        estado ao outro — o logotipo conta o que o produto faz. Área de respiro: metade
+        da altura de uma barra em toda a volta. Nunca girar, nunca aplicar gradiente,
+        nunca usar a faísca sozinha.
+      </p>
+    </div>
+
+    <div class="panel">
+      <h3>Paleta</h3>
+      <div class="swatches">
+        <div class="sw"><i style="background:#FFC63D"></i><span class="n">Sol<small>Preenchimento, marca, conclusão</small></span><code>#FFC63D</code></div>
+        <div class="sw"><i style="background:#B36F00"></i><span class="n">Mel<small>Texto de destaque, estado pressionado</small></span><code>#B36F00</code></div>
+        <div class="sw"><i style="background:#1B1710"></i><span class="n">Tinta<small>Texto e fundo escuro</small></span><code>#1B1710</code></div>
+        <div class="sw"><i style="background:#FFFBF0"></i><span class="n">Papel<small>Fundo claro amanteigado</small></span><code>#FFFBF0</code></div>
+        <div class="sw"><i style="background:#4B3A8F"></i><span class="n">Uva<small>Modo foco e faísca</small></span><code>#4B3A8F</code></div>
+        <div class="sw"><i style="background:#0A8F60"></i><span class="n">Menta<small>Concluído em texto</small></span><code>#0A8F60</code></div>
+        <div class="sw"><i style="background:#D8412A"></i><span class="n">Coral<small>Atrasado</small></span><code>#D8412A</code></div>
+      </div>
+      <p class="note">
+        Regra de contraste: <strong>Sol nunca é texto</strong>. Texto sobre Sol é sempre
+        Tinta (11,4:1); onde a marca precisa aparecer escrita, entra o Mel. No tema
+        escuro o Mel clareia para <code>#FFB524</code> e a Uva para <code>#A895F5</code>,
+        preservando 4,5:1 contra o fundo. São exatamente os valores de
+        <code>src/app/theme/theme.ts</code>.
+      </p>
+    </div>
+
+    <div class="panel">
+      <h3>Tipografia</h3>
+      <div class="type-row">
+        <div class="meta">Display · Bricolage Grotesque 800</div>
+        <div class="sample-display">O dia cabe em três</div>
+      </div>
+      <div class="type-row">
+        <div class="meta">Texto · Instrument Sans 400/600</div>
+        <div class="sample-body">Três tarefas comprometidas. O resto continua guardado.</div>
+      </div>
+      <div class="type-row">
+        <div class="meta">Dados · JetBrains Mono 400</div>
+        <div class="sample-mono">18:24 · 12 dias · 2 de 3</div>
+      </div>
+      <p class="note">
+        Escala: 34 / 25 / 19 / 15 / 12,5 / 11 / 9,5. Título com <code>letter-spacing
+        -0,035em</code>; rótulos em maiúscula com <code>+0,16em</code>. No app React
+        Native a Bricolage entra como fonte empacotada e o texto usa a fonte do sistema
+        com tracking ajustado, evitando peso de arquivo em telas de leitura curta.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap" id="telas">
+  <div class="sec-head">
+    <div class="eyebrow">Telas</div>
+    <h2>Seis telas, uma decisão cada.</h2>
+    <p>
+      Cada tela responde a uma pergunta única. Se uma tela responde duas, ela vira
+      duas. Toque nas caixas da tela “Hoje” para sentir o retorno de conclusão.
+    </p>
+  </div>
+
+  <div class="phones">
+    <!-- 1. Splash -->
+    <div class="phone-cell">
+      <div class="phone">
+        <div class="screen sol">
+          <div class="statusbar" style="opacity:.4"><span>9:41</span><span>100%</span></div>
+          <div class="splash-mark">
+            <svg width="86" height="86" viewBox="0 0 120 120" aria-hidden="true">
+              <g fill="#1B1710">
+                <rect x="30" y="32" width="60" height="14" rx="7" style="transform-box: fill-box; transform-origin: center; transform: translate(8px,19px) rotate(-45deg) scaleX(1.03);"></rect>
+                <rect x="30" y="53" width="60" height="14" rx="7" style="transform-box: fill-box; transform-origin: center; transform: translate(-20px,10px) rotate(45deg) scaleX(.5);"></rect>
+              </g>
+              <rect x="30" y="74" width="60" height="14" rx="7" fill="#4B3A8F" style="transform-box: fill-box; transform-origin: center; transform: translate(31px,-50px) scaleX(.22);"></rect>
+            </svg>
+          </div>
+          <div class="splash-word">Ideias<em>Lista de tarefas</em></div>
+        </div>
+      </div>
+      <div class="phone-cap">
+        <b>Abertura</b>
+        <span>As três barras viram o sinal de concluído em 900 ms. Segura o mínimo para não cortar a animação, some sozinha.</span>
+      </div>
+    </div>
+
+    <!-- 2. Hoje -->
+    <div class="phone-cell">
+      <div class="phone">
+        <div class="screen">
+          <div class="statusbar"><span>9:41</span><span>100%</span></div>
+          <div class="sbody">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="s-eyebrow">Terça, 28 de agosto</div>
+              <div class="chip flame">12 dias</div>
+            </div>
+            <div class="s-h1">3 para fazer<br>hoje.</div>
+            <div class="seg"><i class="on"></i><i></i><i></i></div>
+            <div class="s-sub">O app escolhe três por dia. Outras 17 ficam guardadas.</div>
+
+            <div class="task done" style="--stripe:#D8412A" data-demo-task>
+              <button class="box" type="button" aria-label="Reabrir tarefa" aria-pressed="true">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.4 6.3 11.7 13 5"></path></svg>
+              </button>
+              <div>
+                <div class="t-title">Enviar contrato revisado</div>
+                <div class="t-meta"><i class="f" style="color:#D8412A"><svg viewBox="0 0 16 16" width="9" height="9" aria-hidden="true"><rect x="1.5" y="10" width="3.6" height="4.5" rx="1.2" fill="currentColor" opacity="1"/><rect x="6.2" y="7" width="3.6" height="7.5" rx="1.2" fill="currentColor" opacity="1"/><rect x="10.9" y="4" width="3.6" height="10.5" rx="1.2" fill="currentColor" opacity="1"/></svg> alta</i><i class="f"><svg viewBox="0 0 16 16" width="9" height="9" aria-hidden="true"><rect x="1.5" y="3" width="13" height="11" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M1.5 6.6h13" stroke="currentColor" stroke-width="1.6"/><path d="M5 1.6v2.6M11 1.6v2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> atrasada</i><i class="f"><span class="dot" style="background:#D8412A"></span> Financeiro</i></div>
+              </div>
+            </div>
+
+            <div class="task" style="--stripe:#FFC63D" data-demo-task>
+              <button class="box" type="button" aria-label="Concluir tarefa" aria-pressed="false">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.4 6.3 11.7 13 5"></path></svg>
+              </button>
+              <div>
+                <div class="t-title">Fechar o roteiro do vídeo</div>
+                <div class="t-meta"><i class="f" style="color:#B36F00"><svg viewBox="0 0 16 16" width="9" height="9" aria-hidden="true"><rect x="1.5" y="10" width="3.6" height="4.5" rx="1.2" fill="currentColor" opacity="1"/><rect x="6.2" y="7" width="3.6" height="7.5" rx="1.2" fill="currentColor" opacity="1"/><rect x="10.9" y="4" width="3.6" height="10.5" rx="1.2" fill="currentColor" opacity="0.28"/></svg> média</i><i class="f"><svg viewBox="0 0 16 16" width="9" height="9" aria-hidden="true"><rect x="1.5" y="3" width="13" height="11" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M1.5 6.6h13" stroke="currentColor" stroke-width="1.6"/><path d="M5 1.6v2.6M11 1.6v2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> amanhã</i><i class="f"><span class="dot" style="background:#4B3A8F"></span> Trabalho</i></div>
+              </div>
+              <span class="row-action">Fazer agora · 45 min</span>
+            </div>
+
+            <div class="task" style="--stripe:#4B3A8F" data-demo-task>
+              <button class="box" type="button" aria-label="Concluir tarefa" aria-pressed="false">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.4 6.3 11.7 13 5"></path></svg>
+              </button>
+              <div>
+                <div class="t-title">Marcar dentista</div>
+                <div class="t-meta"><i class="f"><svg viewBox="0 0 16 16" width="9" height="9" aria-hidden="true"><rect x="1.5" y="10" width="3.6" height="4.5" rx="1.2" fill="currentColor" opacity="1"/><rect x="6.2" y="7" width="3.6" height="7.5" rx="1.2" fill="currentColor" opacity="0.28"/><rect x="10.9" y="4" width="3.6" height="10.5" rx="1.2" fill="currentColor" opacity="0.28"/></svg> baixa</i><i class="f"><svg viewBox="0 0 16 16" width="9" height="9" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.6V8l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> parada há 9 dias</i></div>
+              </div>
+              <span class="row-action">Fazer agora · 25 min</span>
+            </div>
+
+            <div class="backlog">17 guardadas na caixa <span>›</span></div>
+          </div>
+          <div class="fab" aria-hidden="true">+ <b>Nova tarefa</b></div>
+          <div class="tabbar">
+            <span class="on"><i></i><em>Hoje</em></span>
+            <span><i></i><em>Listas</em></span>
+            <span><i></i><em>Foco</em></span>
+            <span><i></i><em>Você</em></span>
+          </div>
+        </div>
+      </div>
+      <div class="phone-cap">
+        <b>Hoje</b>
+        <span>A única tela que abre no lançamento. O título é o estado do dia, não um slogan — slogan é do onboarding. Cada dado do cartão carrega o glifo do seu tipo: nível para prioridade, calendário para prazo, relógio para tempo parado, ponto colorido para lista.</span>
+      </div>
+    </div>
+
+    <!-- 3. Captura -->
+    <div class="phone-cell">
+      <div class="phone">
+        <div class="screen">
+          <div class="statusbar"><span>9:41</span><span>100%</span></div>
+          <div class="sbody" style="opacity:.35">
+            <div class="s-eyebrow">Terça, 28 de agosto</div>
+            <div class="s-h1">3 para fazer<br>hoje.</div>
+            <div class="seg"><i class="on"></i><i></i><i></i></div>
+            <div class="task" style="--stripe:#FFC63D"><span class="box" aria-hidden="true"></span><div><div class="t-title">Fechar o roteiro do vídeo</div></div></div>
+          </div>
+          <div class="sheet">
+            <div class="grabber"></div>
+            <div class="field">ligar pro contador sexta 9h urgente<span class="caret"></span></div>
+            <div class="parsed">
+              <span class="pchip chip-date"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><rect x="1.5" y="3" width="13" height="11" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 6.6h13" stroke="currentColor" stroke-width="1.5"/><path d="M5 1.6v2.6M11 1.6v2.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> sex, 29 ago · 09:00</span>
+              <span class="pchip chip-priority"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><rect x="1.5" y="10" width="3.6" height="4.5" rx="1.2" fill="currentColor"/><rect x="6.2" y="7" width="3.6" height="7.5" rx="1.2" fill="currentColor"/><rect x="10.9" y="4" width="3.6" height="10.5" rx="1.2" fill="currentColor" opacity=".28"/></svg> prioridade alta</span>
+              <span class="pchip chip-list"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M8.4 1.8H14v5.6l-6.6 6.6a1.4 1.4 0 0 1-2 0L2 10.4a1.4 1.4 0 0 1 0-2Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="11" cy="5" r="1.2" fill="currentColor"/></svg> sem lista</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
+              <span style="font-size:9px;opacity:.55;max-width:120px">Toque nas fichas para ajustar</span>
+              <span style="background:#FFC63D;color:#1B1710;font-weight:700;font-size:11px;padding:8px 16px;border-radius:12px">Salvar</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-cap">
+        <b>Captura rápida</b>
+        <span>Um campo só. Data, prioridade e lista saem do próprio texto — e as fichas embaixo não são rótulos, são controles, e cada uma tem forma e ícone próprios: a data abre um calendário, a prioridade é um nível colorido que anda no lugar, a lista abre as listas com a cor de cada uma. Um toque sempre vence o que o texto disse.</span>
+      </div>
+    </div>
+
+    <!-- 4. Foco -->
+    <div class="phone-cell">
+      <div class="phone">
+        <div class="screen uva">
+          <div class="statusbar"><span>9:41</span><span>100%</span></div>
+          <div class="sbody" style="display:flex;flex-direction:column;justify-content:center;text-align:center">
+            <div class="s-eyebrow" style="opacity:.6">Foco · 2 de 3 do trio</div>
+            <svg class="ring" width="168" height="168" viewBox="0 0 120 120" style="margin-top:18px" aria-label="Temporizador em 18 minutos e 24 segundos">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="9"></circle>
+              <circle cx="60" cy="60" r="52" fill="none" stroke="#FFC63D" stroke-width="9" stroke-linecap="round"
+                      stroke-dasharray="327" stroke-dashoffset="112" transform="rotate(-90 60 60)"></circle>
+              <text x="60" y="58" text-anchor="middle" fill="#F2EEFF" font-family="JetBrains Mono, monospace" font-size="21" font-weight="600">18:24</text>
+              <text x="60" y="73" text-anchor="middle" fill="rgba(242,238,255,.55)" font-family="JetBrains Mono, monospace" font-size="8" letter-spacing="1.6">RESTANTES</text>
+            </svg>
+            <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px;margin-top:20px;letter-spacing:-.02em">Fechar o roteiro do vídeo</div>
+            <div style="font-size:10px;opacity:.6;margin-top:6px">média · estimado em 45 min</div>
+            <div style="display:flex;gap:9px;justify-content:center;margin-top:22px">
+              <span style="background:#FFC63D;color:#1B1710;font-weight:700;font-size:11px;padding:10px 22px;border-radius:13px">Pausar</span>
+              <span style="border:1px solid rgba(255,255,255,.28);font-size:11px;padding:10px 18px;border-radius:13px">Concluir</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-cap">
+        <b>Foco</b>
+        <span>A única tela roxa do app. A troca de cor marca que o telefone saiu do modo lista e entrou no modo trabalho.</span>
+      </div>
+    </div>
+
+    <!-- 5. Listas -->
+    <div class="phone-cell">
+      <div class="phone">
+        <div class="screen dark">
+          <div class="statusbar"><span>9:41</span><span>100%</span></div>
+          <div class="sbody">
+            <div class="s-eyebrow">Suas listas</div>
+            <div class="s-h1">Onde as<br>ideias moram.</div>
+            <div class="s-sub">4 listas · 23 tarefas guardadas</div>
+
+            <div class="listrow">
+              <span class="dot" style="width:9px;height:9px;background:#FFC63D"></span>
+              <span class="t-title">Trabalho</span>
+              <span class="count">6/14</span>
+              <span class="track"><i style="width:43%"></i></span>
+            </div>
+            <div class="listrow">
+              <span class="dot" style="width:9px;height:9px;background:#4B3A8F"></span>
+              <span class="t-title">Casa</span>
+              <span class="count">3/5</span>
+              <span class="track"><i style="width:60%"></i></span>
+            </div>
+            <div class="listrow">
+              <span class="dot" style="width:9px;height:9px;background:#0A8F60"></span>
+              <span class="t-title">Estudos</span>
+              <span class="count">1/3</span>
+              <span class="track"><i style="width:33%"></i></span>
+            </div>
+            <div class="listrow">
+              <span class="dot" style="width:9px;height:9px;background:#D8412A"></span>
+              <span class="t-title">Financeiro</span>
+              <span class="count">0/1</span>
+              <span class="track"><i style="width:4%"></i></span>
+            </div>
+          </div>
+          <div class="tabbar">
+            <span><i></i><em>Hoje</em></span>
+            <span class="on"><i></i><em>Listas</em></span>
+            <span><i></i><em>Foco</em></span>
+            <span><i></i><em>Você</em></span>
+          </div>
+        </div>
+      </div>
+      <div class="phone-cap">
+        <b>Listas</b>
+        <span>O acervo completo vive aqui, com barra de progresso por lista. Tema escuro nasce junto, não é remendo.</span>
+      </div>
+    </div>
+
+    <!-- 6. Progresso -->
+    <div class="phone-cell">
+      <div class="phone">
+        <div class="screen">
+          <div class="statusbar"><span>9:41</span><span>100%</span></div>
+          <div class="sbody">
+            <div class="s-eyebrow">Seu ritmo</div>
+            <div class="s-h1">12 dias<br>seguidos.</div>
+            <div class="s-sub">Sequência conta dia com trio fechado</div>
+
+            <div class="bars">
+              <div style="height:38%"></div>
+              <div style="height:62%"></div>
+              <div style="height:100%" class="hi"></div>
+              <div style="height:74%" class="hi"></div>
+              <div style="height:45%"></div>
+              <div style="height:88%" class="hi"></div>
+              <div style="height:30%"></div>
+            </div>
+            <div class="barlabels"><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span><span>D</span></div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px">
+              <div style="border:1px solid #EFE4CA;border-radius:14px;padding:11px 12px">
+                <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:22px">Nível 7</div>
+                <div style="font-size:9px;opacity:.55;margin-top:3px">340 de 500 pontos</div>
+              </div>
+              <div style="border:1px solid #EFE4CA;border-radius:14px;padding:11px 12px">
+                <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:22px">31</div>
+                <div style="font-size:9px;opacity:.55;margin-top:3px">trios fechados no mês</div>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <span><i></i><em>Hoje</em></span>
+            <span><i></i><em>Listas</em></span>
+            <span><i></i><em>Foco</em></span>
+            <span class="on"><i></i><em>Você</em></span>
+          </div>
+        </div>
+      </div>
+      <div class="phone-cap">
+        <b>Progresso</b>
+        <span>Pontos vêm do peso da tarefa, não da contagem. Fatiar a lista não acelera o nível — essa é a trava anti-Karma.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap" id="movimento">
+  <div class="sec-head">
+    <div class="eyebrow">Movimento</div>
+    <h2>Animação é resposta, não enfeite.</h2>
+    <p>
+      Toda animação do app existe para confirmar um evento do domínio. Se nenhum
+      evento foi emitido, nada se move. Tudo abaixo roda em Reanimated na thread de
+      UI e degrada para um <em>fade</em> de 120 ms quando o sistema pede menos movimento.
+    </p>
+  </div>
+
+  <div class="scroller motion">
+    <table>
+      <thead>
+        <tr><th>Gesto ou evento</th><th>O que acontece</th><th>Curva e tempo</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="cue">app.opened</span></td>
+          <td>Marca desenha as três barras e as vira em sinal de concluído.</td>
+          <td>Mola (damping 15, stiffness 140) · 900 ms · mínimo de 1,2 s em tela</td>
+        </tr>
+        <tr>
+          <td><span class="cue">task.completed</span></td>
+          <td>Caixa enche de Sol, o traço se desenha, o título risca e o cartão sai da lista.</td>
+          <td>Mola (damping 14, stiffness 220) + traço 240 ms + saída 260 ms</td>
+        </tr>
+        <tr>
+          <td><span class="cue">trio.completed</span></td>
+          <td>Confete curto, contador sobe até o novo total, sequência pulsa uma vez.</td>
+          <td>1,2 s · easeOutCubic · haptic de sucesso</td>
+        </tr>
+        <tr>
+          <td><span class="cue">task.captured</span></td>
+          <td>Folha desce, o cartão novo entra por cima com <em>layout animation</em>.</td>
+          <td>Mola de folha 320 ms · entrada 240 ms com atraso de 40 ms</td>
+        </tr>
+        <tr>
+          <td>Toque em qualquer botão</td>
+          <td>Escala para 0,96 na pressão e volta com mola na soltura.</td>
+          <td>120 ms · mola leve (damping 18)</td>
+        </tr>
+        <tr>
+          <td>Retorno físico</td>
+          <td>Um toque curto ao fechar tarefa, um padrão triplo ao fechar o dia.</td>
+          <td>18 ms · 24/60/24/60/40 ms · nunca é motivo de falha</td>
+        </tr>
+        <tr>
+          <td>Troca de aba</td>
+          <td>Indicador desliza sob o ícone ativo; conteúdo cruza em fade.</td>
+          <td>Indicador em mola 260 ms · fade 180 ms</td>
+        </tr>
+        <tr>
+          <td>Números de progresso</td>
+          <td>Contagem crescente do valor antigo até o novo.</td>
+          <td>600 ms · easeOutCubic · <code>tabular-nums</code></td>
+        </tr>
+        <tr>
+          <td><span class="cue">focus.started</span></td>
+          <td>Fundo transita para Uva e o anel começa a se esvaziar.</td>
+          <td>Cor 420 ms · anel em tempo real na thread de UI</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="wrap" id="arquitetura">
+  <div class="sec-head">
+    <div class="eyebrow">Arquitetura</div>
+    <h2>Clean Architecture, MVVM na apresentação, eventos no meio.</h2>
+    <p>
+      Mesma espinha do Lesingo: dependências apontam para dentro, o domínio não
+      conhece React Native, e a raiz de composição monta os adaptadores concretos.
+      A novidade é o barramento de eventos — comandos entram, eventos saem, e cada
+      projeção reage sem saber quem mais está ouvindo.
+    </p>
+  </div>
+
+  <div class="layers">
+    <div class="layer inward">
+      <div class="lname">domain</div>
+      <div class="ldesc"><code>Task</code>, <code>TaskList</code>, <code>Trio</code>, <code>Streak</code>, <code>QuickCapture</code>. Funções puras, sem import de framework. É aqui que mora a regra de que o dia tem três vagas e de que ponto vem do peso.</div>
+    </div>
+    <div class="layer inward">
+      <div class="lname">application</div>
+      <div class="ldesc">Casos de uso (<code>captureTask</code>, <code>completeTask</code>, <code>assembleTrio</code>, <code>runFocusSession</code>) e portas: <code>TaskStore</code>, <code>ProgressStore</code>, <code>Clock</code>, <code>UsageReporter</code>, <code>EventBus</code>.</div>
+    </div>
+    <div class="layer">
+      <div class="lname">infrastructure</div>
+      <div class="ldesc">Implementa as portas: AsyncStorage, relógio do sistema, háptico, notificação, barramento em memória. É o único lugar que importa SDK.</div>
+    </div>
+    <div class="layer">
+      <div class="lname">presentation</div>
+      <div class="ldesc">MVVM: <em>view-model</em> guarda estado e chama caso de uso; <em>view</em> só desenha e avisa intenção; <em>screen</em> amarra os dois. Nenhuma view toca em storage.</div>
+    </div>
+    <div class="layer">
+      <div class="lname">app</div>
+      <div class="ldesc">Raiz de composição: tema, navegação, splash, construção dos adaptadores e registro dos assinantes de evento.</div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:44px;font-size:20px">Os eventos do domínio</h3>
+  <div class="events">
+    <div class="ev"><b>task.captured</b><p>Nasceu uma tarefa. Dispara persistência, animação de entrada e telemetria de captura.</p></div>
+    <div class="ev"><b>task.completed</b><p>Carrega o peso concluído. Alimenta pontos, sequência e a animação de conclusão.</p></div>
+    <div class="ev"><b>task.reopened</b><p>Desfaz sem punir: devolve os pontos e o cartão à lista.</p></div>
+    <div class="ev"><b>trio.assembled</b><p>As três do dia foram escolhidas — pelo app ou pela pessoa.</p></div>
+    <div class="ev"><b>trio.completed</b><p>Único gatilho da comemoração grande e da sequência do dia.</p></div>
+    <div class="ev"><b>focus.finished</b><p>Sessão de foco encerrada, com duração real para o histórico.</p></div>
+    <div class="ev"><b>streak.advanced</b><p>Mais um dia na corrente. Também é o que a notificação da noite consulta.</p></div>
+    <div class="ev"><b>level.reached</b><p>Novo nível. Só existe porque o peso acumulado cruzou a faixa.</p></div>
+  </div>
+
+  <div class="flow">view (toque) → view-model → caso de uso → domínio decide
+                                          ↓
+                                    EventBus.publish
+        ┌───────────────┬───────────────┼───────────────┬───────────────┐
+   persistência      progresso      celebração       telemetria      notificação
+  (AsyncStorage)   (pontos, nível)  (haptic, confete)  (analytics)   (lembrete)</div>
+
+  <p class="note" style="margin-top:22px;color:var(--ink-2);font-size:14.5px;max-width:70ch">
+    Por que evento e não só chamada direta: conclusão de tarefa dispara cinco reações
+    de assuntos diferentes. Sem barramento, o caso de uso conheceria háptico, confete e
+    analytics — e todo recurso novo engordaria a mesma função. Com barramento, um
+    recurso novo é um assinante novo, e o teste do domínio continua sendo função pura.
+  </p>
+</section>
+
+<section class="wrap" id="corte">
+  <div class="sec-head">
+    <div class="eyebrow">Recorte de produto</div>
+    <h2>O que entra agora e o que espera.</h2>
+    <p>
+      Ordem escolhida pelo mesmo critério da pesquisa: primeiro o que segura o
+      usuário nas duas primeiras semanas, depois o que justifica assinatura.
+    </p>
+  </div>
+
+  <div class="cuts">
+    <div class="cut">
+      <div class="when">Fatia 1</div>
+      <div><b>Captura, trio e conclusão</b><p>Campo em linguagem natural, tela Hoje com três vagas, animação de conclusão, dados locais. É o produto inteiro para quem só quer atravessar o dia.</p></div>
+    </div>
+    <div class="cut">
+      <div class="when">Fatia 2</div>
+      <div><b>Listas, foco e progresso</b><p>Acervo por lista, temporizador de foco e a tela de ritmo com peso e sequência.</p></div>
+    </div>
+    <div class="cut">
+      <div class="when">Fatia 3</div>
+      <div><b>Conta e sincronia</b><p>Entrar com Google/Apple e espelhar em nuvem, no mesmo desenho de portas que o Lesingo já usa.</p></div>
+    </div>
+    <div class="cut">
+      <div class="when">Depois</div>
+      <div><b>Pro</b><p>Widget, lembrete inteligente, histórico longo e temas. Assinatura anual com teste — freemium para descoberta, valor claro no dia 0.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <div>Ideias · lista de tarefas · documento de marca, produto e arquitetura · agosto de 2026</div>
+  <ul>
+    <li>Comparativos e preços: <a href="https://thesoftwarescout.com/best-to-do-list-apps-2026/">The Software Scout</a>, <a href="https://unstar.app/blog/todoist-ticktick-things-3-microsoft-todo-apple-reminders-todo-apps-ranked-2026">Unstar</a></li>
+    <li>Gamificação e retenção: <a href="https://trophy.so/blog/todoist-gamification-case-study">Trophy — estudo de caso do Karma</a></li>
+    <li>Abandono de apps: <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11694054/">Scoping review, JMIR</a>, <a href="https://www.forasoft.com/blog/article/avoid-app-abandonment-strategies"> Forasoft</a></li>
+    <li>Assinatura e conversão: <a href="https://www.revenuecat.com/state-of-subscription-apps">RevenueCat, State of Subscription Apps 2026</a></li>
+    <li>Padrões para TDAH e visão de hoje: <a href="https://super-productivity.com/blog/best-adhd-task-management-apps-2026/">Super Productivity</a></li>
+  </ul>
+</footer>
+
+<script>
+  (function () {
+    var svg = document.getElementById('markSvg');
+    var button = document.getElementById('replay');
+    if (!svg || !button) return;
+
+    function play() {
+      svg.classList.remove('mark-run');
+      // Force a reflow so the animation restarts from the list state.
+      void svg.getBoundingClientRect();
+      svg.classList.add('mark-run');
+    }
+
+    button.addEventListener('click', play);
+    play();
+
+    document.querySelectorAll('[data-demo-task] .box').forEach(function (box) {
+      box.addEventListener('click', function () {
+        var card = box.closest('[data-demo-task]');
+        var done = card.classList.toggle('done');
+        box.setAttribute('aria-pressed', done ? 'true' : 'false');
+        box.setAttribute('aria-label', done ? 'Reabrir tarefa' : 'Concluir tarefa');
+      });
+    });
+  })();
+</script>
