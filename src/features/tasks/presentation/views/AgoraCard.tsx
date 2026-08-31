@@ -1,12 +1,11 @@
 import Animated, { FadeIn } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
-import { focusMinutesFor } from '../../domain/FocusSession';
 import type { Task } from '../../domain/Task';
 import type { ListColor, ProjectIcon } from '../../domain/TaskList';
 import type { TaskCopy } from '../localization/taskCopy';
 import { describeTask, taskFacts } from '../models/taskMeta';
-import { PriorityGlyph } from './FieldGlyphs';
+import { PlayGlyph, PriorityGlyph } from './FieldGlyphs';
 import { PressableScale } from './PressableScale';
 import { TaskCheckbox } from './TaskCheckbox';
 
@@ -20,10 +19,8 @@ interface AgoraCardProps {
     icon: ProjectIcon | null;
   };
   onToggle: (taskId: string) => void;
-  /** Starts the block right away, at the duration the card shows. */
-  onFocus: (task: Task) => void;
-  /** Opens the focus screen on this task with the duration open for editing,
-   * without starting anything. */
+  /** Opens the focus screen on this task with the duration ready to choose.
+   * The band no longer decides how long the block is. */
   onChooseDuration: (task: Task) => void;
   /** Sends the reader to the rest of today instead of growing the band. */
   onShowRest: () => void;
@@ -47,7 +44,6 @@ export function AgoraCard({
   nowMs,
   listOf,
   onToggle,
-  onFocus,
   onChooseDuration,
   onShowRest,
 }: AgoraCardProps) {
@@ -59,7 +55,6 @@ export function AgoraCard({
 
   const list = listOf(task);
   const facts = taskFacts(task, nowMs, copy, list.name);
-  const minutes = focusMinutesFor(task.estimatedMinutes);
 
   return (
     <Band entering={FadeIn.duration(220)}>
@@ -92,27 +87,19 @@ export function AgoraCard({
       </FactLine>
 
       <Actions>
-        {/* Two controls, two outcomes. The wide one commits to the block as
-            shown; the small one is how you argue with the number first. When
-            both started the same session, one of them was decoration. */}
+        {/* One control. The band used to show a duration next to it, which
+            asked the reader to agree with a number before deciding anything;
+            the length is now the first question on the focus screen, where
+            changing it costs one tap. */}
         <DoNow
-          accessibilityLabel={copy.today.focusFor(minutes, task.title)}
-          onPress={() => onFocus(task)}
+          accessibilityLabel={copy.today.doNowOn(task.title)}
+          onPress={() => onChooseDuration(task)}
           scaleTo={0.97}
           testID="agora-do-now"
         >
+          <PlayGlyph color={theme.colors.accent} size={14} />
           <DoNowText>{copy.today.doNow}</DoNowText>
         </DoNow>
-
-        <TimeBlock
-          accessibilityLabel={copy.today.changeDuration(minutes)}
-          onPress={() => onChooseDuration(task)}
-          scaleTo={0.94}
-          testID="agora-focus"
-        >
-          <TimeValue>{minutes}</TimeValue>
-          <TimeUnit>{copy.today.minutesUnit}</TimeUnit>
-        </TimeBlock>
 
         <Done>
           <TaskCheckbox
@@ -121,6 +108,7 @@ export function AgoraCard({
             hitSlop={11}
             onToggle={() => onToggle(task.id)}
             testID={`task-checkbox-${task.id}`}
+            tone="onAccent"
           />
         </Done>
       </Actions>
@@ -203,8 +191,10 @@ const Actions = styled.View`
 const DoNow = styled(PressableScale)`
   flex: 1;
   min-height: 52px;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
   border-radius: ${({ theme }) => theme.radii.medium}px;
   background-color: ${({ theme }) => theme.colors.onAccent};
 `;
@@ -213,27 +203,6 @@ const DoNowText = styled.Text`
   color: ${({ theme }) => theme.colors.accent};
   font-size: ${({ theme }) => theme.type.label}px;
   font-weight: 800;
-`;
-
-const TimeBlock = styled(PressableScale)`
-  width: 58px;
-  height: 52px;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid ${({ theme }) => theme.colors.onAccent};
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-`;
-
-const TimeValue = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.body}px;
-  font-weight: 800;
-`;
-
-const TimeUnit = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.caption}px;
-  font-weight: 700;
 `;
 
 const Done = styled.View`

@@ -41,6 +41,9 @@ interface TaskCheckboxProps {
    * A row can ask for the full 48px; a card that already has padding around
    * the box does not need to. */
   hitSlop?: number;
+  /** On a Sol ground the default outline is invisible and the filled state
+   * would be yellow on yellow. Ink does both jobs there. */
+  tone?: 'default' | 'onAccent';
 }
 
 /**
@@ -56,6 +59,7 @@ export function TaskCheckbox({
   accessibilityLabel,
   testID,
   hitSlop,
+  tone = 'default',
 }: TaskCheckboxProps) {
   const theme = useTheme();
   const progress = useSharedValue(checked ? 1 : 0);
@@ -66,17 +70,18 @@ export function TaskCheckbox({
       : withTiming(0, FADE);
   }, [checked, progress]);
 
+  const fill =
+    tone === 'onAccent' ? theme.colors.onAccent : theme.colors.accent;
+  const edge =
+    tone === 'onAccent' ? theme.colors.onAccent : theme.colors.border;
+
   const boxStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
       progress.value,
       [0, 1],
-      ['rgba(0,0,0,0)', theme.colors.accent],
+      ['rgba(0,0,0,0)', fill],
     ),
-    borderColor: interpolateColor(
-      progress.value,
-      [0, 1],
-      [theme.colors.border, theme.colors.accent],
-    ),
+    borderColor: interpolateColor(progress.value, [0, 1], [edge, fill]),
     transform: [{ scale: 1 + Math.min(progress.value, 1) * 0.06 }],
   }));
 
@@ -103,7 +108,9 @@ export function TaskCheckbox({
             animatedProps={pathProps}
             d="M3 8.4 6.3 11.7 13 5"
             fill="none"
-            stroke={theme.colors.onAccent}
+            stroke={
+              tone === 'onAccent' ? theme.colors.accent : theme.colors.onAccent
+            }
             strokeDasharray={STROKE_LENGTH}
             strokeLinecap="round"
             strokeLinejoin="round"
