@@ -26,12 +26,20 @@ interface FocusAchievementProps {
 
 export function FocusAchievement({ testID }: FocusAchievementProps) {
   const theme = useTheme();
-  const colors = [theme.colors.success, theme.colors.accent, theme.colors.focusInk];
+  const colors = [
+    theme.colors.success,
+    theme.colors.accent,
+    theme.colors.focusInk,
+  ];
 
   return (
     <Sky pointerEvents="none" testID={testID}>
       {Array.from({ length: PIECES }, (_, index) => (
-        <Piece color={colors[index % colors.length]} index={index} key={index} />
+        <Piece
+          color={colors[index % colors.length]}
+          index={index}
+          key={index}
+        />
       ))}
     </Sky>
   );

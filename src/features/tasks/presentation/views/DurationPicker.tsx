@@ -24,7 +24,11 @@ interface DurationPickerProps {
  * task that does not fit a round number, without ever letting the value
  * drift outside what the timer was built to hold.
  */
-export function DurationPicker({ copy, minutes, onChange }: DurationPickerProps) {
+export function DurationPicker({
+  copy,
+  minutes,
+  onChange,
+}: DurationPickerProps) {
   const isCustom = !PRESETS.includes(minutes);
 
   return (

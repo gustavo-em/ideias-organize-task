@@ -106,7 +106,9 @@ const IconWrap = styled.View<{ $tone?: 'accent' }>`
      surface; the confirmation (caught up) gets a quiet tint of its own
      success colour, so the two states read as distinct pictures. */
   background-color: ${({ theme, $tone }) =>
-    $tone === 'accent' ? theme.colors.cardElevated : `${theme.colors.success}26`};
+    $tone === 'accent'
+      ? theme.colors.cardElevated
+      : `${theme.colors.success}26`};
 `;
 
 const Title = styled.Text`

@@ -11,7 +11,10 @@ export const MIN_FOCUS_MINUTES = 5;
 
 /** Keeps a hand-picked duration inside the range the timer was built for. */
 export function clampFocusMinutes(minutes: number): number {
-  return Math.min(MAX_FOCUS_MINUTES, Math.max(MIN_FOCUS_MINUTES, Math.round(minutes)));
+  return Math.min(
+    MAX_FOCUS_MINUTES,
+    Math.max(MIN_FOCUS_MINUTES, Math.round(minutes)),
+  );
 }
 
 export type FocusPhase = 'running' | 'paused' | 'finished';
