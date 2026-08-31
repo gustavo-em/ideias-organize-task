@@ -20,9 +20,11 @@ interface AgoraCardProps {
     icon: ProjectIcon | null;
   };
   onToggle: (taskId: string) => void;
-  onEdit: (task: Task) => void;
-  /** Starts a focus block on this task, at its own estimate. */
+  /** Starts the block right away, at the duration the card shows. */
   onFocus: (task: Task) => void;
+  /** Opens the focus screen on this task with the duration open for editing,
+   * without starting anything. */
+  onChooseDuration: (task: Task) => void;
   /** Sends the reader to the rest of today instead of growing the band. */
   onShowRest: () => void;
 }
@@ -45,8 +47,8 @@ export function AgoraCard({
   nowMs,
   listOf,
   onToggle,
-  onEdit,
   onFocus,
+  onChooseDuration,
   onShowRest,
 }: AgoraCardProps) {
   const theme = useTheme();
@@ -90,9 +92,12 @@ export function AgoraCard({
       </FactLine>
 
       <Actions>
+        {/* Two controls, two outcomes. The wide one commits to the block as
+            shown; the small one is how you argue with the number first. When
+            both started the same session, one of them was decoration. */}
         <DoNow
-          accessibilityLabel={copy.today.doNow}
-          onPress={() => onEdit(task)}
+          accessibilityLabel={copy.today.focusFor(minutes, task.title)}
+          onPress={() => onFocus(task)}
           scaleTo={0.97}
           testID="agora-do-now"
         >
@@ -100,8 +105,8 @@ export function AgoraCard({
         </DoNow>
 
         <TimeBlock
-          accessibilityLabel={copy.today.focusFor(minutes, task.title)}
-          onPress={() => onFocus(task)}
+          accessibilityLabel={copy.today.changeDuration(minutes)}
+          onPress={() => onChooseDuration(task)}
           scaleTo={0.94}
           testID="agora-focus"
         >
