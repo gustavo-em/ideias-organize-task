@@ -51,6 +51,9 @@ interface TodayScreenProps {
   /** Starts a focus block from the now band. The intent crosses screens, so
    * it is owned by the composition root rather than by this screen. */
   onFocusTask?: (task: Task) => void;
+  /** Opens the focus screen on this task without starting it, so the duration
+   * can be changed first. */
+  onChooseFocusDuration?: (task: Task) => void;
 }
 
 /**
@@ -62,6 +65,7 @@ export function TodayScreen({
   language,
   viewModel,
   onFocusTask,
+  onChooseFocusDuration,
 }: TodayScreenProps) {
   const theme = useTheme();
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -70,7 +74,9 @@ export function TodayScreen({
   const [editing, setEditing] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState<Task | null>(null);
   const [grouping, setGrouping] = useState<HomeGrouping>('deadline');
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // The lens decides what the whole screen means, so hiding it behind a
+  // toggle hid the answer to "why is it ordered like this".
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const sectionsForGrouping = useCallback(
     (nextGrouping: HomeGrouping) =>
       homeSections(
@@ -277,7 +283,7 @@ export function TodayScreen({
             copy={copy}
             listOf={listInfoOf}
             nowMs={viewModel.nowMs}
-            onEdit={task => setEditing(task)}
+            onChooseDuration={task => onChooseFocusDuration?.(task)}
             onFocus={task => onFocusTask?.(task)}
             onShowRest={() =>
               scrollRef.current?.scrollTo({
@@ -337,7 +343,6 @@ export function TodayScreen({
                     <TaskRow
                       copy={copy}
                       index={index}
-                      isLast={index === section.tasks.length - 1}
                       key={task.id}
                       lens={grouping}
                       listColor={
@@ -398,6 +403,11 @@ export function TodayScreen({
           lists={viewModel.lists}
           nowMs={viewModel.nowMs}
           onCancel={() => setEditing(null)}
+          onDelete={() => {
+            const subject = editing;
+            setEditing(null);
+            setDeleting(subject);
+          }}
           onSubmit={(typed, overrides) => {
             viewModel.edit(editing.id, { title: typed, ...overrides });
             setEditing(null);

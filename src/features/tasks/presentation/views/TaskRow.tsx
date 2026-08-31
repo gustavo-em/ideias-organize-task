@@ -14,7 +14,7 @@ import type { HomeGrouping } from '../models/homeSections';
 import { rowFact } from '../models/rowFact';
 import { projectTone } from '../models/projectAppearance';
 import { describeTask, taskFacts } from '../models/taskMeta';
-import { PriorityGlyph, ProjectGlyph } from './FieldGlyphs';
+import { ProjectGlyph } from './FieldGlyphs';
 import { PressableScale } from './PressableScale';
 import { TaskCheckbox } from './TaskCheckbox';
 
@@ -29,8 +29,6 @@ interface TaskRowProps {
   /** The lens the list is grouped by, so the row never repeats its heading. */
   lens: HomeGrouping;
   sectionId: string;
-  /** The last row of a section carries no rule: the gap below ends it. */
-  isLast: boolean;
   onToggle: () => void;
   onEdit?: () => void;
 }
@@ -41,7 +39,9 @@ interface TaskRowProps {
  * The card was a container drawn around content that never needed containing:
  * a border, a radius, a shadow and 24px of padding spent per task, so a
  * screenful held five. Without the box the same screen holds nine, and the
- * separation the box was providing is done by a hairline and by air.
+ * separation the box was providing is done by air alone. The only rule left
+ * on the screen belongs to the section heading: a line between every pair of
+ * tasks turns a list into a table, and a table is read cell by cell.
  *
  * Deleting moved out of the row. A destructive control repeated once per task
  * is a target you hit by accident while scrolling; it lives in the edit sheet
@@ -57,7 +57,6 @@ export function TaskRow({
   index,
   lens,
   sectionId,
-  isLast,
   onToggle,
   onEdit,
 }: TaskRowProps) {
@@ -74,14 +73,9 @@ export function TaskRow({
     listColor,
     listIcon,
   });
-  // The rule groups the section; under the priority lens the heading already
-  // says the level, so the glyph would repeat it.
-  const showsPriority =
-    !done && lens !== 'priority' && facts.priority.level >= 2;
 
   return (
     <Row
-      $last={isLast}
       entering={FadeInDown.delay(index * STAGGER_MS).duration(280)}
       exiting={SlideOutLeft.duration(240)}
       layout={LinearTransition.springify().damping(20).stiffness(200)}
@@ -104,21 +98,13 @@ export function TaskRow({
         scaleTo={0.99}
         testID={`task-${task.id}`}
       >
+        {/* No priority mark next to the title. A coloured meter beside every
+            sentence turned the list into a field of marks competing with the
+            words; priority still reaches a screen reader through the label,
+            and the priority lens groups by it when it is what matters. */}
         <Title $done={done} numberOfLines={1}>
           {task.title}
         </Title>
-
-        {showsPriority ? (
-          <PriorityGlyph
-            color={
-              facts.priority.tone === 'danger'
-                ? theme.colors.danger
-                : theme.colors.accentInk
-            }
-            level={facts.priority.level}
-            size={13}
-          />
-        ) : null}
       </Main>
 
       {done ? (
@@ -148,13 +134,11 @@ export function TaskRow({
  * one property a layout animation may overwrite, and Reanimated warns about
  * it once per row.
  */
-const Row = styled(Animated.View)<{ $last: boolean }>`
+const Row = styled(Animated.View)`
   flex-direction: row;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.small + 5}px;
   padding: ${({ theme }) => theme.spacing.medium - 1}px 0px;
-  border-bottom-width: ${({ $last }) => ($last ? 0 : 1)}px;
-  border-bottom-color: ${({ theme }) => theme.colors.borderSubtle};
 `;
 
 const Main = styled(PressableScale)`
