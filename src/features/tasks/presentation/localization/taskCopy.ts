@@ -29,6 +29,20 @@ export interface TaskCopy {
     /** The "now" card: what to act on first, before the rest of the list. */
     agora: string;
     agoraMore: (count: number) => string;
+    /** Starts the task from the now band, as opposed to `focus.start`, which
+     * talks about the timer. */
+    doNow: string;
+    /** How far past the deadline. `overdue` is an adjective and does not
+     * conjugate with a number. */
+    lateDays: (days: number) => string;
+    /** The weight a finished task just paid out. The colour says the rest. */
+    earned: (weight: number) => string;
+    /** The time block on the now band. A screen reader must never hear just
+     * the number. */
+    focusFor: (minutes: number, title: string) => string;
+    /** Stacked under the number inside the block, where "45 min" would not
+     * fit on one line. */
+    minutesUnit: string;
     /** Nothing due today, but the list is not empty: distinct from having
      * never written anything down. */
     caughtUpTitle: string;
@@ -175,6 +189,11 @@ const ptBR: TaskCopy = {
     },
     agora: 'Agora',
     agoraMore: count => (count === 1 ? 'mais 1 hoje' : `mais ${count} hoje`),
+    doNow: 'Fazer agora',
+    lateDays: days => (days === 1 ? '1 dia' : `${days} dias`),
+    earned: weight => `+${weight}`,
+    focusFor: (minutes, title) => `Focar ${minutes} minutos em ${title}`,
+    minutesUnit: 'min',
     caughtUpTitle: 'Você está em dia.',
     caughtUpNext: title => `Próxima: ${title}`,
     caughtUpAllDone: 'Tudo certo por aqui.',
@@ -364,6 +383,11 @@ const enUS: TaskCopy = {
     },
     agora: 'Now',
     agoraMore: count => (count === 1 ? '1 more today' : `${count} more today`),
+    doNow: 'Do it now',
+    lateDays: days => (days === 1 ? '1 day' : `${days} days`),
+    earned: weight => `+${weight}`,
+    focusFor: (minutes, title) => `Focus ${minutes} minutes on ${title}`,
+    minutesUnit: 'min',
     caughtUpTitle: "You're caught up.",
     caughtUpNext: title => `Next: ${title}`,
     caughtUpAllDone: 'All clear here.',
