@@ -37,6 +37,10 @@ interface TaskCheckboxProps {
   onToggle: () => void;
   accessibilityLabel: string;
   testID?: string;
+  /** Grows the touch target past the 26px drawn box without moving anything.
+   * A row can ask for the full 48px; a card that already has padding around
+   * the box does not need to. */
+  hitSlop?: number;
 }
 
 /**
@@ -51,6 +55,7 @@ export function TaskCheckbox({
   onToggle,
   accessibilityLabel,
   testID,
+  hitSlop,
 }: TaskCheckboxProps) {
   const theme = useTheme();
   const progress = useSharedValue(checked ? 1 : 0);
@@ -87,6 +92,7 @@ export function TaskCheckbox({
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
+      hitSlop={hitSlop}
       onPress={onToggle}
       scaleTo={0.88}
       testID={testID}

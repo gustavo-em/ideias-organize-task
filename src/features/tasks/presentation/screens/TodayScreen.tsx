@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentRef,
+} from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
   LinearTransition,
@@ -35,20 +42,30 @@ import { PressableScale } from '../views/PressableScale';
 import { QuickCaptureSheet } from '../views/QuickCaptureSheet';
 import { ScreenHeader } from '../views/ScreenHeader';
 import { SectionHeader } from '../views/SectionHeader';
-import { TaskCard } from '../views/TaskCard';
+import { TaskRow } from '../views/TaskRow';
 
 interface TodayScreenProps {
   copy: TaskCopy;
   language: AppLanguage;
   viewModel: TasksViewModel;
+  /** Starts a focus block from the now band. The intent crosses screens, so
+   * it is owned by the composition root rather than by this screen. */
+  onFocusTask?: (task: Task) => void;
 }
 
 /**
  * The deadline lens: late work, today's deadlines, then what is coming. It
  * informs a decision without inventing a list of compulsory daily tasks.
  */
-export function TodayScreen({ copy, language, viewModel }: TodayScreenProps) {
+export function TodayScreen({
+  copy,
+  language,
+  viewModel,
+  onFocusTask,
+}: TodayScreenProps) {
   const theme = useTheme();
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const todayRestTop = useRef(0);
   const [isCapturing, setIsCapturing] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState<Task | null>(null);
@@ -64,13 +81,7 @@ export function TodayScreen({ copy, language, viewModel }: TodayScreenProps) {
         copy,
         viewModel.lists,
       ),
-    [
-      copy,
-      language,
-      viewModel.lists,
-      viewModel.nowMs,
-      viewModel.tasks,
-    ],
+    [copy, language, viewModel.lists, viewModel.nowMs, viewModel.tasks],
   );
   const sections = useMemo(
     () => sectionsForGrouping(grouping),
@@ -84,9 +95,7 @@ export function TodayScreen({ copy, language, viewModel }: TodayScreenProps) {
   useEffect(() => {
     if (!disclosureInitialized.current && sections.length > 0) {
       disclosureInitialized.current = true;
-      setCollapsedSectionIds(
-        initialCollapsedSectionIds(grouping, sections),
-      );
+      setCollapsedSectionIds(initialCollapsedSectionIds(grouping, sections));
       return;
     }
 
@@ -130,17 +139,24 @@ export function TodayScreen({ copy, language, viewModel }: TodayScreenProps) {
   const agoraSection = isDeadlineLens
     ? sections.find(section => section.id === 'today')
     : undefined;
+  // The band shows one task. The others due today are not hidden — they get
+  // the same section every other day gets, and "mais N hoje" scrolls to it.
+  const todayRest =
+    isDeadlineLens && agoraSection != null && agoraSection.tasks.length > 1
+      ? { ...agoraSection, tasks: agoraSection.tasks.slice(1) }
+      : null;
   const restSections = isDeadlineLens
-    ? sections.filter(section => section.id !== 'today')
+    ? [
+        ...(todayRest == null ? [] : [todayRest]),
+        ...sections.filter(section => section.id !== 'today'),
+      ]
     : sections;
   const isFullyEmpty = viewModel.tasks.length === 0;
   const isCaughtUpToday =
     isDeadlineLens &&
     !isFullyEmpty &&
     (agoraSection == null || agoraSection.tasks.length === 0);
-  const nextTask = isCaughtUpToday
-    ? restSections[0]?.tasks[0] ?? null
-    : null;
+  const nextTask = isCaughtUpToday ? restSections[0]?.tasks[0] ?? null : null;
 
   function listInfoOf(task: Task) {
     const list =
@@ -157,6 +173,7 @@ export function TodayScreen({ copy, language, viewModel }: TodayScreenProps) {
     <Screen>
       <Content
         contentContainerStyle={styles.scroll}
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
       >
         <ScreenHeader
@@ -179,66 +196,66 @@ export function TodayScreen({ copy, language, viewModel }: TodayScreenProps) {
           <Grouping entering={FadeIn.duration(180)}>
             <GroupingLabel>{copy.today.groupBy}</GroupingLabel>
             <GroupingRow>
-            <GroupingButton
-              $selected={grouping === 'deadline'}
-              accessibilityLabel={copy.today.grouping.deadline}
-              accessibilityState={{ selected: grouping === 'deadline' }}
-              onPress={() => changeGrouping('deadline')}
-              scaleTo={0.97}
-              testID="today-group-deadline"
-            >
-              <CalendarGlyph
-                color={
-                  grouping === 'deadline'
-                    ? theme.colors.accentInk
-                    : theme.colors.mutedStrong
-                }
-              />
-              <GroupingButtonText $selected={grouping === 'deadline'}>
-                {copy.today.grouping.deadline}
-              </GroupingButtonText>
-            </GroupingButton>
+              <GroupingButton
+                $selected={grouping === 'deadline'}
+                accessibilityLabel={copy.today.grouping.deadline}
+                accessibilityState={{ selected: grouping === 'deadline' }}
+                onPress={() => changeGrouping('deadline')}
+                scaleTo={0.97}
+                testID="today-group-deadline"
+              >
+                <CalendarGlyph
+                  color={
+                    grouping === 'deadline'
+                      ? theme.colors.accentInk
+                      : theme.colors.mutedStrong
+                  }
+                />
+                <GroupingButtonText $selected={grouping === 'deadline'}>
+                  {copy.today.grouping.deadline}
+                </GroupingButtonText>
+              </GroupingButton>
 
-            <GroupingButton
-              $selected={grouping === 'list'}
-              accessibilityLabel={copy.today.grouping.list}
-              accessibilityState={{ selected: grouping === 'list' }}
-              onPress={() => changeGrouping('list')}
-              scaleTo={0.97}
-              testID="today-group-list"
-            >
-              <TagGlyph
-                color={
-                  grouping === 'list'
-                    ? theme.colors.accentInk
-                    : theme.colors.mutedStrong
-                }
-              />
-              <GroupingButtonText $selected={grouping === 'list'}>
-                {copy.today.grouping.list}
-              </GroupingButtonText>
-            </GroupingButton>
+              <GroupingButton
+                $selected={grouping === 'list'}
+                accessibilityLabel={copy.today.grouping.list}
+                accessibilityState={{ selected: grouping === 'list' }}
+                onPress={() => changeGrouping('list')}
+                scaleTo={0.97}
+                testID="today-group-list"
+              >
+                <TagGlyph
+                  color={
+                    grouping === 'list'
+                      ? theme.colors.accentInk
+                      : theme.colors.mutedStrong
+                  }
+                />
+                <GroupingButtonText $selected={grouping === 'list'}>
+                  {copy.today.grouping.list}
+                </GroupingButtonText>
+              </GroupingButton>
 
-            <GroupingButton
-              $selected={grouping === 'priority'}
-              accessibilityLabel={copy.today.grouping.priority}
-              accessibilityState={{ selected: grouping === 'priority' }}
-              onPress={() => changeGrouping('priority')}
-              scaleTo={0.97}
-              testID="today-group-priority"
-            >
-              <PriorityGlyph
-                color={
-                  grouping === 'priority'
-                    ? theme.colors.accentInk
-                    : theme.colors.mutedStrong
-                }
-                size={16}
-              />
-              <GroupingButtonText $selected={grouping === 'priority'}>
-                {copy.today.grouping.priority}
-              </GroupingButtonText>
-            </GroupingButton>
+              <GroupingButton
+                $selected={grouping === 'priority'}
+                accessibilityLabel={copy.today.grouping.priority}
+                accessibilityState={{ selected: grouping === 'priority' }}
+                onPress={() => changeGrouping('priority')}
+                scaleTo={0.97}
+                testID="today-group-priority"
+              >
+                <PriorityGlyph
+                  color={
+                    grouping === 'priority'
+                      ? theme.colors.accentInk
+                      : theme.colors.mutedStrong
+                  }
+                  size={16}
+                />
+                <GroupingButtonText $selected={grouping === 'priority'}>
+                  {copy.today.grouping.priority}
+                </GroupingButtonText>
+              </GroupingButton>
             </GroupingRow>
           </Grouping>
         ) : null}
@@ -260,8 +277,14 @@ export function TodayScreen({ copy, language, viewModel }: TodayScreenProps) {
             copy={copy}
             listOf={listInfoOf}
             nowMs={viewModel.nowMs}
-            onDelete={task => setDeleting(task)}
             onEdit={task => setEditing(task)}
+            onFocus={task => onFocusTask?.(task)}
+            onShowRest={() =>
+              scrollRef.current?.scrollTo({
+                y: Math.max(0, todayRestTop.current - theme.spacing.medium),
+                animated: true,
+              })
+            }
             onToggle={taskId => viewModel.toggle(taskId)}
             tasks={agoraSection.tasks}
           />
@@ -277,7 +300,17 @@ export function TodayScreen({ copy, language, viewModel }: TodayScreenProps) {
             !policy.collapsible || !collapsedSectionIds.has(section.id);
 
           return (
-            <Section key={section.id} layout={sectionLayout}>
+            <Section
+              key={section.id}
+              layout={sectionLayout}
+              onLayout={
+                section === todayRest
+                  ? event => {
+                      todayRestTop.current = event.nativeEvent.layout.y;
+                    }
+                  : undefined
+              }
+            >
               <SectionHeader
                 collapseHint={copy.today.collapse}
                 collapsible={policy.collapsible}
@@ -301,11 +334,12 @@ export function TodayScreen({ copy, language, viewModel }: TodayScreenProps) {
 
               {expanded
                 ? section.tasks.map((task, index) => (
-                    <TaskCard
-                      compact
+                    <TaskRow
                       copy={copy}
                       index={index}
+                      isLast={index === section.tasks.length - 1}
                       key={task.id}
+                      lens={grouping}
                       listColor={
                         task.listId === INBOX_LIST_ID
                           ? null
@@ -322,9 +356,9 @@ export function TodayScreen({ copy, language, viewModel }: TodayScreenProps) {
                           : viewModel.listOf(task.listId)?.name ?? null
                       }
                       nowMs={viewModel.nowMs}
-                      onDelete={() => setDeleting(task)}
                       onEdit={() => setEditing(task)}
                       onToggle={() => viewModel.toggle(task.id)}
+                      sectionId={section.id}
                       task={task}
                     />
                   ))
@@ -403,7 +437,7 @@ const Screen = styled.View`
   flex: 1;
 `;
 
-const Content = styled.ScrollView`
+const Content = styled(ScrollView)`
   flex: 1;
   padding: 0px ${({ theme }) => theme.spacing.large}px;
 `;
