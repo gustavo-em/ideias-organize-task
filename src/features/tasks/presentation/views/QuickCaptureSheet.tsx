@@ -22,10 +22,12 @@ import {
   PriorityGlyph,
   ProjectGlyph,
   TagGlyph,
+  TrashGlyph,
 } from './FieldGlyphs';
 import { ListPanel } from './ListPanel';
 import { projectTone } from '../models/projectAppearance';
 import { PressableScale } from './PressableScale';
+import { SLIDE } from '../animation/motion';
 
 /** What an existing task looks like when the same sheet is used to change it. */
 export interface SheetSubject {
@@ -47,6 +49,9 @@ interface QuickCaptureSheetProps {
    * words. */
   editing?: SheetSubject;
   onCancel: () => void;
+  /** Deleting lives here because the row no longer carries a trash: it is the
+   * sheet a tap already opens, and the screen still confirms. */
+  onDelete?: () => void;
   onSubmit: (
     typed: string,
     overrides: CaptureOverrides,
@@ -73,6 +78,7 @@ export function QuickCaptureSheet({
   initialListId,
   editing,
   onCancel,
+  onDelete,
   onSubmit,
 }: QuickCaptureSheetProps) {
   const theme = useTheme();
@@ -220,7 +226,7 @@ export function QuickCaptureSheet({
       </Scrim>
       <Lift style={lift}>
         <Sheet
-          entering={SlideInDown.springify().damping(20).stiffness(190)}
+          entering={SlideInDown.duration(SLIDE.duration).easing(SLIDE.easing)}
           exiting={SlideOutDown.duration(200)}
         >
           <Grabber />
@@ -373,9 +379,26 @@ export function QuickCaptureSheet({
           ) : null}
 
           <Footer>
-            <Cancel accessibilityLabel={copy.capture.cancel} onPress={onCancel}>
-              <CancelText>{copy.capture.cancel}</CancelText>
-            </Cancel>
+            <Lead>
+              <Cancel
+                accessibilityLabel={copy.capture.cancel}
+                onPress={onCancel}
+              >
+                <CancelText>{copy.capture.cancel}</CancelText>
+              </Cancel>
+
+              {isEditing && onDelete != null ? (
+                <Delete
+                  accessibilityLabel={copy.today.remove}
+                  hitSlop={8}
+                  onPress={onDelete}
+                  scaleTo={0.88}
+                  testID="capture-delete"
+                >
+                  <TrashGlyph color={theme.colors.danger} size={18} />
+                </Delete>
+              ) : null}
+            </Lead>
             <Save
               accessibilityLabel={copy.capture.save}
               disabled={!canSave}
@@ -612,8 +635,23 @@ const Footer = styled.View`
   margin-top: ${({ theme }) => theme.spacing.medium}px;
 `;
 
+const Lead = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+`;
+
 const Cancel = styled(PressableScale)`
   padding: 10px 6px;
+`;
+
+/** The one destructive control in the sheet, and the only red in it. */
+const Delete = styled(PressableScale)`
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
 `;
 
 const CancelText = styled.Text`
