@@ -25,6 +25,10 @@ interface ThemeColors {
   focusInk: string;
   onFocus: string;
   success: string;
+  /** Ink for text that reports a gain. `success` is a fill: at 4.0:1 on the
+   * new paper it fails AA at caption size, the same split `accent`/`accentInk`
+   * already makes. */
+  successInk: string;
   /** Project accents stay distinct from destructive red. */
   projectCoral: string;
   projectOcean: string;
@@ -94,15 +98,17 @@ export const lightTheme: AppTheme = {
     accent: '#FFC63D',
     accentInk: '#40392A',
     onAccent: '#1B1710',
-    // A near-white yellow paper. It keeps the interface warm without making
-    // the canvas compete with the work itself.
-    background: '#FFFDF7',
+    // Yellow paper, a step down from white. A card only reads as a card when
+    // the sheet under it is not the same colour as the card.
+    background: '#FFFBF0',
     card: '#FFFFFF',
     // The middle of the yellow scale: visibly alive on selected and support
     // surfaces, while the accent keeps ownership of the primary action.
     cardElevated: '#FFE6A0',
     border: '#E9DDC2',
-    borderSubtle: '#F3EBD8',
+    // With card shadows gone, this line is the only separation left between
+    // rows, so it has to be visible on the new paper.
+    borderSubtle: '#EFE2C8',
     text: '#1B1710',
     muted: '#8A7F6D',
     mutedStrong: '#5E5545',
@@ -110,6 +116,7 @@ export const lightTheme: AppTheme = {
     focusInk: '#FF9A44',
     onFocus: '#FBF3E1',
     success: '#0A8F60',
+    successInk: '#077A52',
     projectCoral: '#B8653C',
     projectOcean: '#167B84',
     danger: '#C93B25',
@@ -138,6 +145,7 @@ export const darkTheme: AppTheme = {
     focusInk: '#FFB870',
     onFocus: '#FBF3E1',
     success: '#3FD69B',
+    successInk: '#3FD69B',
     projectCoral: '#F29A72',
     projectOcean: '#5FC7CE',
     danger: '#FF8A73',
