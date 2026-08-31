@@ -37,14 +37,8 @@ export interface TaskCopy {
     lateDays: (days: number) => string;
     /** The weight a finished task just paid out. The colour says the rest. */
     earned: (weight: number) => string;
-    /** The time block on the now band. A screen reader must never hear just
-     * the number. */
-    focusFor: (minutes: number, title: string) => string;
-    /** The time block no longer starts the session; it opens the duration. */
-    changeDuration: (minutes: number) => string;
-    /** Stacked under the number inside the block, where "45 min" would not
-     * fit on one line. */
-    minutesUnit: string;
+    /** The band's only control names the task it acts on. */
+    doNowOn: (title: string) => string;
     /** Nothing due today, but the list is not empty: distinct from having
      * never written anything down. */
     caughtUpTitle: string;
@@ -193,9 +187,7 @@ const ptBR: TaskCopy = {
     doNow: 'Fazer agora',
     lateDays: days => (days === 1 ? '1 dia' : `${days} dias`),
     earned: weight => `+${weight}`,
-    focusFor: (minutes, title) => `Focar ${minutes} minutos em ${title}`,
-    changeDuration: minutes => `Mudar o tempo, agora ${minutes} minutos`,
-    minutesUnit: 'min',
+    doNowOn: title => `Fazer agora: ${title}`,
     caughtUpTitle: 'Você está em dia.',
     caughtUpNext: title => `Próxima: ${title}`,
     caughtUpAllDone: 'Tudo certo por aqui.',
@@ -387,9 +379,7 @@ const enUS: TaskCopy = {
     doNow: 'Do it now',
     lateDays: days => (days === 1 ? '1 day' : `${days} days`),
     earned: weight => `+${weight}`,
-    focusFor: (minutes, title) => `Focus ${minutes} minutes on ${title}`,
-    changeDuration: minutes => `Change the time, now ${minutes} minutes`,
-    minutesUnit: 'min',
+    doNowOn: title => `Do it now: ${title}`,
     caughtUpTitle: "You're caught up.",
     caughtUpNext: title => `Next: ${title}`,
     caughtUpAllDone: 'All clear here.',

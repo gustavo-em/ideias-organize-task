@@ -8,7 +8,6 @@ import type {
   TaskEvent,
   TaskEventBus,
 } from '../features/tasks/domain/TaskEvent';
-import { focusMinutesFor } from '../features/tasks/domain/FocusSession';
 import type { Task } from '../features/tasks/domain/Task';
 import { systemClock } from '../features/tasks/infrastructure/clock/systemClock';
 import { systemHaptics } from '../features/tasks/infrastructure/haptics/systemHaptics';
@@ -75,27 +74,16 @@ function AppContent({
   });
   const focus = useFocusViewModel({ bus, clock: systemClock });
 
+  const [durationTask, setDurationTask] = useState<Task | null>(null);
+
   /**
-   * Starting a focus block from the list.
+   * Going from the list to a focus block.
    *
    * It lives here because it crosses two screens: the tab switch belongs to
    * the shell and the session belongs to the focus view model, so neither
-   * screen can own it without reaching into the other. No new event — the
-   * view model already publishes `focus.started`, and no subscriber cares
-   * which tap began it.
+   * screen can own it without reaching into the other. Nothing starts on this
+   * side — the length is the first question on the other one.
    */
-  const [durationTask, setDurationTask] = useState<Task | null>(null);
-
-  const startFocusOn = useCallback(
-    (task: Task) => {
-      setDurationTask(null);
-      focus.start(task, focusMinutesFor(task.estimatedMinutes));
-      app.selectTab('focus');
-    },
-    [app, focus],
-  );
-
-  /** The other half of the band: go to focus, but decide the length first. */
   const chooseFocusDurationFor = useCallback(
     (task: Task) => {
       setDurationTask(task);
@@ -116,7 +104,6 @@ function AppContent({
             copy={app.copy}
             language={app.language}
             onChooseFocusDuration={chooseFocusDurationFor}
-            onFocusTask={startFocusOn}
             viewModel={tasks}
           />
         ) : null}
