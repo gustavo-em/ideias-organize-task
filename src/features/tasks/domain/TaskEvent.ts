@@ -1,5 +1,6 @@
 import type { EventBus } from '../../../shared/events/EventBus';
 import type { Task } from './Task';
+import type { ListMember, TaskList } from './TaskList';
 import type { Workspace } from './Workspace';
 
 /**
@@ -52,6 +53,20 @@ export type TaskEvent =
       reachedEnd: boolean;
     }
   | { type: 'screen.opened'; at: number; screen: string }
+  | { type: 'list.shared'; at: number; list: TaskList }
+  | { type: 'list.unshared'; at: number; list: TaskList }
+  | {
+      type: 'list.member.joined';
+      at: number;
+      list: TaskList;
+      member: ListMember;
+    }
+  | {
+      type: 'list.member.removed';
+      at: number;
+      list: TaskList;
+      personId: string;
+    }
   /** Published after every change that has already been applied, carrying the
    * result. It is what persistence subscribes to, so saving is a reaction like
    * any other rather than something every use case has to remember. */

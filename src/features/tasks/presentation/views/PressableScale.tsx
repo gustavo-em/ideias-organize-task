@@ -25,6 +25,7 @@ interface PressableScaleProps {
     /** Set by a control that opens a panel below itself, so a screen reader
      * says whether the panel is open. */
     expanded?: boolean;
+    disabled?: boolean;
   };
   style?: StyleProp<ViewStyle>;
   /** Widens the touch area past the drawn one, for controls small enough that
@@ -94,9 +95,7 @@ export function PressableScale({
       style={style}
       testID={testID}
     >
-      <Animated.View
-        style={[disabled ? styles.disabled : null, animatedStyle]}
-      >
+      <Animated.View style={[disabled ? styles.disabled : null, animatedStyle]}>
         {children}
       </Animated.View>
     </Pressable>

@@ -8,11 +8,12 @@ import Animated, {
 import styled, { useTheme } from 'styled-components/native';
 
 import { isCompleted, type Task } from '../../domain/Task';
-import type { ListColor, ProjectIcon } from '../../domain/TaskList';
+import type { ListColor, ListMember, ProjectIcon } from '../../domain/TaskList';
 import { STAGGER_MS } from '../animation/motion';
 import type { TaskCopy } from '../localization/taskCopy';
 import { describeTask, taskFacts } from '../models/taskMeta';
 import { ChevronGlyph, TrashGlyph } from './FieldGlyphs';
+import { MemberChip } from './MemberChip';
 import { PressableScale } from './PressableScale';
 import { TaskCheckbox } from './TaskCheckbox';
 import { TaskFacts } from './TaskFacts';
@@ -33,6 +34,11 @@ interface TaskCardProps {
   action?: { label: string; onPress: () => void; disabled?: boolean };
   /** Used in the deadline view, where each task should read in one pass. */
   compact?: boolean;
+  /** A `viewer` in a shared project sees the task but cannot act on it. */
+  disabled?: boolean;
+  /** Who closed it, in a shared project. Takes the action slot's place once
+   * the task is done — nobody owns an open task, but someone finished it. */
+  completedByMember?: ListMember | null;
 }
 
 /** Longer than this and the title is cut, with the rest one tap away. */
@@ -62,6 +68,8 @@ export function TaskCard({
   onEdit,
   action,
   compact = false,
+  disabled = false,
+  completedByMember = null,
 }: TaskCardProps) {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
@@ -100,6 +108,7 @@ export function TaskCard({
           <TaskCheckbox
             accessibilityLabel={task.title}
             checked={done}
+            disabled={disabled}
             onToggle={onToggle}
             testID={`task-checkbox-${task.id}`}
           />
@@ -196,7 +205,16 @@ export function TaskCard({
               listColor={listColor}
               listIcon={listIcon}
             />
-            {action == null ? null : (
+            {completedByMember != null ? (
+              <MemberChip
+                accessibilityLabel={copy.lists.completedBy(
+                  completedByMember.name,
+                )}
+                name={completedByMember.name}
+                personId={completedByMember.personId}
+                size="medium"
+              />
+            ) : action == null ? null : (
               <Action
                 accessibilityLabel={action.label}
                 disabled={action.disabled}

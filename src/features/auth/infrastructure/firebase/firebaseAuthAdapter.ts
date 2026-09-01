@@ -55,7 +55,7 @@ function toErrorKind(code: string | undefined): AuthErrorKind {
 function toDomainUser(user: User | null): AuthUser | null {
   if (user == null) return null;
 
-  return { uid: user.uid, email: user.email };
+  return { uid: user.uid, email: user.email, displayName: user.displayName };
 }
 
 async function run(operation: () => Promise<unknown>): Promise<void> {

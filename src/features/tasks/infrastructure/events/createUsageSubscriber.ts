@@ -47,6 +47,9 @@ export function createUsageSubscriber(
     bus.on('screen.opened', event => {
       reporter.screenOpened(event.screen).catch(ignore);
     }),
+    bus.on('list.shared', () => {
+      reporter.listShared().catch(ignore);
+    }),
   ];
 
   return () => unsubscribes.forEach(unsubscribe => unsubscribe());

@@ -15,6 +15,7 @@ export function createFeedbackSubscriber(
   const unsubscribes = [
     bus.on('task.completed', () => haptics.tap()),
     bus.on('trio.completed', () => haptics.celebrate()),
+    bus.on('list.shared', () => haptics.tap()),
   ];
 
   return () => unsubscribes.forEach(unsubscribe => unsubscribe());

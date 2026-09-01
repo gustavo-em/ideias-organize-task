@@ -15,6 +15,9 @@ export interface Task {
   estimatedMinutes: number | null;
   createdAtMs: number;
   completedAtMs: number | null;
+  /** uid of whoever closed it, for a shared project's task list. Null for an
+   * open task, or for one closed before the project was shared. */
+  completedBy?: string | null;
 }
 
 /**
@@ -57,12 +60,20 @@ export function isDueToday(task: Task, nowMs: number): boolean {
   );
 }
 
-export function withCompletion(task: Task, atMs: number): Task {
-  return isCompleted(task) ? task : { ...task, completedAtMs: atMs };
+export function withCompletion(
+  task: Task,
+  atMs: number,
+  completedBy: string | null = null,
+): Task {
+  return isCompleted(task)
+    ? task
+    : { ...task, completedAtMs: atMs, completedBy };
 }
 
 export function withoutCompletion(task: Task): Task {
-  return isCompleted(task) ? { ...task, completedAtMs: null } : task;
+  return isCompleted(task)
+    ? { ...task, completedAtMs: null, completedBy: null }
+    : task;
 }
 
 export function replaceTask(
@@ -142,6 +153,10 @@ export function sanitizeTasks(value: unknown): Task[] {
           : null,
       createdAtMs: sanitizeTimestamp(candidate.createdAtMs) ?? 0,
       completedAtMs: sanitizeTimestamp(candidate.completedAtMs),
+      completedBy:
+        typeof candidate.completedBy === 'string'
+          ? candidate.completedBy
+          : null,
     });
   }
 

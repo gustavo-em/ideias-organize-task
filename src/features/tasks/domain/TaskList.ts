@@ -20,11 +20,122 @@ export const projectIcons = [
 export type ProjectIcon = (typeof projectIcons)[number];
 export const DEFAULT_PROJECT_ICON: ProjectIcon = 'layers';
 
+export const listRoles = ['owner', 'editor', 'viewer'] as const;
+export type ListRole = (typeof listRoles)[number];
+
+export interface ListMember {
+  personId: string;
+  /** Short display name; initials are derived from it. */
+  name: string;
+  role: ListRole;
+  /** Invite accepted or still pending. */
+  joined: boolean;
+}
+
+export interface ListShare {
+  /** Public suffix of the link: ideias.app/p/<token>. */
+  token: string;
+  /** What whoever opens the link receives. */
+  invitedAs: Exclude<ListRole, 'owner'>;
+  members: readonly ListMember[];
+}
+
 export interface TaskList {
   id: string;
   name: string;
   color: ListColor;
   icon: ProjectIcon;
+  /** Absent means the project is only yours. */
+  share?: ListShare;
+}
+
+/** The link a person pastes into "Entrar com convite". */
+export const SHARE_LINK_HOST = 'ideias.app/p/';
+
+export function buildInviteLink(token: string): string {
+  return `${SHARE_LINK_HOST}${token}`;
+}
+
+/** Accepts a bare token or a full link and reads the token out of it. Never
+ * throws: a broken paste is `null`, for the sheet to show as an error. */
+export function parseInviteToken(input: string): string | null {
+  const trimmed = input.trim();
+  if (trimmed.length === 0) return null;
+
+  const withoutQuery = trimmed.split(/[?#]/)[0];
+  const token = withoutQuery.includes('/')
+    ? withoutQuery.split('/').filter(Boolean).pop() ?? ''
+    : withoutQuery;
+
+  return /^[a-z0-9]{4,24}$/i.test(token) ? token : null;
+}
+
+/** A project is shared once someone other than its creator is in it — a link
+ * that nobody has opened yet is not a group. */
+export function isShared(list: TaskList): boolean {
+  return list.share != null && list.share.members.length > 1;
+}
+
+/** The Caixa is one person's inbox; sharing it would not mean anything. */
+export function canShare(list: TaskList): boolean {
+  return list.id !== INBOX_LIST_ID;
+}
+
+/** Without a `share`, the local owner can do everything. With one, only
+ * `owner` and `editor` change anything. */
+export function canEdit(list: TaskList, personId: string): boolean {
+  if (list.share == null) return true;
+
+  const member = list.share.members.find(
+    candidate => candidate.personId === personId,
+  );
+
+  return (
+    member != null && (member.role === 'owner' || member.role === 'editor')
+  );
+}
+
+export function memberInitials(name: string): string {
+  const cleaned = stripAccents(name).trim();
+  if (cleaned.length === 0) return '?';
+
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  const initials =
+    parts.length >= 2
+      ? `${parts[0][0]}${parts[parts.length - 1][0]}`
+      : cleaned.slice(0, 2);
+
+  return initials.toUpperCase();
+}
+
+/** Adds a member, or replaces the one with the same id. Never mutates. */
+export function withMember(list: TaskList, member: ListMember): TaskList {
+  if (list.share == null) return list;
+
+  const exists = list.share.members.some(
+    candidate => candidate.personId === member.personId,
+  );
+  const members = exists
+    ? list.share.members.map(candidate =>
+        candidate.personId === member.personId ? member : candidate,
+      )
+    : [...list.share.members, member];
+
+  return { ...list, share: { ...list.share, members } };
+}
+
+export function withoutMember(list: TaskList, personId: string): TaskList {
+  if (list.share == null) return list;
+
+  return {
+    ...list,
+    share: {
+      ...list.share,
+      members: list.share.members.filter(
+        candidate => candidate.personId !== personId,
+      ),
+    },
+  };
 }
 
 /** Where a captured task lands when nothing said otherwise. */
@@ -123,6 +234,62 @@ export function createList(
   };
 }
 
+function sanitizeMember(value: unknown): ListMember | null {
+  if (typeof value !== 'object' || value === null) return null;
+
+  const candidate = value as Partial<Record<keyof ListMember, unknown>>;
+  const personId =
+    typeof candidate.personId === 'string' && candidate.personId.length > 0
+      ? candidate.personId
+      : null;
+  const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
+
+  if (personId == null || name.length === 0) return null;
+
+  return {
+    personId,
+    name,
+    role: listRoles.includes(candidate.role as ListRole)
+      ? (candidate.role as ListRole)
+      : 'viewer',
+    joined: candidate.joined === true,
+  };
+}
+
+/** Entry from disk is untrusted input, same rigor as the rest of the list:
+ * without a valid `token`, `invitedAs` and at least one member, the project
+ * goes back to being local rather than becoming a half-formed object. */
+function sanitizeShare(value: unknown): ListShare | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+
+  const candidate = value as Partial<Record<keyof ListShare, unknown>>;
+  const token =
+    typeof candidate.token === 'string' && candidate.token.length > 0
+      ? candidate.token
+      : null;
+  const invitedAs =
+    candidate.invitedAs === 'editor' || candidate.invitedAs === 'viewer'
+      ? candidate.invitedAs
+      : null;
+
+  if (token == null || invitedAs == null || !Array.isArray(candidate.members)) {
+    return undefined;
+  }
+
+  const seen = new Set<string>();
+  const members: ListMember[] = [];
+
+  for (const entry of candidate.members) {
+    const member = sanitizeMember(entry);
+    if (member == null || seen.has(member.personId)) continue;
+
+    seen.add(member.personId);
+    members.push(member);
+  }
+
+  return members.length === 0 ? undefined : { token, invitedAs, members };
+}
+
 export function sanitizeLists(value: unknown): TaskList[] {
   if (!Array.isArray(value)) return [...DEFAULT_LISTS];
 
@@ -151,6 +318,9 @@ export function sanitizeLists(value: unknown): TaskList[] {
         : id === INBOX_LIST_ID
         ? 'inbox'
         : DEFAULT_PROJECT_ICON,
+      // The Caixa is a single person's inbox; a `share` on it is discarded
+      // rather than sanitized, so it can never surface as shareable.
+      share: id === INBOX_LIST_ID ? undefined : sanitizeShare(candidate.share),
     });
   }
 

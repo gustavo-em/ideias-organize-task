@@ -17,4 +17,5 @@ export interface UsageReporter {
   trioCompleted(input: { streakDays: number }): Promise<void>;
   focusFinished(input: { minutes: number; reachedEnd: boolean }): Promise<void>;
   screenOpened(screen: string): Promise<void>;
+  listShared(): Promise<void>;
 }

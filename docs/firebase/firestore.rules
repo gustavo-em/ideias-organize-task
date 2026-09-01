@@ -1,0 +1,83 @@
+// Regras para o Cloud Firestore do projeto "ideiasorganizetask".
+//
+// Isto é um artefato a publicar, não código do app: nenhuma parte deste
+// ciclo pode habilitar o Cloud Firestore no console nem rodar `firebase
+// deploy` (ambos exigem credencial/acesso de dono do projeto). Publique este
+// arquivo depois de confirmar que o Firestore está habilitado.
+//
+// Modelo: um documento por projeto compartilhado, em sharedLists/{token}.
+// O token é o mesmo do link de convite — por isso a leitura por dono/membro
+// exige uid em memberIds, e o token sozinho nunca é suficiente para ler.
+//
+// `editorIds` é um campo próprio (uids com role owner ou editor), mantido
+// pelo cliente a cada escrita em members/memberIds — regra de segurança não
+// consegue buscar dentro de um array de mapas (`members`) para responder
+// "este uid é editor?", então o papel de escrita vive num array plano só de
+// ids, checável com `in`.
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /sharedLists/{token} {
+      function isMember() {
+        return request.auth != null &&
+          request.auth.uid in resource.data.memberIds;
+      }
+
+      // owner e editor podem alterar o conteúdo do projeto; viewer só lê.
+      function canEditContent() {
+        return request.auth != null &&
+          request.auth.uid in resource.data.editorIds;
+      }
+
+      function isOwner() {
+        return request.auth != null &&
+          request.auth.uid == resource.data.ownerId;
+      }
+
+      function onlyChanges(fields) {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+      }
+
+      // Conteúdo do projeto: nome, cor, símbolo e tarefas. Nunca papéis,
+      // nunca quem está no projeto.
+      function isContentUpdate() {
+        return canEditContent() &&
+          onlyChanges(['name', 'color', 'icon', 'tasks', 'updatedAtMs']);
+      }
+
+      // Criar link, revogar, mudar papel de convite e remover membro:
+      // "owner cria/revoga link, muda papel, remove membro" — só o dono.
+      function isMembershipUpdate() {
+        return isOwner() &&
+          onlyChanges(['members', 'memberIds', 'editorIds', 'invitedAs']);
+      }
+
+      // Entrar é a única escrita permitida a quem ainda não é membro, e só
+      // pode adicionar o próprio uid — nunca remover ou trocar quem já está,
+      // e o único uid que `editorIds` pode ganhar aqui é o de quem está
+      // entrando (nunca promove outra pessoa).
+      function isJoining() {
+        return request.auth != null &&
+          !(request.auth.uid in resource.data.memberIds) &&
+          request.auth.uid in request.resource.data.memberIds &&
+          onlyChanges(['members', 'memberIds', 'editorIds']) &&
+          request.resource.data.memberIds.size() ==
+            resource.data.memberIds.size() + 1 &&
+          request.resource.data.memberIds.hasAll(resource.data.memberIds) &&
+          request.resource.data.editorIds.hasAll(resource.data.editorIds) &&
+          request.resource.data.editorIds
+            .removeAll(resource.data.editorIds)
+            .hasOnly([request.auth.uid]);
+      }
+
+      allow get: if isMember();
+      allow list: if false; // nunca por consulta — só pelo token do link.
+      allow create: if request.auth != null &&
+        request.auth.uid in request.resource.data.memberIds &&
+        request.auth.uid == request.resource.data.ownerId;
+      allow update: if isContentUpdate() || isMembershipUpdate() || isJoining();
+      allow delete: if isOwner();
+    }
+  }
+}

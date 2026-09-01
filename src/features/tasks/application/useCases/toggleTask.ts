@@ -27,6 +27,8 @@ export function toggleTask(
   workspace: Workspace,
   taskId: string,
   nowMs: number,
+  /** uid of whoever is closing it, so a shared project can show who did. */
+  completedBy: string | null = null,
 ): UseCaseResult {
   const task = findTask(workspace.tasks, taskId);
 
@@ -47,7 +49,7 @@ export function toggleTask(
     };
     events.push({ type: 'task.reopened', at: nowMs, task: reopened, weight });
   } else {
-    const completed = withCompletion(task, nowMs);
+    const completed = withCompletion(task, nowMs, completedBy);
     const tasks = replaceTask(workspace.tasks, completed);
     const levelBefore = getLevel(workspace.progress.points);
     let progress = recordCompletion(workspace.progress, weight, nowMs);

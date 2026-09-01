@@ -83,6 +83,7 @@ export interface TaskCopy {
     addFirstTask: string;
     addTask: string;
     rename: string;
+    moreActions: (name: string) => string;
     delete: string;
     deleteConfirm: (name: string) => string;
     deleteDetail: string;
@@ -94,6 +95,45 @@ export interface TaskCopy {
     done: string;
     colors: Record<ListColor, string>;
     icons: Record<ProjectIcon, string>;
+    // Sharing a project with friends — see docs/design/ui-projeto-compartilhado.md.
+    share: string;
+    shareHint: string;
+    createLink: string;
+    copyLink: string;
+    copyLinkAccessible: string;
+    linkCopied: string;
+    invite: string;
+    invitedAsLabel: string;
+    roleViewer: string;
+    roleEditor: string;
+    roleOwner: string;
+    roleChangeNote: string;
+    membersHeader: string;
+    pendingInvite: string;
+    removeMemberLabel: string;
+    removeMember: (name: string) => string;
+    removeMemberConfirm: (name: string) => string;
+    stopSharing: string;
+    stopSharingConfirm: string;
+    sharedWith: (count: number) => string;
+    joinInvite: string;
+    joinInviteTitle: string;
+    joinInviteHint: string;
+    joinInvitePlaceholder: string;
+    pasteFromClipboard: string;
+    join: string;
+    joining: string;
+    invalidInvite: string;
+    tryAgain: string;
+    noNetwork: string;
+    leaveProject: string;
+    leaveProjectConfirm: (name: string) => string;
+    deleteSharedDetail: string;
+    completedBy: (name: string) => string;
+    groupEmpty: string;
+    groupEmptyInvite: string;
+    groupAllDone: string;
+    viewerCannotAdd: string;
   };
   focus: {
     title: string;
@@ -236,6 +276,7 @@ const ptBR: TaskCopy = {
     addFirstTask: 'Adicionar primeira tarefa',
     addTask: 'Adicionar tarefa',
     rename: 'Renomear',
+    moreActions: name => `Mais ações: ${name}`,
     delete: 'Excluir',
     deleteConfirm: name => `Excluir “${name}”?`,
     deleteDetail: 'As tarefas serão movidas para Caixa; nada será apagado.',
@@ -266,6 +307,47 @@ const ptBR: TaskCopy = {
       calendar: 'Eventos',
       inbox: 'Caixa',
     },
+    share: 'Compartilhar',
+    shareHint: 'Quem abrir o link entra no projeto.',
+    createLink: 'Criar link',
+    copyLink: 'Copiar',
+    copyLinkAccessible: 'Copiar link do projeto',
+    linkCopied: 'Link copiado',
+    invite: 'Convidar',
+    invitedAsLabel: 'Quem entrar pode',
+    roleViewer: 'Ver',
+    roleEditor: 'Editar',
+    roleOwner: 'dono',
+    roleChangeNote: 'Vale para quem entrar depois, não para quem já entrou.',
+    membersHeader: 'No projeto',
+    pendingInvite: 'convite pendente',
+    removeMemberLabel: 'Remover',
+    removeMember: name => `Remover ${name} do projeto`,
+    removeMemberConfirm: name => `Remover ${name} do projeto?`,
+    stopSharing: 'Parar de compartilhar',
+    stopSharingConfirm:
+      'Ninguém mais vai poder entrar; quem já está sai também.',
+    sharedWith: count => (count === 1 ? '1 pessoa' : `${count} pessoas`),
+    joinInvite: 'Entrar com convite',
+    joinInviteTitle: 'Entrar em um projeto',
+    joinInviteHint: 'Cole o link que alguém te mandou.',
+    joinInvitePlaceholder: 'Link do convite',
+    pasteFromClipboard: 'Colar',
+    join: 'Entrar',
+    joining: 'Entrando…',
+    invalidInvite: 'Esse convite não é válido. Confira o link e tente de novo.',
+    tryAgain: 'Tentar de novo',
+    noNetwork: 'Sem conexão agora. Verifique a internet e tente de novo.',
+    leaveProject: 'Sair do projeto',
+    leaveProjectConfirm: name =>
+      `Sair de “${name}”? Você deixa de ver as tarefas dele.`,
+    deleteSharedDetail:
+      'Isso apaga o projeto para todo mundo, não só para você. Ninguém recupera as tarefas depois.',
+    completedBy: name => `Concluída por ${name}`,
+    groupEmpty: 'Nenhuma tarefa neste projeto ainda.',
+    groupEmptyInvite: 'Convide alguém e comecem juntos.',
+    groupAllDone: 'Tudo feito por aqui.',
+    viewerCannotAdd: 'Você só pode ver este projeto.',
   },
   focus: {
     title: 'Foco',
@@ -428,6 +510,7 @@ const enUS: TaskCopy = {
     addFirstTask: 'Add first task',
     addTask: 'Add task',
     rename: 'Rename',
+    moreActions: name => `More actions: ${name}`,
     delete: 'Delete',
     deleteConfirm: name => `Delete “${name}”?`,
     deleteDetail: 'Its tasks will move to Inbox; nothing will be deleted.',
@@ -458,6 +541,46 @@ const enUS: TaskCopy = {
       calendar: 'Events',
       inbox: 'Inbox',
     },
+    share: 'Share',
+    shareHint: 'Whoever opens the link joins the project.',
+    createLink: 'Create link',
+    copyLink: 'Copy',
+    copyLinkAccessible: 'Copy the project link',
+    linkCopied: 'Link copied',
+    invite: 'Invite',
+    invitedAsLabel: 'Whoever joins can',
+    roleViewer: 'View',
+    roleEditor: 'Edit',
+    roleOwner: 'owner',
+    roleChangeNote: 'Applies to whoever joins next, not to who is already in.',
+    membersHeader: 'In the project',
+    pendingInvite: 'invite pending',
+    removeMemberLabel: 'Remove',
+    removeMember: name => `Remove ${name} from the project`,
+    removeMemberConfirm: name => `Remove ${name} from the project?`,
+    stopSharing: 'Stop sharing',
+    stopSharingConfirm:
+      'Nobody else can join; whoever is already in leaves too.',
+    sharedWith: count => (count === 1 ? '1 person' : `${count} people`),
+    joinInvite: 'Join with invite',
+    joinInviteTitle: 'Join a project',
+    joinInviteHint: 'Paste the link someone sent you.',
+    joinInvitePlaceholder: 'Invite link',
+    pasteFromClipboard: 'Paste',
+    join: 'Join',
+    joining: 'Joining…',
+    invalidInvite: "That invite isn't valid. Check the link and try again.",
+    tryAgain: 'Try again',
+    noNetwork: 'No connection right now. Check the internet and try again.',
+    leaveProject: 'Leave project',
+    leaveProjectConfirm: name => `Leave “${name}”? You stop seeing its tasks.`,
+    deleteSharedDetail:
+      'This deletes the project for everyone, not just you. Nobody gets the tasks back after.',
+    completedBy: name => `Completed by ${name}`,
+    groupEmpty: 'No tasks in this project yet.',
+    groupEmptyInvite: 'Invite someone and start together.',
+    groupAllDone: 'All done here.',
+    viewerCannotAdd: 'You can only view this project.',
   },
   focus: {
     title: 'Focus',
