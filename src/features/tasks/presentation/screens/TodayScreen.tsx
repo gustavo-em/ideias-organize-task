@@ -52,7 +52,7 @@ import { PressableScale } from '../views/PressableScale';
 import { QuickCaptureSheet } from '../views/QuickCaptureSheet';
 import { ScreenHeader } from '../views/ScreenHeader';
 import { SectionHeader } from '../views/SectionHeader';
-import { TaskRow } from '../views/TaskRow';
+import { TaskRow, type FocusRowState } from '../views/TaskRow';
 
 interface TodayScreenProps {
   copy: TaskCopy;
@@ -62,6 +62,14 @@ interface TodayScreenProps {
    * anything starts. The intent crosses screens, so it is owned by the
    * composition root rather than by this one. */
   onChooseFocusDuration?: (task: Task) => void;
+  /** The block that is running, if any: the row it belongs to leads to the
+   * session instead of to the edit sheet. */
+  focus?: {
+    taskId: string;
+    label: string;
+    phase: 'running' | 'paused' | 'finished';
+    onOpen: () => void;
+  } | null;
 }
 
 /**
@@ -73,6 +81,7 @@ export function TodayScreen({
   language,
   viewModel,
   onChooseFocusDuration,
+  focus = null,
 }: TodayScreenProps) {
   const theme = useTheme();
   useRenderCount('TodayScreen');
@@ -125,6 +134,16 @@ export function TodayScreen({
   const toggleTask = useCallback(
     (taskId: string) => viewModel.toggle(taskId),
     [viewModel],
+  );
+
+  // One object per change of the block, not one per row: the rows are memoized
+  // and a fresh object on every render would redraw the whole day each second.
+  const focusRow = useMemo<FocusRowState | null>(
+    () =>
+      focus == null
+        ? null
+        : { label: focus.label, phase: focus.phase, onOpen: focus.onOpen },
+    [focus],
   );
 
   const changeGrouping = useCallback(
@@ -307,9 +326,18 @@ export function TodayScreen({
         {isDeadlineLens && !isFullyEmpty && agoraSection != null ? (
           <AgoraCard
             copy={copy}
+            focus={
+              focus?.taskId === agoraSection.tasks[0]?.id && focusRow != null
+                ? focusRow
+                : undefined
+            }
             listOf={listInfoOf}
             nowMs={viewModel.nowMs}
-            onChooseDuration={task => onChooseFocusDuration?.(task)}
+            /* One block at a time, here too: with a block running, the band's
+               time action would open the session of another task. */
+            onChooseDuration={
+              focus != null ? undefined : task => onChooseFocusDuration?.(task)
+            }
             onShowRest={() =>
               scrollRef.current?.scrollTo({
                 y: Math.max(0, todayRestTop.current - theme.spacing.medium),
@@ -368,6 +396,11 @@ export function TodayScreen({
                 ? section.tasks.map((task, index) => (
                     <HomeTaskRow
                       copy={copy}
+                      focus={
+                        focus?.taskId === task.id && focusRow != null
+                          ? focusRow
+                          : undefined
+                      }
                       index={index}
                       key={task.id}
                       lens={grouping}
@@ -428,6 +461,17 @@ export function TodayScreen({
             setEditing(null);
             setDeleting(subject);
           }}
+          /* One block at a time: while one is running, the sheet of another
+             task does not offer to start a second one. */
+          onFocus={
+            onChooseFocusDuration == null || focus != null
+              ? undefined
+              : () => {
+                  const subject = editing;
+                  setEditing(null);
+                  onChooseFocusDuration(subject);
+                }
+          }
           onSubmit={(typed, overrides) => {
             viewModel.edit(editing.id, { title: typed, ...overrides });
             setEditing(null);
@@ -469,6 +513,7 @@ interface HomeTaskRowProps {
   task: Task;
   onEditTask: (task: Task) => void;
   onToggleTask: (taskId: string) => void;
+  focus?: FocusRowState;
 }
 
 /**
@@ -490,6 +535,7 @@ const HomeTaskRow = memo(function HomeTaskRowView({
   task,
   onEditTask,
   onToggleTask,
+  focus,
 }: HomeTaskRowProps) {
   const handleEdit = useCallback(() => onEditTask(task), [onEditTask, task]);
   const handleToggle = useCallback(
@@ -500,6 +546,7 @@ const HomeTaskRow = memo(function HomeTaskRowView({
   return (
     <TaskRow
       copy={copy}
+      focus={focus}
       index={index}
       lens={lens}
       listColor={listColor}

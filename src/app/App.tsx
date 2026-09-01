@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import styled, { ThemeProvider } from 'styled-components/native';
@@ -8,7 +8,7 @@ import type {
   TaskEvent,
   TaskEventBus,
 } from '../features/tasks/domain/TaskEvent';
-import type { Task } from '../features/tasks/domain/Task';
+import { isCompleted, type Task } from '../features/tasks/domain/Task';
 import { AuthGate } from '../features/auth/presentation/AuthGate';
 import { getAuthCopy } from '../features/auth/presentation/localization/authCopy';
 import { useAuthViewModel } from '../features/auth/presentation/view-models/useAuthViewModel';
@@ -39,11 +39,11 @@ import { useFocusViewModel } from '../features/tasks/presentation/view-models/us
 import { useTasksViewModel } from '../features/tasks/presentation/view-models/useTasksViewModel';
 import { TabBar } from '../features/tasks/presentation/views/TabBar';
 import {
-  FocusGlyph,
   ListsGlyph,
   TodayGlyph,
   YouGlyph,
 } from '../features/tasks/presentation/views/TabGlyphs';
+import { FocusOverlay } from '../features/tasks/presentation/views/FocusOverlay';
 import { TrioCelebration } from '../features/tasks/presentation/views/TrioCelebration';
 import { AppSplash } from './components/AppSplash';
 import { OnboardingScreen } from './components/OnboardingScreen';
@@ -132,21 +132,67 @@ function AppContent({
   const focus = useFocusViewModel({ bus, clock: systemClock });
 
   const [durationTask, setDurationTask] = useState<Task | null>(null);
+  const [isFocusOpen, setIsFocusOpen] = useState(false);
 
   /**
    * Going from the list to a focus block.
    *
-   * It lives here because it crosses two screens: the tab switch belongs to
-   * the shell and the session belongs to the focus view model, so neither
-   * screen can own it without reaching into the other. Nothing starts on this
-   * side — the length is the first question on the other one.
+   * It lives here because it crosses two screens: the layer belongs to the
+   * shell and the session belongs to the focus view model, so neither screen
+   * can own it without reaching into the other. Nothing starts on this side —
+   * the length is the first question on the other one.
    */
-  const chooseFocusDurationFor = useCallback(
-    (task: Task) => {
-      setDurationTask(task);
-      app.selectTab('focus');
-    },
-    [app],
+  const chooseFocusDurationFor = useCallback((task: Task) => {
+    setDurationTask(task);
+    setIsFocusOpen(true);
+  }, []);
+
+  const closeFocus = useCallback(() => {
+    setIsFocusOpen(false);
+    setDurationTask(null);
+  }, []);
+
+  const focusSession = focus.session;
+  const focusedTask = tasks.tasks.find(
+    entry => entry.id === focusSession?.taskId,
+  );
+  const hadSession = useRef(false);
+
+  // A block that ends anywhere — the stop button, the complete button — sends
+  // the person back to the list. Closing the layer never does the reverse.
+  useEffect(() => {
+    if (focusSession != null) {
+      hadSession.current = true;
+      return;
+    }
+
+    if (!hadSession.current) return;
+
+    hadSession.current = false;
+    setIsFocusOpen(false);
+    setDurationTask(null);
+  }, [focusSession]);
+
+  // Ticking the box in the list is still the natural way to finish a task, so
+  // it cannot leave a block running on something already done.
+  useEffect(() => {
+    if (focusSession == null || focusedTask == null) return;
+    if (!isCompleted(focusedTask)) return;
+
+    focus.stop();
+  }, [focus, focusSession, focusedTask]);
+
+  const focusRow = useMemo(
+    () =>
+      focusSession == null
+        ? null
+        : {
+            taskId: focusSession.taskId,
+            label: focus.label,
+            phase: focusSession.phase,
+            onOpen: () => setIsFocusOpen(true),
+          },
+    [focus.label, focusSession],
   );
 
   useEffect(() => {
@@ -159,6 +205,7 @@ function AppContent({
         {app.activeTab === 'today' ? (
           <TodayScreen
             copy={app.copy}
+            focus={focusRow}
             language={app.language}
             onChooseFocusDuration={chooseFocusDurationFor}
             viewModel={tasks}
@@ -170,15 +217,6 @@ function AppContent({
             copy={app.copy}
             language={app.language}
             ownProfile={profile.profile}
-            viewModel={tasks}
-          />
-        ) : null}
-
-        {app.activeTab === 'focus' ? (
-          <FocusScreen
-            copy={app.copy}
-            focus={focus}
-            openDurationFor={durationTask}
             viewModel={tasks}
           />
         ) : null}
@@ -217,12 +255,29 @@ function AppContent({
           items={[
             { id: 'today', label: app.copy.tabs.today, Glyph: TodayGlyph },
             { id: 'lists', label: app.copy.tabs.lists, Glyph: ListsGlyph },
-            { id: 'focus', label: app.copy.tabs.focus, Glyph: FocusGlyph },
             { id: 'you', label: app.copy.tabs.you, Glyph: YouGlyph },
           ]}
           onSelect={app.selectTab}
         />
       </BottomSafe>
+
+      {/* The session covers the list and the tab bar whole: a block is not one
+          destination among others, it is the only thing on screen while it is
+          open. */}
+      {isFocusOpen ? (
+        <FocusOverlay
+          label={app.copy.focus.close}
+          onClose={closeFocus}
+          onSessionGround={focusSession != null}
+        >
+          <FocusScreen
+            copy={app.copy}
+            focus={focus}
+            openDurationFor={durationTask}
+            viewModel={tasks}
+          />
+        </FocusOverlay>
+      ) : null}
 
       {tasks.celebratingStreak == null ? null : (
         <TrioCelebration

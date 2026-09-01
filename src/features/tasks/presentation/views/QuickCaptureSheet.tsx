@@ -16,6 +16,7 @@ import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
 import { CalendarPanel } from './CalendarPanel';
 import {
   CalendarGlyph,
+  PlayGlyph,
   PriorityGlyph,
   ProjectGlyph,
   TagGlyph,
@@ -64,6 +65,9 @@ interface QuickCaptureSheetProps {
   /** Deleting lives here because the row no longer carries a trash: it is the
    * sheet a tap already opens, and the screen still confirms. */
   onDelete?: () => void;
+  /** Starts a focus block on the task being edited. Absent while another
+   * block is running, so a second one can never be opened by mistake. */
+  onFocus?: () => void;
   onSubmit: (
     typed: string,
     overrides: CaptureOverrides,
@@ -89,6 +93,7 @@ export function QuickCaptureSheet({
   nowMs,
   initialListId,
   editing,
+  onFocus,
   onCancel,
   onDelete,
   onSubmit,
@@ -417,6 +422,20 @@ export function QuickCaptureSheet({
               </Delete>
             ) : null}
 
+            {isEditing && onFocus != null ? (
+              <FocusAction
+                accessibilityLabel={copy.focus.action}
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={onFocus}
+                scaleTo={0.94}
+                testID="sheet-focus"
+              >
+                <PlayGlyph color={theme.colors.accentInk} size={14} />
+                <FocusActionLabel>{copy.focus.action}</FocusActionLabel>
+              </FocusAction>
+            ) : null}
+
             <SheetActionsSpacer />
             <SheetPrimaryButton
               disabled={!canSave}
@@ -667,6 +686,24 @@ const NewListUseText = styled.Text.attrs(buttonTextAttrs)`
 `;
 
 /** The one destructive control in the sheet, and the only red in it. */
+/* Quiet next to Save: starting a block is a second way out of the sheet, not
+   the thing the sheet exists for. */
+const FocusAction = styled(PressableScale)`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.tiny + 2}px;
+  min-height: 48px;
+  padding: 0px ${({ theme }) => theme.spacing.medium - 2}px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+`;
+
+const FocusActionLabel = styled.Text.attrs(buttonTextAttrs)`
+  color: ${({ theme }) => theme.colors.accentInk};
+  ${({ theme }) => buttonTextMetrics(theme.type.label)}
+  font-weight: 700;
+`;
+
 const Delete = styled(PressableScale)`
   width: 48px;
   height: 48px;

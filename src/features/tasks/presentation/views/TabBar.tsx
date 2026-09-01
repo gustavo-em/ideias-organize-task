@@ -28,9 +28,9 @@ interface TabBarProps<Id extends string> {
 }
 
 /**
- * Four destinations and no more.
+ * Three destinations and no more.
  *
- * The mark under the active tab is one element that slides, not four that fade:
+ * The mark under the active tab is one element that slides, not three that fade:
  * a single moving mark is what makes the bar read as one control rather than
  * as a row of buttons taking turns lighting up.
  */
