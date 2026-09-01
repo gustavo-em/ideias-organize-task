@@ -644,9 +644,12 @@ const GroupingButton = styled(PressableScale)<{ $selected: boolean }>`
   gap: ${({ theme }) => theme.spacing.tiny + 2}px;
   min-height: 48px;
   padding: 0px 10px;
-  border: 1px solid
-    ${({ theme, $selected }) =>
-      $selected ? theme.colors.accent : theme.colors.border};
+  /* The selected chip is read by its shape — a thicker accent ring — so the
+     state does not depend on a pale fill alone. */
+  border-width: ${({ $selected }) => ($selected ? 1.5 : 1)}px;
+  border-style: solid;
+  border-color: ${({ theme, $selected }) =>
+    $selected ? theme.colors.accent : theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.pill}px;
   background-color: ${({ theme, $selected }) =>
     $selected ? theme.colors.cardElevated : theme.colors.card};
@@ -668,7 +671,7 @@ const GroupingButtonText = styled.Text.attrs(buttonTextAttrs)<{
   color: ${({ theme, $selected }) =>
     $selected ? theme.colors.accentInk : theme.colors.mutedStrong};
   ${({ theme }) => buttonTextMetrics(theme.type.caption + 1)}
-  font-weight: 800;
+  font-weight: ${({ $selected }) => ($selected ? 600 : 800)};
 `;
 
 const Section = styled(Animated.View)`
