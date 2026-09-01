@@ -28,6 +28,9 @@ interface MemberChipProps {
   /** Inside an accent band: the tonal fill would disappear in the yellow, so
    * the chip inverts — ink ground, yellow letter. */
   inverted?: boolean;
+  /** Overrides the letters derived from the name. Set where the row is not a
+   * name — the logged-in person reads as "Você", and the ficha as VC. */
+  initials?: string;
   /** Set only where this one chip carries its own meaning — a task's
    * finisher, say. Left unset, the chip stays silent for a screen reader,
    * which is right inside a `MemberStack` that already announced itself. */
@@ -54,6 +57,7 @@ export function MemberChip({
   stacked = false,
   pending = false,
   inverted = false,
+  initials,
   accessibilityLabel,
 }: MemberChipProps) {
   const theme = useTheme();
@@ -85,7 +89,7 @@ export function MemberChip({
       }
     >
       {size !== 'small' ? (
-        <Letter $color={letter}>{memberInitials(name)}</Letter>
+        <Letter $color={letter}>{initials ?? memberInitials(name)}</Letter>
       ) : null}
     </Chip>
   );

@@ -199,9 +199,22 @@ export function ShareSheet({
                       accessibilityState={{ selected: invitedAs === 'viewer' }}
                       onPress={() => handleChangeInvitedAs('viewer')}
                     >
-                      <RoleButtonText $selected={invitedAs === 'viewer'}>
-                        {copy.lists.roleViewer}
-                      </RoleButtonText>
+                      <RoleContent>
+                        {invitedAs === 'viewer' ? (
+                          <RoleCheck>
+                            <CheckGlyph
+                              color={theme.colors.accentInk}
+                              size={14}
+                            />
+                          </RoleCheck>
+                        ) : null}
+                        <RoleButtonText
+                          $selected={invitedAs === 'viewer'}
+                          numberOfLines={1}
+                        >
+                          {copy.lists.roleViewer}
+                        </RoleButtonText>
+                      </RoleContent>
                     </RoleButton>
                     <RoleButton
                       $selected={invitedAs === 'editor'}
@@ -210,12 +223,22 @@ export function ShareSheet({
                       accessibilityState={{ selected: invitedAs === 'editor' }}
                       onPress={() => handleChangeInvitedAs('editor')}
                     >
-                      {invitedAs === 'editor' ? (
-                        <CheckGlyph color={theme.colors.accentInk} size={14} />
-                      ) : null}
-                      <RoleButtonText $selected={invitedAs === 'editor'}>
-                        {copy.lists.roleEditor}
-                      </RoleButtonText>
+                      <RoleContent>
+                        {invitedAs === 'editor' ? (
+                          <RoleCheck>
+                            <CheckGlyph
+                              color={theme.colors.accentInk}
+                              size={14}
+                            />
+                          </RoleCheck>
+                        ) : null}
+                        <RoleButtonText
+                          $selected={invitedAs === 'editor'}
+                          numberOfLines={1}
+                        >
+                          {copy.lists.roleEditor}
+                        </RoleButtonText>
+                      </RoleContent>
                     </RoleButton>
                   </RoleRow>
                   <Note>{copy.lists.roleChangeNote}</Note>
@@ -225,49 +248,61 @@ export function ShareSheet({
               <SectionLabel>{`${copy.lists.membersHeader.toUpperCase()} · ${
                 members.length
               }`}</SectionLabel>
-              {members.map((member, index) => (
-                <MemberRow
-                  entering={FadeInDown.delay(index * STAGGER_MS).duration(280)}
-                  key={member.personId}
-                  $last={index === members.length - 1}
-                >
-                  <MemberChip
-                    name={member.name}
-                    personId={member.personId}
-                    pending={!member.joined}
-                    size="large"
-                  />
-                  <MemberInfo>
-                    <MemberName>{member.name}</MemberName>
-                    {member.joined ? null : (
-                      <MemberSub>{copy.lists.pendingInvite}</MemberSub>
+              {members.map((member, index) => {
+                // Nobody reads their own e-mail to find out who they are: the
+                // logged-in person is "Você" in their own list of members.
+                const isMe = member.personId === personId;
+                const displayName = isMe ? copy.lists.memberYou : member.name;
+
+                return (
+                  <MemberRow
+                    entering={FadeInDown.delay(index * STAGGER_MS).duration(
+                      280,
                     )}
-                  </MemberInfo>
-                  {member.role === 'owner' ? (
-                    <RoleTag>{copy.lists.roleOwner}</RoleTag>
-                  ) : (
-                    <RoleTag>
-                      {member.role === 'editor'
-                        ? copy.lists.roleEditor
-                        : copy.lists.roleViewer}
-                    </RoleTag>
-                  )}
-                  {isOwner && member.personId !== personId ? (
-                    <RemoveButton
-                      accessibilityLabel={copy.lists.removeMember(member.name)}
-                      hitSlop={14}
-                      onPress={() =>
-                        setConfirmingRemove({
-                          personId: member.personId,
-                          name: member.name,
-                        })
-                      }
-                    >
-                      <RemoveText>{copy.lists.removeMemberLabel}</RemoveText>
-                    </RemoveButton>
-                  ) : null}
-                </MemberRow>
-              ))}
+                    key={member.personId}
+                    $last={index === members.length - 1}
+                  >
+                    <MemberChip
+                      initials={isMe ? copy.lists.memberYouInitials : undefined}
+                      name={displayName}
+                      personId={member.personId}
+                      pending={!member.joined}
+                      size="large"
+                    />
+                    <MemberInfo>
+                      <MemberName>{displayName}</MemberName>
+                      {member.joined ? null : (
+                        <MemberSub>{copy.lists.pendingInvite}</MemberSub>
+                      )}
+                    </MemberInfo>
+                    {member.role === 'owner' ? (
+                      <RoleTag>{copy.lists.roleOwner}</RoleTag>
+                    ) : (
+                      <RoleTag>
+                        {member.role === 'editor'
+                          ? copy.lists.roleEditor
+                          : copy.lists.roleViewer}
+                      </RoleTag>
+                    )}
+                    {isOwner && !isMe ? (
+                      <RemoveButton
+                        accessibilityLabel={copy.lists.removeMember(
+                          member.name,
+                        )}
+                        hitSlop={14}
+                        onPress={() =>
+                          setConfirmingRemove({
+                            personId: member.personId,
+                            name: member.name,
+                          })
+                        }
+                      >
+                        <RemoveText>{copy.lists.removeMemberLabel}</RemoveText>
+                      </RemoveButton>
+                    ) : null}
+                  </MemberRow>
+                );
+              })}
             </>
           )}
 
@@ -463,7 +498,29 @@ const RoleButton = styled(PressableScale)<{ $selected: boolean }>`
     $selected ? theme.colors.cardElevated : theme.colors.card};
 `;
 
+/** `PressableScale` hands the style to the `Pressable` and keeps the children
+ * inside an `Animated.View` of its own, so the row has to be declared here:
+ * on the pill itself it would only lay out that single wrapper. */
+const RoleContent = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: ${({ theme }) => theme.spacing.tiny + 2}px;
+  min-height: 48px;
+`;
+
+/** The check keeps its own square so the pill never wraps the word to a
+ * second line: a role reads on one line or it is not a pill. */
+const RoleCheck = styled.View`
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+`;
+
 const RoleButtonText = styled.Text<{ $selected: boolean }>`
+  flex-shrink: 0;
   color: ${({ theme, $selected }) =>
     $selected ? theme.colors.accentInk : theme.colors.mutedStrong};
   font-size: ${({ theme }) => theme.type.caption + 1}px;

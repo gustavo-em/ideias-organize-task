@@ -135,7 +135,7 @@ const Band = styled(Animated.View)`
   margin: ${({ theme }) => theme.spacing.medium}px -${({ theme }) =>
       theme.spacing.large}px 0px -${({ theme }) =>
       theme.spacing.large + theme.spacing.small}px;
-  padding: ${({ theme }) => theme.spacing.medium}px
+  padding: ${({ theme }) => theme.spacing.large - 4}px
     ${({ theme }) => theme.spacing.large}px;
 `;
 
