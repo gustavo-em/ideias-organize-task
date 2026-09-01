@@ -12,6 +12,7 @@ import { rowFact } from '../models/rowFact';
 import { projectTone } from '../models/projectAppearance';
 import { describeTask, taskFacts } from '../models/taskMeta';
 import { ProjectGlyph } from './FieldGlyphs';
+import { FocusDot, focusStatusText, minutesLeft } from './FocusDot';
 import { PressableScale } from './PressableScale';
 import { TaskCheckbox } from './TaskCheckbox';
 
@@ -28,6 +29,16 @@ interface TaskRowProps {
   sectionId: string;
   onToggle: () => void;
   onEdit?: () => void;
+  /** Present only on the task a focus block is running on. The row then leads
+   * to the session instead of to the edit sheet. */
+  focus?: FocusRowState;
+}
+
+export interface FocusRowState {
+  /** mm:ss, already counted by the focus view model. */
+  label: string;
+  phase: 'running' | 'paused' | 'finished';
+  onOpen: () => void;
 }
 
 /**
@@ -56,6 +67,7 @@ export function TaskRow({
   sectionId,
   onToggle,
   onEdit,
+  focus,
 }: TaskRowProps) {
   useRenderCount('TaskRow');
   const theme = useTheme();
@@ -85,10 +97,22 @@ export function TaskRow({
       />
 
       <Main
-        accessibilityLabel={`${task.title}. ${describeTask(facts)}`}
+        accessibilityHint={focus == null ? undefined : copy.focus.openSession}
+        accessibilityLabel={
+          focus == null
+            ? `${task.title}. ${describeTask(facts)}`
+            : `${task.title}. ${focusStatusText(focus.phase, copy)}.`
+        }
         accessibilityRole="button"
-        disabled={onEdit == null}
-        onPress={onEdit}
+        /* The clock is a value, not a name: a label that changes every second
+           makes a screen reader re-read the whole row every second. */
+        accessibilityValue={
+          focus == null
+            ? undefined
+            : { text: copy.capture.minutes(minutesLeft(focus.label)) }
+        }
+        disabled={focus == null && onEdit == null}
+        onPress={focus == null ? onEdit : focus.onOpen}
         scaleTo={0.99}
         testID={`task-${task.id}`}
       >
@@ -105,6 +129,13 @@ export function TaskRow({
         <Earned testID={`task-earned-${task.id}`}>
           {copy.today.earned(taskWeight(task))}
         </Earned>
+      ) : focus != null ? (
+        <FocusPill
+          copy={copy}
+          label={focus.label}
+          phase={focus.phase}
+          testID={`task-focus-${task.id}`}
+        />
       ) : fact == null ? null : (
         <Fact>
           {fact.project?.icon == null || fact.project.color == null ? null : (
@@ -120,6 +151,29 @@ export function TaskRow({
         </Fact>
       )}
     </Row>
+  );
+}
+
+/** The block, shown where the fact used to be. */
+function FocusPill({
+  copy,
+  label,
+  phase,
+  testID,
+}: {
+  copy: TaskCopy;
+  label: string;
+  phase: FocusRowState['phase'];
+  testID: string;
+}) {
+  return (
+    <Pill pointerEvents="none" testID={testID}>
+      <FocusDot phase={phase} />
+      {phase === 'running' ? null : (
+        <PillStatus>{focusStatusText(phase, copy)}</PillStatus>
+      )}
+      <PillTime $done={phase === 'finished'}>{label}</PillTime>
+    </Pill>
   );
 }
 
@@ -170,6 +224,33 @@ const FactText = styled.Text<{
     $tone === 'danger' ? theme.colors.text : theme.colors.mutedStrong};
   font-size: ${({ theme }) => theme.type.caption + 0.5}px;
   font-weight: ${({ $weight }) => $weight};
+`;
+
+/* A chip, not a card: no border and no shadow, so the list keeps its air. */
+const Pill = styled.View`
+  flex-shrink: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  background-color: ${({ theme }) => theme.colors.cardElevated};
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  padding: 4px 10px;
+`;
+
+const PillStatus = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 600;
+`;
+
+/* Tabular figures: a clock that changes width every second reads as a glitch. */
+const PillTime = styled.Text.attrs({
+  style: { fontVariant: ['tabular-nums' as const] },
+})<{ $done: boolean }>`
+  color: ${({ theme, $done }) =>
+    $done ? theme.colors.successInk : theme.colors.accentInk};
+  font-size: ${({ theme }) => theme.type.caption + 0.5}px;
+  font-weight: 800;
 `;
 
 /**

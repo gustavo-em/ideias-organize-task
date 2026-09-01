@@ -56,6 +56,9 @@ interface PressableScaleProps {
   disabled?: boolean;
   accessibilityLabel?: string;
   accessibilityHint?: string;
+  /** A reading that changes on its own — a clock, a count — kept out of the
+   * label so a screen reader does not re-read the whole control each tick. */
+  accessibilityValue?: { text?: string };
   accessibilityRole?: AccessibilityRole;
   accessibilityState?: {
     selected?: boolean;
@@ -92,6 +95,7 @@ export function PressableScale({
   disabled = false,
   accessibilityLabel,
   accessibilityHint,
+  accessibilityValue,
   accessibilityRole = 'button',
   accessibilityState,
   style,
@@ -126,6 +130,7 @@ export function PressableScale({
     <Pressable
       accessible
       accessibilityHint={accessibilityHint}
+      accessibilityValue={accessibilityValue}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
       accessibilityState={accessibilityState}

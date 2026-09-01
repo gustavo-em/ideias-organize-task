@@ -3,7 +3,7 @@ export const appLanguages = ['pt-BR', 'en-US'] as const;
 export type AppLanguage = (typeof appLanguages)[number];
 
 export interface TaskCopy {
-  tabs: { today: string; lists: string; focus: string; you: string };
+  tabs: { today: string; lists: string; you: string };
   today: {
     title: string;
     taskCount: (count: number) => string;
@@ -177,6 +177,13 @@ export interface TaskCopy {
     start: string;
     cancel: string;
     newFocus: string;
+    /** Starts a block from the task itself, in the edit sheet. */
+    action: string;
+    /** Leaves the immersive session without stopping it. */
+    close: string;
+    rowPaused: string;
+    rowDone: string;
+    openSession: string;
   };
   progress: {
     title: string;
@@ -228,7 +235,7 @@ export interface TaskCopy {
 }
 
 const ptBR: TaskCopy = {
-  tabs: { today: 'Tarefas', lists: 'Projetos', focus: 'Foco', you: 'Você' },
+  tabs: { today: 'Tarefas', lists: 'Projetos', you: 'Você' },
   today: {
     title: 'Em aberto',
     taskCount: count => (count === 1 ? '1 tarefa' : `${count} tarefas`),
@@ -423,6 +430,11 @@ const ptBR: TaskCopy = {
     start: 'Começar',
     cancel: 'Cancelar',
     newFocus: 'Novo foco',
+    action: 'Focar',
+    close: 'Voltar',
+    rowPaused: 'Pausado',
+    rowDone: 'Tempo cumprido',
+    openSession: 'Abrir sessão de foco',
   },
   progress: {
     title: 'Seu ritmo',
@@ -501,7 +513,7 @@ const ptBR: TaskCopy = {
 };
 
 const enUS: TaskCopy = {
-  tabs: { today: 'Tasks', lists: 'Projects', focus: 'Focus', you: 'You' },
+  tabs: { today: 'Tasks', lists: 'Projects', you: 'You' },
   today: {
     title: 'Open tasks',
     taskCount: count => (count === 1 ? '1 task' : `${count} tasks`),
@@ -695,6 +707,11 @@ const enUS: TaskCopy = {
     start: 'Start',
     cancel: 'Cancel',
     newFocus: 'New focus',
+    action: 'Focus',
+    close: 'Back',
+    rowPaused: 'Paused',
+    rowDone: 'Time served',
+    openSession: 'Open focus session',
   },
   progress: {
     title: 'Your pace',
