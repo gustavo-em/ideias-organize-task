@@ -5,6 +5,10 @@ import {
   MAX_FOCUS_MINUTES,
   MIN_FOCUS_MINUTES,
 } from '../../domain/FocusSession';
+import {
+  buttonTextAttrs,
+  buttonTextMetrics,
+} from '../../../../app/theme/buttonText';
 import type { TaskCopy } from '../localization/taskCopy';
 import { PressableScale } from './PressableScale';
 
@@ -101,14 +105,17 @@ const Chips = styled.View`
 `;
 
 const Chip = styled(PressableScale)<{ selected: boolean }>`
-  padding: 8px 14px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
   border-radius: ${({ theme }) => theme.radii.pill}px;
   background-color: ${({ theme, selected }) =>
     selected ? theme.colors.accent : theme.colors.cardElevated};
 `;
 
-const ChipText = styled.Text<{ selected: boolean }>`
-  font-size: ${({ theme }) => theme.type.label}px;
+const ChipText = styled.Text.attrs(buttonTextAttrs)<{ selected: boolean }>`
+  ${({ theme }) => buttonTextMetrics(theme.type.label)}
   font-weight: 700;
   color: ${({ theme, selected }) =>
     selected ? theme.colors.onAccent : theme.colors.accentInk};

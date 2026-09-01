@@ -1,6 +1,10 @@
 import { ActivityIndicator } from 'react-native';
 import styled, { useTheme } from 'styled-components/native';
 
+import {
+  buttonTextAttrs,
+  buttonTextMetrics,
+} from '../../../../app/theme/buttonText';
 import { PressableScale } from '../../../tasks/presentation/views/PressableScale';
 
 interface SecondaryAuthButtonProps {
@@ -46,14 +50,15 @@ const Button = styled(PressableScale)`
   width: 100%;
   align-items: center;
   justify-content: center;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.medium}px;
   margin-top: ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const Label = styled.Text`
+const Label = styled.Text.attrs(buttonTextAttrs)`
   color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ theme }) => theme.type.body}px;
+  ${({ theme }) => buttonTextMetrics(theme.type.body)}
   /* Same weight as the branded buttons above it: this one sits below them in
      the order, so it must not read heavier than they do. */
   font-weight: 500;

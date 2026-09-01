@@ -19,6 +19,11 @@ import type { TaskCopy } from '../localization/taskCopy';
 import { projectTone } from '../models/projectAppearance';
 import { CheckGlyph, ProjectGlyph } from './FieldGlyphs';
 import { PressableScale } from './PressableScale';
+import {
+  SheetActionsRow,
+  SheetCancelButton,
+  SheetPrimaryButton,
+} from './SheetActions';
 
 interface ProjectEditorSheetProps {
   copy: TaskCopy;
@@ -178,22 +183,18 @@ export function ProjectEditorSheet({
                   );
                 })}
               </ColorRow>
-              <Footer>
-                <Cancel
-                  accessibilityLabel={copy.capture.cancel}
+              <SheetActionsRow>
+                <SheetCancelButton
+                  label={copy.capture.cancel}
                   onPress={onCancel}
-                >
-                  <CancelText>{copy.capture.cancel}</CancelText>
-                </Cancel>
-                <Submit
-                  accessibilityLabel={submitLabel}
+                />
+                <SheetPrimaryButton
                   disabled={!usable}
+                  label={submitLabel}
                   onPress={submit}
                   testID="list-name-submit"
-                >
-                  <SubmitText>{submitLabel}</SubmitText>
-                </Submit>
-              </Footer>
+                />
+              </SheetActionsRow>
             </>
           ) : (
             <>
@@ -254,20 +255,16 @@ export function ProjectEditorSheet({
                   );
                 })}
               </ColorRow>
-              <Footer>
-                <Cancel
-                  accessibilityLabel={copy.lists.back}
+              <SheetActionsRow>
+                <SheetCancelButton
+                  label={copy.lists.back}
                   onPress={() => setStage('details')}
-                >
-                  <CancelText>{copy.lists.back}</CancelText>
-                </Cancel>
-                <Submit
-                  accessibilityLabel={copy.lists.done}
+                />
+                <SheetPrimaryButton
+                  label={copy.lists.done}
                   onPress={() => setStage('details')}
-                >
-                  <SubmitText>{copy.lists.done}</SubmitText>
-                </Submit>
-              </Footer>
+                />
+              </SheetActionsRow>
             </>
           )}
         </Sheet>
@@ -400,36 +397,4 @@ const ColorOption = styled(PressableScale)<{
       $selected ? theme.colors.text : `${$tone}4D`};
   border-radius: ${({ theme }) => theme.radii.pill}px;
   background-color: ${({ $tone }) => $tone};
-`;
-
-const Footer = styled.View`
-  flex-direction: row;
-  justify-content: flex-end;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.small}px;
-  margin-top: ${({ theme }) => theme.spacing.large}px;
-`;
-
-const Cancel = styled(PressableScale)`
-  padding: 12px 16px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-`;
-
-const CancelText = styled.Text`
-  color: ${({ theme }) => theme.colors.mutedStrong};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 700;
-`;
-
-const Submit = styled(PressableScale)`
-  padding: 12px 20px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  background-color: ${({ theme, disabled }) =>
-    disabled ? theme.colors.cardElevated : theme.colors.accent};
-`;
-
-const SubmitText = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 800;
 `;

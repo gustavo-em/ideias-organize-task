@@ -1,6 +1,10 @@
 import { ActivityIndicator } from 'react-native';
 import styled, { useTheme } from 'styled-components/native';
 
+import {
+  buttonTextAttrs,
+  buttonTextMetrics,
+} from '../../../../app/theme/buttonText';
 import { PressableScale } from '../../../tasks/presentation/views/PressableScale';
 
 interface AuthButtonProps {
@@ -45,13 +49,14 @@ const Button = styled(PressableScale)`
   width: 100%;
   align-items: center;
   justify-content: center;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
   border-radius: ${({ theme }) => theme.radii.medium}px;
   background-color: ${({ theme }) => theme.colors.accent};
   margin-top: ${({ theme }) => theme.spacing.large}px;
 `;
 
-const ButtonLabel = styled.Text`
+const ButtonLabel = styled.Text.attrs(buttonTextAttrs)`
   color: ${({ theme }) => theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.body}px;
+  ${({ theme }) => buttonTextMetrics(theme.type.body)}
   font-weight: 800;
 `;

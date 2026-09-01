@@ -8,7 +8,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
-import { PressableScale } from './PressableScale';
+import {
+  SheetActionsRow,
+  SheetCancelButton,
+  SheetPrimaryButton,
+} from './SheetActions';
 
 interface ConfirmDialogProps {
   title: string;
@@ -74,23 +78,19 @@ export function ConfirmDialog({
       >
         <Title accessibilityRole="header">{title}</Title>
         {body == null ? null : <Body>{body}</Body>}
-        <Row>
-          <Cancel
-            accessibilityLabel={cancelLabel}
+        <SheetActionsRow>
+          <SheetCancelButton
+            label={cancelLabel}
             onPress={onCancel}
             testID="confirm-cancel"
-          >
-            <CancelText>{cancelLabel}</CancelText>
-          </Cancel>
-          <Confirm
-            $destructive={destructive}
-            accessibilityLabel={confirmLabel}
+          />
+          <SheetPrimaryButton
+            destructive={destructive}
+            label={confirmLabel}
             onPress={onConfirm}
             testID="confirm-accept"
-          >
-            <ConfirmText $destructive={destructive}>{confirmLabel}</ConfirmText>
-          </Confirm>
-        </Row>
+          />
+        </SheetActionsRow>
       </Card>
     </Overlay>
   );
@@ -137,37 +137,4 @@ const Body = styled.Text`
   font-size: ${({ theme }) => theme.type.label}px;
   line-height: ${({ theme }) => theme.type.label + 5}px;
   margin-top: ${({ theme }) => theme.spacing.small}px;
-`;
-
-const Row = styled.View`
-  flex-direction: row;
-  justify-content: flex-end;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.small}px;
-  margin-top: ${({ theme }) => theme.spacing.large}px;
-`;
-
-const Cancel = styled(PressableScale)`
-  padding: 12px 16px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-`;
-
-const CancelText = styled.Text`
-  color: ${({ theme }) => theme.colors.mutedStrong};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 700;
-`;
-
-const Confirm = styled(PressableScale)<{ $destructive: boolean }>`
-  padding: 12px 20px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  background-color: ${({ theme, $destructive }) =>
-    $destructive ? theme.colors.danger : theme.colors.accent};
-`;
-
-const ConfirmText = styled.Text<{ $destructive: boolean }>`
-  color: ${({ theme, $destructive }) =>
-    $destructive ? theme.colors.card : theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 800;
 `;

@@ -37,6 +37,10 @@ import {
   ProjectGlyph,
   TagGlyph,
 } from '../views/FieldGlyphs';
+import {
+  buttonTextAttrs,
+  buttonTextMetrics,
+} from '../../../../app/theme/buttonText';
 import { FloatingAction } from '../views/FloatingAction';
 import { PressableScale } from '../views/PressableScale';
 import { QuickCaptureSheet } from '../views/QuickCaptureSheet';
@@ -210,13 +214,15 @@ export function TodayScreen({
                 scaleTo={0.97}
                 testID="today-group-deadline"
               >
-                <CalendarGlyph
-                  color={
-                    grouping === 'deadline'
-                      ? theme.colors.accentInk
-                      : theme.colors.mutedStrong
-                  }
-                />
+                <GroupingGlyph>
+                  <CalendarGlyph
+                    color={
+                      grouping === 'deadline'
+                        ? theme.colors.accentInk
+                        : theme.colors.mutedStrong
+                    }
+                  />
+                </GroupingGlyph>
                 <GroupingButtonText $selected={grouping === 'deadline'}>
                   {copy.today.grouping.deadline}
                 </GroupingButtonText>
@@ -230,13 +236,15 @@ export function TodayScreen({
                 scaleTo={0.97}
                 testID="today-group-list"
               >
-                <TagGlyph
-                  color={
-                    grouping === 'list'
-                      ? theme.colors.accentInk
-                      : theme.colors.mutedStrong
-                  }
-                />
+                <GroupingGlyph>
+                  <TagGlyph
+                    color={
+                      grouping === 'list'
+                        ? theme.colors.accentInk
+                        : theme.colors.mutedStrong
+                    }
+                  />
+                </GroupingGlyph>
                 <GroupingButtonText $selected={grouping === 'list'}>
                   {copy.today.grouping.list}
                 </GroupingButtonText>
@@ -250,14 +258,16 @@ export function TodayScreen({
                 scaleTo={0.97}
                 testID="today-group-priority"
               >
-                <PriorityGlyph
-                  color={
-                    grouping === 'priority'
-                      ? theme.colors.accentInk
-                      : theme.colors.mutedStrong
-                  }
-                  size={16}
-                />
+                <GroupingGlyph>
+                  <PriorityGlyph
+                    color={
+                      grouping === 'priority'
+                        ? theme.colors.accentInk
+                        : theme.colors.mutedStrong
+                    }
+                    size={16}
+                  />
+                </GroupingGlyph>
                 <GroupingButtonText $selected={grouping === 'priority'}>
                   {copy.today.grouping.priority}
                 </GroupingButtonText>
@@ -483,10 +493,22 @@ const GroupingButton = styled(PressableScale)<{ $selected: boolean }>`
     $selected ? theme.colors.cardElevated : theme.colors.card};
 `;
 
-const GroupingButtonText = styled.Text<{ $selected: boolean }>`
+/* A fixed box for the glyph: the three of them are drawn at different sizes,
+   and without a box of their own the labels beside them sat at three different
+   heights. */
+const GroupingGlyph = styled.View`
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+`;
+
+const GroupingButtonText = styled.Text.attrs(buttonTextAttrs)<{
+  $selected: boolean;
+}>`
   color: ${({ theme, $selected }) =>
     $selected ? theme.colors.accentInk : theme.colors.mutedStrong};
-  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  ${({ theme }) => buttonTextMetrics(theme.type.caption + 1)}
   font-weight: 800;
 `;
 

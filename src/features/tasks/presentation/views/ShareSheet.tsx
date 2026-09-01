@@ -9,6 +9,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import {
+  buttonTextAttrs,
+  buttonTextMetrics,
+} from '../../../../app/theme/buttonText';
+
 import type { ShareErrorKind } from '../../domain/ShareError';
 import {
   buildInviteLink,
@@ -23,6 +28,12 @@ import { CheckGlyph, LinkGlyph } from './FieldGlyphs';
 import { memberDisplayName } from '../models/memberIdentity';
 import { MemberChip } from './MemberChip';
 import { PressableScale } from './PressableScale';
+import {
+  SheetActionsRow,
+  SheetActionsSpacer,
+  SheetCancelButton,
+  SheetPrimaryButton,
+} from './SheetActions';
 
 type ShareStatus = 'idle' | 'loading' | 'error';
 
@@ -169,18 +180,17 @@ export function ShareSheet({
           <Hint>{copy.lists.shareHint}</Hint>
 
           {list.share == null ? (
-            <Submit
-              accessibilityLabel={copy.lists.createLink}
+            <SheetPrimaryButton
+              block
               disabled={status === 'loading'}
+              label={
+                status === 'loading'
+                  ? copy.lists.creatingLink
+                  : copy.lists.createLink
+              }
               onPress={handleCreateLink}
               testID="share-create-link"
-            >
-              <SubmitText>
-                {status === 'loading'
-                  ? copy.lists.creatingLink
-                  : copy.lists.createLink}
-              </SubmitText>
-            </Submit>
+            />
           ) : (
             <>
               <LinkRow accessibilityRole="text">
@@ -349,7 +359,7 @@ export function ShareSheet({
             </ErrorBanner>
           )}
 
-          <Footer>
+          <SheetActionsRow>
             {isOwner && list.share != null ? (
               <StopLink
                 accessibilityLabel={copy.lists.stopSharing}
@@ -358,20 +368,16 @@ export function ShareSheet({
                 <StopLinkText>{copy.lists.stopSharing}</StopLinkText>
               </StopLink>
             ) : null}
-            <FooterSpacer />
-            <Cancel accessibilityLabel={copy.capture.cancel} onPress={onCancel}>
-              <CancelText>{copy.capture.cancel}</CancelText>
-            </Cancel>
+            <SheetActionsSpacer />
+            <SheetCancelButton label={copy.capture.cancel} onPress={onCancel} />
             {viewer || list.share == null ? null : (
-              <Submit
-                accessibilityLabel={copy.lists.invite}
+              <SheetPrimaryButton
+                label={copy.lists.invite}
                 onPress={() => onInvite(list.share!.token)}
                 testID="share-invite"
-              >
-                <SubmitText>{copy.lists.invite}</SubmitText>
-              </Submit>
+              />
             )}
-          </Footer>
+          </SheetActionsRow>
         </Sheet>
       </Overlay>
 
@@ -632,47 +638,14 @@ const RetryText = styled.Text`
   font-weight: 800;
 `;
 
-const Footer = styled.View`
-  flex-direction: row;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.small}px;
-  margin-top: ${({ theme }) => theme.spacing.large}px;
-`;
-
-const FooterSpacer = styled.View`
-  flex: 1;
-`;
-
 const StopLink = styled(PressableScale)`
-  padding: 12px 10px;
+  min-height: 48px;
+  justify-content: center;
+  padding: 0px ${({ theme }) => theme.spacing.small}px;
 `;
 
-const StopLinkText = styled.Text`
+const StopLinkText = styled.Text.attrs(buttonTextAttrs)`
   color: ${({ theme }) => theme.colors.danger};
-  font-size: ${({ theme }) => theme.type.label}px;
+  ${({ theme }) => buttonTextMetrics(theme.type.label)}
   font-weight: 700;
-`;
-
-const Cancel = styled(PressableScale)`
-  padding: 12px 16px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-`;
-
-const CancelText = styled.Text`
-  color: ${({ theme }) => theme.colors.mutedStrong};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 700;
-`;
-
-const Submit = styled(PressableScale)`
-  padding: 12px 20px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  background-color: ${({ theme, disabled }) =>
-    disabled ? theme.colors.cardElevated : theme.colors.accent};
-`;
-
-const SubmitText = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 800;
 `;
