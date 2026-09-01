@@ -193,11 +193,13 @@ export function ListsScreen({
         showsVerticalScrollIndicator={false}
       >
         <ScreenHeader
+          count={viewModel.lists.length}
           eyebrow={copy.tabs.lists}
           subtitle={copy.lists.subtitle(
             viewModel.lists.length,
             viewModel.openTaskCount,
           )}
+          testID="lists-header"
           title={copy.lists.title}
         />
 

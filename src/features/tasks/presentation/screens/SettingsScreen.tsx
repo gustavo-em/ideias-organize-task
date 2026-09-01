@@ -16,6 +16,7 @@ import {
 } from '../localization/taskCopy';
 import { MemberChip } from '../views/MemberChip';
 import { PressableScale } from '../views/PressableScale';
+import { ScreenHeader } from '../views/ScreenHeader';
 
 interface SettingsScreenProps {
   accountCopy: AuthCopy;
@@ -66,7 +67,7 @@ export function SettingsScreen({
 }: SettingsScreenProps) {
   return (
     <Content>
-      <SectionTitle>{copy.settings.title}</SectionTitle>
+      <ScreenHeader eyebrow={copy.tabs.you} testID="you-header" />
 
       {/* The account is named by its profile, never by the e-mail it signs in
           with — and this group is still the only way to reach Sair. */}
@@ -220,13 +221,6 @@ const Content = styled.View`
     ${({ theme }) => theme.spacing.large}px;
   border-top-width: 1px;
   border-top-color: ${({ theme }) => theme.colors.borderSubtle};
-`;
-
-const SectionTitle = styled.Text`
-  color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ theme }) => theme.type.heading}px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
 `;
 
 const Group = styled(Animated.View)`

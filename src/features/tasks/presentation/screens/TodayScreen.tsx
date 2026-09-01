@@ -223,7 +223,11 @@ export function TodayScreen({
             saying it. The date carries the context; the lens under it says
             how the list is ordered. */}
         <ScreenHeader
-          eyebrow={formatDayLabel(viewModel.nowMs, language)}
+          count={viewModel.openTaskCount}
+          countLabel={copy.today.taskCount(viewModel.openTaskCount)}
+          eyebrow={copy.tabs.today}
+          subtitle={formatDayLabel(viewModel.nowMs, language)}
+          testID="today-header"
           trailing={
             <FilterToggle
               accessibilityLabel={copy.today.groupBy}
