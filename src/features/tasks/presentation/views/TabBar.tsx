@@ -101,6 +101,8 @@ const Indicator = styled(Animated.View)`
   background-color: ${({ theme }) => theme.colors.accent};
 `;
 
+/* House rule: an icon stacked over its label centers on the horizontal axis.
+ * A glyph pinned to the left of its own label reads as a layout accident. */
 const Tab = styled(PressableScale)`
   flex: 1;
   align-items: center;
