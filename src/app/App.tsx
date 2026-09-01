@@ -27,6 +27,8 @@ import {
   asyncStorageProgressStore,
   asyncStorageTaskStore,
   asyncStorageTrioStore,
+  clearDataOwner,
+  clearLocalTaskData,
 } from '../features/tasks/infrastructure/storage/asyncStorageStores';
 import { consoleUsageReporter } from '../features/tasks/infrastructure/usage/consoleUsageReporter';
 import { deriveMemberIdentity } from '../features/tasks/presentation/models/memberIdentity';
@@ -49,12 +51,28 @@ import { AppSplash } from './components/AppSplash';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { APP_VERSION } from './config/appMetadata';
 import { asyncStoragePreferencesStore } from './infrastructure/preferences/asyncStoragePreferencesStore';
+import { useLocalDataOwner } from './session/useLocalDataOwner';
 import { getAppTheme } from './theme/theme';
 import type { AppearanceMode } from './theme/theme';
 import {
   useAppViewModel,
   type AppViewModel,
 } from './view-models/useAppViewModel';
+
+/**
+ * Everything the account that just left wrote here, removed.
+ *
+ * The wait is not cosmetic: the last save of a session is emitted by the
+ * persistence subscriber's cleanup while the screens unmount, so the removals
+ * have to be queued behind it or the wiped keys come straight back.
+ */
+async function wipeLocalSession(): Promise<void> {
+  await new Promise<void>(resolve => {
+    setTimeout(resolve, 0);
+  });
+  await clearLocalTaskData();
+  await clearDataOwner();
+}
 
 /**
  * The composition root.
@@ -199,6 +217,19 @@ function AppContent({
     if (tasks.isRestored) onReady();
   }, [onReady, tasks.isRestored]);
 
+  // Leaving the account takes this account's data off the device with it. The
+  // wipe is deferred past this tick on purpose: ending the session unmounts the
+  // screens, and the persistence subscriber flushes one last save on the way
+  // out — running the removals first would only have them written back.
+  // A refused sign-out keeps both the session and its data: nothing was left
+  // behind for anybody else to read, and there is no server copy to restore
+  // from, so wiping there would only destroy the day of the person still
+  // signed in. Sessions that end any other way are covered by the shell.
+  const signOut = useCallback(async () => {
+    await auth.signOut();
+    await wipeLocalSession();
+  }, [auth]);
+
   return (
     <>
       <Safe edges={['top']}>
@@ -239,7 +270,7 @@ function AppContent({
               onReplayOnboarding={onReplayOnboarding}
               isAnonymous={auth.user?.isAnonymous ?? false}
               onEditProfile={() => setIsEditingProfile(true)}
-              onSignOut={auth.signOut}
+              onSignOut={signOut}
               personId={auth.user?.uid ?? null}
               profile={profile.profile}
               profileSaved={profileStatus === 'saved'}
@@ -337,6 +368,30 @@ function AppShell({
 
   const authStatus =
     auth.status === 'checking' && authTimedOut ? 'signedOut' : auth.status;
+  const personId = auth.user?.uid ?? null;
+  const hadSession = useRef(false);
+
+  // The session can also end without the settings button: a revoked token, a
+  // deleted account. However it ends, the device stops holding that account's
+  // day — and this runs after the screens have unmounted and flushed.
+  useEffect(() => {
+    if (authStatus === 'signedIn') {
+      hadSession.current = true;
+      return;
+    }
+
+    if (authStatus !== 'signedOut' || !hadSession.current) return;
+
+    hadSession.current = false;
+    wipeLocalSession().catch(() => {
+      // The next sign-in checks the owner again and wipes there.
+    });
+  }, [authStatus]);
+  // Nothing of the previous account may be drawn before this answers: a
+  // different owner wipes the device's copy first.
+  const dataOwnerStatus = useLocalDataOwner(
+    authStatus === 'signedIn' ? personId : null,
+  );
   const isAuthResolved = authStatus !== 'checking';
   const isShellReady = app.isRestored && isAuthResolved;
   // The walk-through comes before the account: on a clean device it covers the
@@ -370,11 +425,16 @@ function AppShell({
         pointerEvents={isShowingOnboarding ? 'none' : 'auto'}
         style={isShowingOnboarding ? styles.beneathHidden : styles.beneath}
       >
-        {isShellReady && authStatus === 'signedIn' ? (
+        {isShellReady &&
+        authStatus === 'signedIn' &&
+        dataOwnerStatus === 'ready' ? (
           <AppContent
             app={app}
             auth={auth}
             bus={bus}
+            /* One account, one mount: remounting on the uid drops the previous
+               session's tasks from memory, not only from storage. */
+            key={personId ?? 'anon'}
             onReady={handleContentReady}
             onReplayOnboarding={replayOnboarding}
           />

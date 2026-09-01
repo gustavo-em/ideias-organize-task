@@ -45,9 +45,11 @@ export function sectionDisclosurePolicy(
   const collapsible =
     mode === 'all-secondary' || taskCount >= SECTION_DISCLOSURE_THRESHOLD;
 
+  // Every section of the day opens showing its work. Closing one is a choice
+  // the person makes on the header; it is never the state they are handed.
   return {
     collapsible,
-    initiallyExpanded: grouping !== 'deadline',
+    initiallyExpanded: true,
   };
 }
 

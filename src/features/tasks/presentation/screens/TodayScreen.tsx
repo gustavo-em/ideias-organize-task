@@ -8,7 +8,11 @@ import {
   type ComponentRef,
 } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import { markSheetPress, useRenderCount } from '../../../../app/perf/sheetPerf';
@@ -29,6 +33,7 @@ import {
 } from '../models/sectionDisclosure';
 import {
   contentEnter,
+  DISCLOSURE,
   fadeEnter,
   sectionLayout,
 } from '../../../../app/animation/motion';
@@ -38,6 +43,7 @@ import { CaughtUpCard, EmptyStateCard } from '../views/CaughtUpCard';
 import { ConfirmDialog } from '../views/ConfirmDialog';
 import {
   CalendarGlyph,
+  ChevronGlyph,
   FilterGlyph,
   PriorityGlyph,
   ProjectGlyph,
@@ -237,6 +243,10 @@ export function TodayScreen({
               scaleTo={0.9}
             >
               <FilterGlyph color={theme.colors.mutedStrong} size={17} />
+              {/* The same chevron the section headings use: this control opens
+                  the strip right below it, so it has to say whether that strip
+                  is open instead of looking like a second way in. */}
+              <DisclosureChevron expanded={filtersOpen} />
             </FilterToggle>
           }
         />
@@ -565,6 +575,27 @@ const HomeTaskRow = memo(function HomeTaskRowView({
   );
 });
 
+/** The disclosure state of the grouping strip, drawn like every other
+ * disclosure in the app: pointing right when closed, down when open. */
+function DisclosureChevron({ expanded }: { expanded: boolean }) {
+  const theme = useTheme();
+  const progress = useSharedValue(expanded ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(expanded ? 1 : 0, DISCLOSURE);
+  }, [expanded, progress]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${-90 + progress.value * 90}deg` }],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <ChevronGlyph color={theme.colors.mutedStrong} size={16} />
+    </Animated.View>
+  );
+}
+
 const styles = StyleSheet.create({ scroll: { paddingBottom: 168 } });
 
 const sectionTransition = sectionLayout();
@@ -579,10 +610,12 @@ const Content = styled(ScrollView)`
 `;
 
 const FilterToggle = styled(PressableScale)`
-  width: 44px;
-  height: 44px;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
+  gap: 2px;
+  min-width: 56px;
+  min-height: 48px;
   border-radius: ${({ theme }) => theme.radii.pill}px;
 `;
 

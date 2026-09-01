@@ -160,6 +160,14 @@ export function FocusScreen({
             title={open.length === 0 ? copy.focus.idleEmpty : copy.focus.idle}
           />
 
+          {/* One short list is not a missing list: this says which slice is on
+              screen and where the rest of the day still is. With nothing open
+              there is no slice to explain, and the empty message stands
+              alone. */}
+          {open.length === 0 ? null : (
+            <ScopeNote>{copy.focus.idleScope}</ScopeNote>
+          )}
+
           {open.map(candidate => {
             const expanded = expandedId === candidate.id;
             const minutes = minutesFor(
@@ -325,6 +333,13 @@ const Ground = styled(Animated.View)`
 
 const Idle = styled(Animated.View)`
   flex: 1;
+`;
+
+const ScopeNote = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  line-height: ${({ theme }) => theme.type.caption + 5}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 
 const Choice = styled.View`

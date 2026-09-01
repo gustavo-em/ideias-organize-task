@@ -27,11 +27,11 @@ describe('section disclosure policy', () => {
   it('uses the four-task threshold for secondary sections', () => {
     expect(sectionDisclosurePolicy('deadline', 'tomorrow', 3)).toEqual({
       collapsible: false,
-      initiallyExpanded: false,
+      initiallyExpanded: true,
     });
     expect(sectionDisclosurePolicy('deadline', 'tomorrow', 4)).toEqual({
       collapsible: true,
-      initiallyExpanded: false,
+      initiallyExpanded: true,
     });
     expect(sectionDisclosurePolicy('list', 'list-work', 4)).toEqual({
       collapsible: true,
@@ -46,7 +46,7 @@ describe('section disclosure policy', () => {
   it('keeps the approved all-secondary fallback explicit and urgent-safe', () => {
     expect(
       sectionDisclosurePolicy('deadline', 'tomorrow', 1, 'all-secondary'),
-    ).toEqual({ collapsible: true, initiallyExpanded: false });
+    ).toEqual({ collapsible: true, initiallyExpanded: true });
     expect(
       sectionDisclosurePolicy('priority', 'priority-low', 1, 'all-secondary'),
     ).toEqual({ collapsible: true, initiallyExpanded: true });
@@ -55,7 +55,7 @@ describe('section disclosure policy', () => {
     ).toEqual({ collapsible: false, initiallyExpanded: true });
   });
 
-  it('resets to each grouping default instead of carrying hidden sections', () => {
+  it('hands every grouping its sections open, in any mode', () => {
     const deadlineDefaults = initialCollapsedSectionIds('deadline', [
       section('today', 5),
       section('tomorrow', 4),
@@ -63,9 +63,15 @@ describe('section disclosure policy', () => {
     const projectDefaults = initialCollapsedSectionIds('list', [
       section('list-work', 5),
     ]);
+    const fallbackDefaults = initialCollapsedSectionIds(
+      'deadline',
+      [section('tomorrow', 1)],
+      'all-secondary',
+    );
 
-    expect([...deadlineDefaults]).toEqual(['tomorrow']);
+    expect([...deadlineDefaults]).toEqual([]);
     expect([...projectDefaults]).toEqual([]);
+    expect([...fallbackDefaults]).toEqual([]);
   });
 
   it('opens and forgets a collapsed section after it drops below four tasks', () => {
