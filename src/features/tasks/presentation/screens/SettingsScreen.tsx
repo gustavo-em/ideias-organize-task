@@ -32,6 +32,8 @@ interface SettingsScreenProps {
   onLanguageChange: (language: AppLanguage) => void;
   onEditProfile: () => void;
   onSignOut: () => void;
+  /** Opens the first-run walk-through again, without touching any data. */
+  onReplayOnboarding: () => void;
 }
 
 const LANGUAGE_NAMES: Record<AppLanguage, string> = {
@@ -55,6 +57,7 @@ export function SettingsScreen({
   onLanguageChange,
   onEditProfile,
   onSignOut,
+  onReplayOnboarding,
 }: SettingsScreenProps) {
   return (
     <Content>
@@ -180,6 +183,19 @@ export function SettingsScreen({
       </Group>
 
       <Group>
+        <ReplayRow
+          accessibilityHint={copy.settings.replayOnboardingHint}
+          accessibilityLabel={copy.settings.replayOnboarding}
+          accessibilityRole="button"
+          onPress={onReplayOnboarding}
+          testID="settings-replay-onboarding"
+        >
+          <ReplayLabel>{copy.settings.replayOnboarding}</ReplayLabel>
+        </ReplayRow>
+        <GroupNote>{copy.settings.replayOnboardingHint}</GroupNote>
+      </Group>
+
+      <Group>
         <GroupLabel>{copy.settings.about}</GroupLabel>
         <About>{copy.settings.version(version)}</About>
       </Group>
@@ -235,6 +251,21 @@ const Segment = styled(PressableScale)<{ $active: boolean }>`
 const SegmentText = styled.Text<{ $active: boolean }>`
   color: ${({ theme, $active }) =>
     $active ? theme.colors.onAccent : theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
+`;
+
+const ReplayRow = styled(PressableScale)`
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const ReplayLabel = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
   font-size: ${({ theme }) => theme.type.label}px;
   font-weight: 700;
 `;

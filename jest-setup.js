@@ -70,6 +70,18 @@ jest.mock('react-native-reanimated', () => {
   }
 });
 
+jest.mock('lottie-react-native', () => {
+  // The native view is replaced by a plain View that keeps the props a test
+  // asserts on (source, autoPlay, loop, progress, testID).
+  const React = require('react');
+  const { View } = require('react-native');
+
+  return {
+    __esModule: true,
+    default: props => React.createElement(View, props),
+  };
+});
+
 beforeEach(async () => {
   await require('@react-native-async-storage/async-storage').default.clear();
 });

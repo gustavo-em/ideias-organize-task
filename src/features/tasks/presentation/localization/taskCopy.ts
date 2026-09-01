@@ -197,12 +197,17 @@ export interface TaskCopy {
     language: string;
     about: string;
     version: (value: string) => string;
+    replayOnboarding: string;
+    replayOnboardingHint: string;
   };
   onboarding: {
-    steps: readonly { title: string; body: string }[];
+    steps: readonly { title: string; body: string; example: string }[];
     next: string;
     start: string;
     skip: string;
+    /** Announced on the scene, so the position in the walk-through is spoken
+     * instead of being only a row of dots. */
+    stepPosition: (step: number, total: number) => string;
   };
   celebration: {
     title: string;
@@ -436,25 +441,37 @@ const ptBR: TaskCopy = {
     language: 'Idioma',
     about: 'Sobre',
     version: value => `Versão ${value}`,
+    replayOnboarding: 'Ver a apresentação de novo',
+    replayOnboardingHint:
+      'Abre os quatro passos que explicam o app. Nada muda nas suas tarefas.',
   },
   onboarding: {
     steps: [
       {
-        title: 'Escreva do jeito que você fala',
-        body: 'Uma linha só. Data, prioridade e lista saem do próprio texto.',
-      },
-      {
         title: 'O dia cabe em três',
-        body: 'Todo dia o app separa três tarefas. O resto fica guardado, contado e fora da sua frente.',
+        body: 'Todo dia o app separa poucas tarefas. O resto fica guardado, contado e fora da sua frente.',
+        example: 'Ex.: “Ligar para o dentista” entra no trio de hoje.',
       },
       {
-        title: 'Fechar tem peso',
-        body: 'Pontos vêm do tamanho do que foi feito. Fatiar a lista não acelera nada.',
+        title: 'Fechou, o dia anda',
+        body: 'Cada tarefa concluída preenche o anel do dia, com o peso do que foi feito.',
+        example: 'Ex.: duas de três fechadas, o anel já mostra o avanço.',
+      },
+      {
+        title: 'Projetos com quem você divide',
+        body: 'Um projeto pode ser compartilhado: cada pessoa vê o mesmo conjunto e quem fechou o quê.',
+        example: 'Ex.: “Compras da casa” com o Léo, no mesmo lugar.',
+      },
+      {
+        title: 'Foco quando quiser',
+        body: 'Escolha uma tarefa e rode um bloco de tempo só nela, sem o resto da lista à vista.',
+        example: 'Ex.: 25 minutos em “Escrever a proposta”.',
       },
     ],
     next: 'Continuar',
     start: 'Começar',
     skip: 'Pular',
+    stepPosition: (step, total) => `Passo ${step} de ${total}`,
   },
   celebration: {
     title: 'Dia fechado.',
@@ -690,25 +707,37 @@ const enUS: TaskCopy = {
     language: 'Language',
     about: 'About',
     version: value => `Version ${value}`,
+    replayOnboarding: 'See the walk-through again',
+    replayOnboardingHint:
+      'Opens the four steps that explain the app. Nothing changes in your tasks.',
   },
   onboarding: {
     steps: [
       {
-        title: 'Write it the way you say it',
-        body: 'One line. Date, priority and list come out of the text itself.',
-      },
-      {
         title: 'The day fits in three',
-        body: 'Every day the app sets aside three tasks. The rest stays kept, counted and out of your face.',
+        body: 'Every day the app sets aside a few tasks. The rest stays kept, counted and out of your face.',
+        example: 'Like “Call the dentist” joining today’s three.',
       },
       {
-        title: 'Finishing has weight',
-        body: 'Points come from the size of what was done. Slicing the list speeds up nothing.',
+        title: 'Finish it, the day moves',
+        body: 'Each task you close fills the day ring, weighted by the size of what was done.',
+        example: 'Like two of three closed, and the ring already shows it.',
+      },
+      {
+        title: 'Projects with the people you share with',
+        body: 'A project can be shared: everyone sees the same set and who closed what.',
+        example: 'Like “House shopping” with Léo, in one place.',
+      },
+      {
+        title: 'Focus whenever you want',
+        body: 'Pick one task and run a block of time on it alone, with the rest of the list out of sight.',
+        example: 'Like 25 minutes on “Write the proposal”.',
       },
     ],
     next: 'Continue',
     start: 'Start',
     skip: 'Skip',
+    stepPosition: (step, total) => `Step ${step} of ${total}`,
   },
   celebration: {
     title: 'Day closed.',
