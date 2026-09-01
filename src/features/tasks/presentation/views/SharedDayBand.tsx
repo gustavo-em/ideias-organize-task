@@ -5,6 +5,7 @@ import type { TaskCopy } from '../localization/taskCopy';
 import type { SharedDayEntry } from '../models/sharedDay';
 import { STAGGER_MS } from '../animation/motion';
 import { CheckGlyph } from './FieldGlyphs';
+import { memberDisplayName } from '../models/memberIdentity';
 import { MemberChip } from './MemberChip';
 import { PressableScale } from './PressableScale';
 import { FocusGlyph } from './TabGlyphs';
@@ -59,8 +60,14 @@ export function SharedDayBand({
         : null;
 
     return state == null
-      ? `${entry.member.name}, ${stateLabel(entry)}`
-      : `${entry.member.name}, ${stateLabel(entry)}, ${state}`;
+      ? `${memberDisplayName(
+          entry.member,
+          copy.lists.memberSomeone,
+        )}, ${stateLabel(entry)}`
+      : `${memberDisplayName(
+          entry.member,
+          copy.lists.memberSomeone,
+        )}, ${stateLabel(entry)}, ${state}`;
   }
 
   return (
@@ -85,7 +92,10 @@ export function SharedDayBand({
                 <MemberChip
                   inverted
                   key={entry.member.personId}
-                  name={entry.member.name}
+                  name={memberDisplayName(
+                    entry.member,
+                    copy.lists.memberSomeone,
+                  )}
                   personId={entry.member.personId}
                   size="large"
                   stacked={index > 0}
@@ -119,14 +129,14 @@ export function SharedDayBand({
           >
             <MemberChip
               inverted
-              name={entry.member.name}
+              name={memberDisplayName(entry.member, copy.lists.memberSomeone)}
               pending={entry.state === 'absent'}
               personId={entry.member.personId}
               size="large"
             />
             <Who>
               <Name $dim={entry.state === 'absent'} numberOfLines={1}>
-                {entry.member.name}
+                {memberDisplayName(entry.member, copy.lists.memberSomeone)}
               </Name>
               <What $done={entry.state === 'done'} numberOfLines={1}>
                 {stateLabel(entry)}

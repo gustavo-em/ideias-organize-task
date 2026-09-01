@@ -27,6 +27,10 @@ export interface ShareGateway {
   /** Takes the project off the network; local tasks are untouched. */
   revokeLink(share: ListShare): Promise<void>;
   removeMember(share: ListShare, personId: string): Promise<void>;
+  /** Rewrites how the caller is named inside a project they already belong
+   * to: the name and handle other members read. Roles and who is in the
+   * project are never touched. */
+  updateMemberIdentity(share: ListShare, member: ListMember): Promise<void>;
   /** Remote state of the project, for the refresh on opening the tab or
    * pulling down. `null` when the project was taken down by its owner. */
   pull(

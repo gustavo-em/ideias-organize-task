@@ -14,7 +14,7 @@ const copy = getTaskCopy('pt-BR');
 const NOW = new Date(2026, 8, 1, 10, 0, 0).getTime();
 
 function member(personId: string, name: string): ListMember {
-  return { personId, name, role: 'editor', joined: true };
+  return { personId, name, handle: null, role: 'editor', joined: true };
 }
 
 function task(id: string, title: string, completedAtMs: number | null): Task {

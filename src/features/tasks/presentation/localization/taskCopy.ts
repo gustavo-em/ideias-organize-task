@@ -113,6 +113,9 @@ export interface TaskCopy {
     /** The logged-in person's own row. */
     memberYou: string;
     memberYouInitials: string;
+    /** For somebody a project only recorded by an address: the address is
+     * never shown, so the row says this instead. */
+    memberSomeone: string;
     removeMemberLabel: string;
     removeMember: (name: string) => string;
     removeMemberConfirm: (name: string) => string;
@@ -339,6 +342,7 @@ const ptBR: TaskCopy = {
     pendingInvite: 'convite pendente',
     memberYou: 'Você',
     memberYouInitials: 'VC',
+    memberSomeone: 'Pessoa do projeto',
     removeMemberLabel: 'Remover',
     removeMember: name => `Remover ${name} do projeto`,
     removeMemberConfirm: name => `Remover ${name} do projeto?`,
@@ -593,6 +597,7 @@ const enUS: TaskCopy = {
     pendingInvite: 'invite pending',
     memberYou: 'You',
     memberYouInitials: 'YO',
+    memberSomeone: 'Someone in this project',
     removeMemberLabel: 'Remove',
     removeMember: name => `Remove ${name} from the project`,
     removeMemberConfirm: name => `Remove ${name} from the project?`,

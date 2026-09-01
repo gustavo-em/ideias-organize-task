@@ -16,7 +16,7 @@ const TODAY = dayKeyOf(NOW);
 const YESTERDAY = dayKeyOf(new Date(2026, 7, 31, 10, 0, 0).getTime());
 
 function member(personId: string, name: string, joined = true): ListMember {
-  return { personId, name, role: 'editor', joined };
+  return { personId, name, handle: null, role: 'editor', joined };
 }
 
 function task(id: string, completedAtMs: number | null = null): Task {

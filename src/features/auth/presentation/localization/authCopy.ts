@@ -55,6 +55,29 @@ export interface AuthCopy {
     label: string;
     signOut: string;
   };
+  profile: {
+    title: string;
+    subtitle: string;
+    edit: string;
+    displayNameLabel: string;
+    displayNamePlaceholder: string;
+    handleLabel: string;
+    handlePlaceholder: string;
+    handleHint: string;
+    cancel: string;
+    submit: string;
+    saved: string;
+    errors: {
+      displayNameRequired: string;
+      handleTooShort: string;
+      handleTooLong: string;
+      handleInvalidChars: string;
+      handleTaken: string;
+      refused: string;
+      network: string;
+      forbidden: string;
+    };
+  };
 }
 
 const pt: AuthCopy = {
@@ -129,6 +152,32 @@ const pt: AuthCopy = {
     label: 'Conta',
     signOut: 'Sair',
   },
+  profile: {
+    title: 'Perfil',
+    subtitle: 'É assim que as outras pessoas te reconhecem nos projetos.',
+    edit: 'Editar perfil',
+    displayNameLabel: 'Nome de exibição',
+    displayNamePlaceholder: 'Como te chamam',
+    handleLabel: 'Nome de usuário',
+    handlePlaceholder: 'seu_nome',
+    handleHint: '3–20 caracteres: letras minúsculas, números e _',
+    cancel: 'Cancelar',
+    submit: 'Salvar',
+    saved: 'Perfil atualizado',
+    errors: {
+      displayNameRequired: 'Escolha um nome de exibição.',
+      handleTooShort: 'O nome de usuário precisa de 3 caracteres ou mais.',
+      handleTooLong: 'O nome de usuário vai até 20 caracteres.',
+      handleInvalidChars:
+        'Use apenas letras minúsculas, números e _ no nome de usuário.',
+      handleTaken:
+        'Esse nome de usuário já está com outra pessoa. Tente outro.',
+      refused:
+        'O servidor recusou a alteração agora. Tente de novo em instantes.',
+      network: 'Não deu para salvar agora. Tente de novo.',
+      forbidden: 'Entre de novo na conta para salvar o perfil.',
+    },
+  },
 };
 
 const en: AuthCopy = {
@@ -200,6 +249,30 @@ const en: AuthCopy = {
   account: {
     label: 'Account',
     signOut: 'Log out',
+  },
+  profile: {
+    title: 'Profile',
+    subtitle: 'This is how other people recognise you in shared projects.',
+    edit: 'Edit profile',
+    displayNameLabel: 'Display name',
+    displayNamePlaceholder: 'What people call you',
+    handleLabel: 'Username',
+    handlePlaceholder: 'your_name',
+    handleHint: '3–20 characters: lowercase letters, numbers and _',
+    cancel: 'Cancel',
+    submit: 'Save',
+    saved: 'Profile updated',
+    errors: {
+      displayNameRequired: 'Pick a display name.',
+      handleTooShort: 'The username needs 3 characters or more.',
+      handleTooLong: 'The username goes up to 20 characters.',
+      handleInvalidChars:
+        'Use only lowercase letters, numbers and _ in the username.',
+      handleTaken: 'That username is with someone else. Try another one.',
+      refused: 'The server turned this change down. Try again in a moment.',
+      network: "Couldn't save right now. Try again.",
+      forbidden: 'Sign in again to save the profile.',
+    },
   },
 };
 

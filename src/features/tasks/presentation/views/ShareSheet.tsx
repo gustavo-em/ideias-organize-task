@@ -20,6 +20,7 @@ import { STAGGER_MS } from '../animation/motion';
 import type { TaskCopy } from '../localization/taskCopy';
 import { ConfirmDialog } from './ConfirmDialog';
 import { CheckGlyph, LinkGlyph } from './FieldGlyphs';
+import { memberDisplayName } from '../models/memberIdentity';
 import { MemberChip } from './MemberChip';
 import { PressableScale } from './PressableScale';
 
@@ -29,6 +30,14 @@ interface ShareSheetProps {
   copy: TaskCopy;
   list: TaskList;
   personId: string;
+  /** How the signed-in account names itself right now. Their own row reads
+   * from this, never from what the project recorded before the profile
+   * existed. */
+  identity: {
+    personId: string;
+    name: string;
+    handle: string | null;
+  } | null;
   status: ShareStatus;
   errorKind: ShareErrorKind | null;
   onCancel: () => void;
@@ -51,6 +60,7 @@ export function ShareSheet({
   copy,
   list,
   personId,
+  identity,
   status,
   errorKind,
   onCancel,
@@ -249,10 +259,17 @@ export function ShareSheet({
                 members.length
               }`}</SectionLabel>
               {members.map((member, index) => {
-                // Nobody reads their own e-mail to find out who they are: the
-                // logged-in person is "Você" in their own list of members.
-                const isMe = member.personId === personId;
-                const displayName = isMe ? copy.lists.memberYou : member.name;
+                // The logged-in person is "Você" in their own list of
+                // members; everybody else is the name and handle they chose.
+                // The session's own uid, however the row got here: an entry
+                // recorded before the profile existed is still this person.
+                const isMe =
+                  member.personId === personId ||
+                  member.personId === identity?.personId;
+                const displayName = isMe
+                  ? copy.lists.memberYou
+                  : memberDisplayName(member, copy.lists.memberSomeone);
+                const handle = isMe ? identity?.handle ?? null : member.handle;
 
                 return (
                   <MemberRow
@@ -270,7 +287,20 @@ export function ShareSheet({
                       size="large"
                     />
                     <MemberInfo>
-                      <MemberName>{displayName}</MemberName>
+                      <MemberName numberOfLines={1} ellipsizeMode="tail">
+                        {displayName}
+                      </MemberName>
+                      {isMe && identity != null ? (
+                        <MemberSub numberOfLines={1} ellipsizeMode="tail">
+                          {handle == null
+                            ? identity.name
+                            : `${identity.name} · @${handle}`}
+                        </MemberSub>
+                      ) : handle == null ? null : (
+                        <MemberSub numberOfLines={1} ellipsizeMode="tail">
+                          {`@${handle}`}
+                        </MemberSub>
+                      )}
                       {member.joined ? null : (
                         <MemberSub>{copy.lists.pendingInvite}</MemberSub>
                       )}
@@ -287,13 +317,13 @@ export function ShareSheet({
                     {isOwner && !isMe ? (
                       <RemoveButton
                         accessibilityLabel={copy.lists.removeMember(
-                          member.name,
+                          displayName,
                         )}
                         hitSlop={14}
                         onPress={() =>
                           setConfirmingRemove({
                             personId: member.personId,
-                            name: member.name,
+                            name: displayName,
                           })
                         }
                       >
