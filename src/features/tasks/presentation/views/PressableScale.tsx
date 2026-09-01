@@ -11,6 +11,44 @@ import { PRESS_SPRING } from '../../../../app/animation/motion';
 
 const styles = StyleSheet.create({ disabled: { opacity: 0.45 } });
 
+/** How a container arranges its children — the only style keys that have to
+ * follow the children down into the animated view. */
+const ARRANGEMENT_KEYS = [
+  'flexDirection',
+  'flexWrap',
+  'justifyContent',
+  'alignItems',
+  'alignContent',
+  'gap',
+  'rowGap',
+  'columnGap',
+] as const;
+
+/**
+ * The style lands on the `Pressable`, but the children live one view deeper, so
+ * anything the caller wrote about arranging children — `flex-direction: row`,
+ * `align-items: center`, `gap` — described a view that has a single child and
+ * said nothing about the children themselves. Every such control silently fell
+ * back to a top-aligned column: the tab bar glyphs, the floating action's plus,
+ * the grouping chips. Copying just the arrangement keys onto the inner view
+ * makes the written style true again. Spacing and paint (padding, border,
+ * background, elevation) stay outside, where the shadow needs them.
+ */
+function arrangementOf(style: StyleProp<ViewStyle>): ViewStyle {
+  const flat = StyleSheet.flatten(style) ?? {};
+  const arrangement: ViewStyle = {};
+
+  for (const key of ARRANGEMENT_KEYS) {
+    const value = flat[key];
+
+    if (value !== undefined) {
+      Object.assign(arrangement, { [key]: value });
+    }
+  }
+
+  return arrangement;
+}
+
 interface PressableScaleProps {
   children: ReactNode;
   onPress?: () => void;
@@ -68,6 +106,14 @@ export function PressableScale({
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 - pressed.value * (1 - scaleTo) }],
   }));
+  // Stretched and grown so the inner view covers the pressable's content box:
+  // a `justify-content: center` copied onto a view that hugs its children
+  // would center nothing.
+  const arrangement: ViewStyle = {
+    alignSelf: 'stretch',
+    flexGrow: 1,
+    ...arrangementOf(style),
+  };
 
   return (
     // A plain, un-animated Pressable is the node Android reports as
@@ -98,7 +144,9 @@ export function PressableScale({
       style={style}
       testID={testID}
     >
-      <Animated.View style={[disabled ? styles.disabled : null, animatedStyle]}>
+      <Animated.View
+        style={[arrangement, disabled ? styles.disabled : null, animatedStyle]}
+      >
         {children}
       </Animated.View>
     </Pressable>
