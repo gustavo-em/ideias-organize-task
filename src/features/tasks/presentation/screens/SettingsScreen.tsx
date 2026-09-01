@@ -2,6 +2,7 @@ import styled from 'styled-components/native';
 
 import { dayCapacities } from '../../../../app/domain/AppPreferences';
 import type { AppearanceMode } from '../../../../app/theme/theme';
+import type { AuthCopy } from '../../../auth/presentation/localization/authCopy';
 import {
   appLanguages,
   type AppLanguage,
@@ -10,14 +11,17 @@ import {
 import { PressableScale } from '../views/PressableScale';
 
 interface SettingsScreenProps {
+  accountCopy: AuthCopy;
   appearanceMode: AppearanceMode;
   copy: TaskCopy;
   dayCapacity: number;
   language: AppLanguage;
+  userEmail: string | null;
   version: string;
   onAppearanceModeChange: (mode: AppearanceMode) => void;
   onDayCapacityChange: (capacity: number) => void;
   onLanguageChange: (language: AppLanguage) => void;
+  onSignOut: () => void;
 }
 
 const LANGUAGE_NAMES: Record<AppLanguage, string> = {
@@ -26,18 +30,35 @@ const LANGUAGE_NAMES: Record<AppLanguage, string> = {
 };
 
 export function SettingsScreen({
+  accountCopy,
   appearanceMode,
   copy,
   dayCapacity,
   language,
+  userEmail,
   version,
   onAppearanceModeChange,
   onDayCapacityChange,
   onLanguageChange,
+  onSignOut,
 }: SettingsScreenProps) {
   return (
     <Content>
       <SectionTitle>{copy.settings.title}</SectionTitle>
+
+      {userEmail == null ? null : (
+        <Group>
+          <GroupLabel>{accountCopy.account.label}</GroupLabel>
+          <AccountEmail>{userEmail}</AccountEmail>
+          <SignOutButton
+            accessibilityLabel={accountCopy.account.signOut}
+            onPress={onSignOut}
+            testID="settings-sign-out"
+          >
+            <SignOutLabel>{accountCopy.account.signOut}</SignOutLabel>
+          </SignOutButton>
+        </Group>
+      )}
 
       <Group>
         <GroupLabel>{copy.settings.dayCapacity}</GroupLabel>
@@ -172,4 +193,24 @@ const GroupNote = styled.Text`
 const About = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.label}px;
+`;
+
+const AccountEmail = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.body}px;
+  font-weight: 600;
+`;
+
+const SignOutButton = styled(PressableScale)`
+  align-items: center;
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+  padding: 13px 0px;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const SignOutLabel = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
 `;
