@@ -7,6 +7,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import { useRenderCount } from '../../../../app/perf/sheetPerf';
 import { isCompleted, type Task } from '../../domain/Task';
 import type { ListColor, ListMember, ProjectIcon } from '../../domain/TaskList';
 import { STAGGER_MS } from '../animation/motion';
@@ -72,6 +73,7 @@ export function TaskCard({
   completedByMember = null,
 }: TaskCardProps) {
   const theme = useTheme();
+  useRenderCount('TaskCard');
   const [expanded, setExpanded] = useState(false);
   const [clipped, setClipped] = useState(false);
   const done = isCompleted(task);

@@ -15,6 +15,7 @@ import {
   type ProjectIcon,
   type TaskList,
 } from '../../domain/TaskList';
+import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
 import type { TaskCopy } from '../localization/taskCopy';
 import { projectTone } from '../models/projectAppearance';
 import { CheckGlyph, ProjectGlyph } from './FieldGlyphs';
@@ -50,6 +51,7 @@ export function ProjectEditorSheet({
   onSubmit,
 }: ProjectEditorSheetProps) {
   const theme = useTheme();
+  const traceOpen = useSheetOpenTrace('ProjectEditorSheet');
   const [name, setName] = useState(initialName);
   const [error, setError] = useState(false);
   const [color, setColor] = useState<ListColor>(
@@ -106,6 +108,7 @@ export function ProjectEditorSheet({
         <Sheet
           entering={SlideInDown.springify().damping(20).stiffness(200)}
           exiting={SlideOutDown.duration(180)}
+          onLayout={traceOpen}
         >
           <Grabber />
           {stage === 'details' ? (

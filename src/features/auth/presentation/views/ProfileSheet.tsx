@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
+import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
 import { MemberChip } from '../../../tasks/presentation/views/MemberChip';
 import {
   SheetActionsRow,
@@ -82,6 +83,7 @@ export function ProfileSheet({
   onCancel,
   onSubmit,
 }: ProfileSheetProps) {
+  const traceOpen = useSheetOpenTrace('ProfileSheet');
   const { height } = useWindowDimensions();
   const handleRef = useRef<ComponentRef<typeof HandleInput>>(null);
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
@@ -174,6 +176,7 @@ export function ProfileSheet({
           <Sheet
             entering={SlideInDown.springify().damping(20).stiffness(200)}
             exiting={SlideOutDown.duration(180)}
+            onLayout={traceOpen}
           >
             <Grabber />
             <Fields

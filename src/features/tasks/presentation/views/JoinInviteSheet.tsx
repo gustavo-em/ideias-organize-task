@@ -8,6 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
+import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
 import type { ShareErrorKind } from '../../domain/ShareError';
 import type { TaskCopy } from '../localization/taskCopy';
 import { PressableScale } from './PressableScale';
@@ -39,6 +40,7 @@ export function JoinInviteSheet({
   onPasteFromClipboard,
   onDismissError,
 }: JoinInviteSheetProps) {
+  const traceOpen = useSheetOpenTrace('JoinInviteSheet');
   const [value, setValue] = useState('');
 
   useEffect(() => {
@@ -84,6 +86,7 @@ export function JoinInviteSheet({
         <Sheet
           entering={SlideInDown.springify().damping(20).stiffness(200)}
           exiting={SlideOutDown.duration(180)}
+          onLayout={traceOpen}
         >
           <Grabber />
           <Title accessibilityRole="header">{copy.lists.joinInviteTitle}</Title>

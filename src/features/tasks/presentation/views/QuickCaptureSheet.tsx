@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
 import type { CaptureOverrides } from '../../application/useCases/captureTask';
 import { daysBetween } from '../../domain/Day';
 import { parseCapture } from '../../domain/QuickCapture';
@@ -92,6 +93,7 @@ export function QuickCaptureSheet({
   onSubmit,
 }: QuickCaptureSheetProps) {
   const theme = useTheme();
+  const traceOpen = useSheetOpenTrace('QuickCaptureSheet');
   const isEditing = editing != null;
   // The stopwatch for the whole point of this screen. `nowMs` only ticks once
   // a minute, so the wall clock is what times a thing measured in seconds.
@@ -144,9 +146,11 @@ export function QuickCaptureSheet({
   const estimateMinutes = isEditing ? null : draft.estimatedMinutes;
   const estimateLabel =
     estimateMinutes == null ? '' : copy.capture.minutes(estimateMinutes);
+  // High priority is emphasis, not alarm: `danger` is kept for the destructive
+  // action.
   const priorityColor =
     priority === 'high'
-      ? theme.colors.danger
+      ? theme.colors.text
       : priority === 'medium'
       ? theme.colors.accentInk
       : theme.colors.muted;
@@ -238,6 +242,7 @@ export function QuickCaptureSheet({
         <Sheet
           entering={SlideInDown.duration(SLIDE.duration).easing(SLIDE.easing)}
           exiting={SlideOutDown.duration(200)}
+          onLayout={traceOpen}
         >
           <Grabber />
           <Field
@@ -545,7 +550,7 @@ const PriorityChip = styled(ChipBase)<{ $tone: TaskPriority }>`
   border-radius: ${({ theme }) => theme.radii.pill}px;
   border-color: ${({ theme, $tone }) =>
     $tone === 'high'
-      ? theme.colors.danger
+      ? theme.colors.text
       : $tone === 'medium'
       ? theme.colors.accentInk
       : theme.colors.border};
@@ -590,7 +595,7 @@ const PriorityText = styled.Text.attrs(buttonTextAttrs)<{
   font-weight: 700;
   color: ${({ theme, $tone }) =>
     $tone === 'high'
-      ? theme.colors.danger
+      ? theme.colors.text
       : $tone === 'medium'
       ? theme.colors.accentInk
       : theme.colors.muted};
