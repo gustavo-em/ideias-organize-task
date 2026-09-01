@@ -78,6 +78,47 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.ownerId;
       allow update: if isContentUpdate() || isMembershipUpdate() || isJoining();
       allow delete: if isOwner();
+
+      // Fase 2 — "Hoje, no combinado".
+      //
+      // Um documento por dia do projeto, com um mapa `members` indexado pelo
+      // uid: publicar o próprio dia é uma escrita num único caminho de campo
+      // e ler o dia inteiro é uma leitura de documento só, sem consulta de
+      // coleção (nada aqui é ilimitado).
+      //
+      // O que trafega é apenas quais tarefas do projeto a pessoa levou — o
+      // placar (peso, pontos, nível, sequência pessoal) nunca sai do
+      // aparelho. Membro é membro do projeto pai: a regra busca o documento
+      // do projeto para responder isso.
+      match /days/{dayKey} {
+        function isProjectMember() {
+          return request.auth != null &&
+            request.auth.uid in
+              get(/databases/$(database)/documents/sharedLists/$(token))
+                .data.memberIds;
+        }
+
+        // Cada pessoa só escreve a própria chave dentro de `members`.
+        function onlyOwnEntry() {
+          return request.resource.data.members.diff(
+            resource == null ? {} : resource.data.members
+          ).affectedKeys().hasOnly([request.auth.uid]);
+        }
+
+        // O documento do dia só tem `members`: nenhum outro campo de topo
+        // entra, nem na criação nem na atualização.
+        function onlyMembersField() {
+          return request.resource.data.keys().hasOnly(['members']);
+        }
+
+        allow get: if isProjectMember();
+        allow list: if false;
+        allow create: if isProjectMember() && onlyMembersField() &&
+          request.resource.data.members.keys().hasOnly([request.auth.uid]);
+        allow update: if isProjectMember() && onlyMembersField() &&
+          onlyOwnEntry();
+        allow delete: if false;
+      }
     }
   }
 }

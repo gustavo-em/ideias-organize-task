@@ -2,6 +2,7 @@ import { getApp } from '@react-native-firebase/app';
 import { getAuth } from '@react-native-firebase/auth';
 
 import type { ShareGateway } from '../../application/ports/ShareGateway';
+import { sanitizeMemberDays } from '../../domain/SharedMemberDay';
 import { sanitizeTasks, type Task } from '../../domain/Task';
 import { ShareOperationError } from '../../domain/ShareError';
 import {
@@ -18,6 +19,8 @@ import {
 import { firestoreDocument } from './firestoreRest';
 
 const COLLECTION = 'sharedLists';
+/** Subcollection holding one document per day of a shared project. */
+const DAYS = 'days';
 
 /** Only has to be unguessable enough that nobody stumbles onto a project by
  * accident — the security rule, not the token's length, is what actually
@@ -177,6 +180,48 @@ export const firestoreShareGateway: ShareGateway = {
         updatedAtMs: Date.now(),
       },
     });
+  },
+
+  async publishDay(share, day) {
+    // One document per day, with a map keyed by member: publishing a day is
+    // a single write on one field path, and reading the whole day is a single
+    // document read — no collection query, so nothing here is unbounded.
+    await firestoreDocument(
+      `${COLLECTION}/${share.token}/${DAYS}/${day.dayKey}`,
+      {
+        method: 'PATCH',
+        updateMask: [`members.${day.personId}`],
+        fields: {
+          members: {
+            [day.personId]: {
+              taskIds: [...day.taskIds],
+              focusTaskId: day.focusTaskId,
+              updatedAtMs: day.updatedAtMs,
+            },
+          },
+        },
+      },
+    );
+  },
+
+  async pullDays(share, dayKey) {
+    const { status, fields } = await firestoreDocument(
+      `${COLLECTION}/${share.token}/${DAYS}/${dayKey}`,
+    );
+    if (status === 404 || fields == null) return [];
+
+    const members = fields.members;
+    if (typeof members !== 'object' || members === null) return [];
+
+    return sanitizeMemberDays(
+      Object.entries(members as Record<string, unknown>).map(
+        ([personId, value]) => ({
+          ...(typeof value === 'object' && value !== null ? value : {}),
+          personId,
+          dayKey,
+        }),
+      ),
+    );
   },
 
   async joinByToken(token, member) {

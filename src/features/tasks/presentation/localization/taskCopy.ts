@@ -116,6 +116,17 @@ export interface TaskCopy {
     stopSharing: string;
     stopSharingConfirm: string;
     sharedWith: (count: number) => string;
+    // The band at the top of an open shared project — fase 2.
+    dayBandTitle: string;
+    dayBandEmpty: string;
+    dayBandTakeOne: string;
+    dayBandAllDone: (count: number) => string;
+    dayBandStreak: (days: number) => string;
+    dayBandOffline: string;
+    dayBandAbsent: string;
+    dayBandStateFocusing: string;
+    dayBandStateOpen: string;
+    dayBandStateDone: string;
     joinInvite: string;
     joinInviteTitle: string;
     joinInviteHint: string;
@@ -126,6 +137,8 @@ export interface TaskCopy {
     invalidInvite: string;
     tryAgain: string;
     noNetwork: string;
+    shareRefused: string;
+    creatingLink: string;
     leaveProject: string;
     leaveProjectConfirm: (name: string) => string;
     deleteSharedDetail: string;
@@ -328,6 +341,21 @@ const ptBR: TaskCopy = {
     stopSharingConfirm:
       'Ninguém mais vai poder entrar; quem já está sai também.',
     sharedWith: count => (count === 1 ? '1 pessoa' : `${count} pessoas`),
+    dayBandTitle: 'Hoje, no combinado',
+    dayBandEmpty: 'Ninguém levou nada para hoje ainda.',
+    dayBandTakeOne: 'Levar uma para hoje',
+    dayBandAllDone: count =>
+      count === 1 ? 'Uma pessoa fechou hoje' : `Os ${count} fecharam hoje`,
+    dayBandStreak: days =>
+      days === 1
+        ? '1 dia seguido em que todo mundo fechou o que levou.'
+        : `${days} dias seguidos em que todo mundo fechou o que levou.`,
+    dayBandOffline:
+      'Sem conexão agora — mostrando o que já estava no aparelho.',
+    dayBandAbsent: 'Ainda não levou nada',
+    dayBandStateFocusing: 'em foco',
+    dayBandStateOpen: 'em aberto',
+    dayBandStateDone: 'concluída',
     joinInvite: 'Entrar com convite',
     joinInviteTitle: 'Entrar em um projeto',
     joinInviteHint: 'Cole o link que alguém te mandou.',
@@ -338,6 +366,9 @@ const ptBR: TaskCopy = {
     invalidInvite: 'Esse convite não é válido. Confira o link e tente de novo.',
     tryAgain: 'Tentar de novo',
     noNetwork: 'Sem conexão agora. Verifique a internet e tente de novo.',
+    shareRefused:
+      'O servidor recusou este compartilhamento agora. Tente de novo em instantes.',
+    creatingLink: 'Criando link…',
     leaveProject: 'Sair do projeto',
     leaveProjectConfirm: name =>
       `Sair de “${name}”? Você deixa de ver as tarefas dele.`,
@@ -562,6 +593,21 @@ const enUS: TaskCopy = {
     stopSharingConfirm:
       'Nobody else can join; whoever is already in leaves too.',
     sharedWith: count => (count === 1 ? '1 person' : `${count} people`),
+    dayBandTitle: 'Today, together',
+    dayBandEmpty: 'Nobody took anything for today yet.',
+    dayBandTakeOne: 'Take one for today',
+    dayBandAllDone: count =>
+      count === 1 ? 'One person closed today' : `All ${count} closed today`,
+    dayBandStreak: days =>
+      days === 1
+        ? '1 day in a row where everybody closed what they took.'
+        : `${days} days in a row where everybody closed what they took.`,
+    dayBandOffline:
+      'No connection right now — showing what was already on the phone.',
+    dayBandAbsent: 'Has not taken anything yet',
+    dayBandStateFocusing: 'in focus',
+    dayBandStateOpen: 'open',
+    dayBandStateDone: 'done',
     joinInvite: 'Join with invite',
     joinInviteTitle: 'Join a project',
     joinInviteHint: 'Paste the link someone sent you.',
@@ -572,6 +618,9 @@ const enUS: TaskCopy = {
     invalidInvite: "That invite isn't valid. Check the link and try again.",
     tryAgain: 'Try again',
     noNetwork: 'No connection right now. Check the internet and try again.',
+    shareRefused:
+      'The server refused this share right now. Try again in a moment.',
+    creatingLink: 'Creating link…',
     leaveProject: 'Leave project',
     leaveProjectConfirm: name => `Leave “${name}”? You stop seeing its tasks.`,
     deleteSharedDetail:

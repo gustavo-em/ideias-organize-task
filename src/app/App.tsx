@@ -19,6 +19,7 @@ import { systemHaptics } from '../features/tasks/infrastructure/haptics/systemHa
 import { firestoreShareGateway } from '../features/tasks/infrastructure/sharing/firestoreShareGateway';
 import { systemClipboard } from '../features/tasks/infrastructure/sharing/systemClipboard';
 import {
+  asyncStorageGroupStreakStore,
   asyncStorageListStore,
   asyncStorageProgressStore,
   asyncStorageTaskStore,
@@ -92,6 +93,7 @@ function AppContent({
     trioStore: asyncStorageTrioStore,
     usageReporter: consoleUsageReporter,
     shareGateway: firestoreShareGateway,
+    groupStreakStore: asyncStorageGroupStreakStore,
     clipboard: systemClipboard,
     identity,
     dayCapacity: app.dayCapacity,

@@ -25,6 +25,9 @@ interface MemberChipProps {
   stacked?: boolean;
   /** Invite not yet accepted: dashed outline, no fill. */
   pending?: boolean;
+  /** Inside an accent band: the tonal fill would disappear in the yellow, so
+   * the chip inverts — ink ground, yellow letter. */
+  inverted?: boolean;
   /** Set only where this one chip carries its own meaning — a task's
    * finisher, say. Left unset, the chip stays silent for a screen reader,
    * which is right inside a `MemberStack` that already announced itself. */
@@ -50,19 +53,31 @@ export function MemberChip({
   size = 'medium',
   stacked = false,
   pending = false,
+  inverted = false,
   accessibilityLabel,
 }: MemberChipProps) {
   const theme = useTheme();
   const tone = projectTone(theme, toneFor(personId));
   const diameter = DIAMETER[size];
   const onSun = toneFor(personId) === 'sun';
+  const fill = inverted ? theme.colors.onAccent : tone;
+  const letter = inverted
+    ? pending
+      ? theme.colors.onAccentSubtle
+      : theme.colors.accent
+    : pending
+    ? theme.colors.mutedStrong
+    : onSun
+    ? theme.colors.onAccent
+    : theme.colors.card;
 
   return (
     <Chip
       $d={diameter}
+      $inverted={inverted}
       $pending={pending}
       $stacked={stacked}
-      $tone={pending ? 'transparent' : tone}
+      $tone={pending ? 'transparent' : fill}
       accessibilityElementsHidden={accessibilityLabel == null}
       accessibilityLabel={accessibilityLabel}
       importantForAccessibility={
@@ -70,17 +85,7 @@ export function MemberChip({
       }
     >
       {size !== 'small' ? (
-        <Letter
-          $color={
-            pending
-              ? theme.colors.mutedStrong
-              : onSun
-              ? theme.colors.onAccent
-              : theme.colors.card
-          }
-        >
-          {memberInitials(name)}
-        </Letter>
+        <Letter $color={letter}>{memberInitials(name)}</Letter>
       ) : null}
     </Chip>
   );
@@ -91,6 +96,7 @@ const Chip = styled.View<{
   $tone: string;
   $stacked: boolean;
   $pending: boolean;
+  $inverted: boolean;
 }>`
   width: ${({ $d }) => $d}px;
   height: ${({ $d }) => $d}px;
@@ -100,8 +106,12 @@ const Chip = styled.View<{
   background-color: ${({ $tone }) => $tone};
   border-width: ${({ $stacked, $pending }) => ($stacked || $pending ? 2 : 0)}px;
   border-style: ${({ $pending }) => ($pending ? 'dashed' : 'solid')};
-  border-color: ${({ theme, $pending }) =>
-    $pending ? theme.colors.border : theme.colors.card};
+  border-color: ${({ theme, $pending, $inverted }) =>
+    $pending
+      ? $inverted
+        ? theme.colors.onAccentSubtle
+        : theme.colors.border
+      : theme.colors.card};
   margin-left: ${({ $stacked }) => ($stacked ? -9 : 0)}px;
 `;
 

@@ -1,3 +1,4 @@
+import type { SharedMemberDay } from '../../domain/SharedMemberDay';
 import type { Task } from '../../domain/Task';
 import type {
   ListMember,
@@ -33,6 +34,15 @@ export interface ShareGateway {
   ): Promise<{ list: TaskList; tasks: readonly Task[] } | null>;
   /** Uploads this device's state of a project it already belongs to. */
   push(share: ListShare, list: TaskList, tasks: readonly Task[]): Promise<void>;
+  /** Publishes what this device took for one day. Last write wins, per
+   * member: two people writing the same day never touch each other's entry. */
+  publishDay(share: ListShare, day: SharedMemberDay): Promise<void>;
+  /** What every member published for one day. A member who published nothing
+   * is simply missing from the result — never an empty day. */
+  pullDays(
+    share: ListShare,
+    dayKey: string,
+  ): Promise<readonly SharedMemberDay[]>;
   /** What pasting an invite resolves to. Rejects with `ShareOperationError`
    * (`'invalid-invite'`) for a token nobody recognizes. */
   joinByToken(
