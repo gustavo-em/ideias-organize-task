@@ -107,19 +107,21 @@ export const lightTheme: AppTheme = {
     onAccent: '#1B1710',
     onAccentSubtle: 'rgba(27, 23, 16, 0.78)',
     onAccentLine: 'rgba(27, 23, 16, 0.18)',
-    // Yellow paper, a step down from white. A card only reads as a card when
-    // the sheet under it is not the same colour as the card.
-    background: '#FFFBF0',
+    // Near-neutral paper with a trace of warmth, a step down from white. A card
+    // only reads as a card when the sheet under it is not the same colour as
+    // the card, and a neutral ground lets the accent be the only yellow.
+    background: '#F4F3EF',
     card: '#FFFFFF',
-    // The middle of the yellow scale: visibly alive on selected and support
-    // surfaces, while the accent keeps ownership of the primary action.
-    cardElevated: '#FFE6A0',
-    border: '#E9DDC2',
+    // A pale yellow for selected and support surfaces: present enough to be
+    // read as a state, quiet enough that the accent keeps ownership of the
+    // primary action.
+    cardElevated: '#FFF3D0',
+    border: '#E3E1DB',
     // With card shadows gone, this line is the only separation left between
     // rows, so it has to be visible on the new paper.
-    borderSubtle: '#EFE2C8',
+    borderSubtle: '#ECEAE4',
     text: '#1B1710',
-    muted: '#8A7F6D',
+    muted: '#6F6656',
     mutedStrong: '#5E5545',
     focus: '#FFEFCB',
     focusInk: '#FF9A44',
