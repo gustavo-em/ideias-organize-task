@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import type { GroupStreakStore } from '../../application/ports/GroupStreakStore';
 import type { ListStore } from '../../application/ports/ListStore';
 import type { ProgressStore } from '../../application/ports/ProgressStore';
 import type { TaskStore } from '../../application/ports/TaskStore';
@@ -10,6 +11,7 @@ const KEYS = {
   lists: 'ideias.lists.v1',
   progress: 'ideias.progress.v1',
   trio: 'ideias.trio.v1',
+  groupStreaks: 'ideias.groupStreaks.v1',
 } as const;
 
 /**
@@ -54,4 +56,9 @@ export const asyncStorageProgressStore: ProgressStore = {
 export const asyncStorageTrioStore: TrioStore = {
   load: () => read(KEYS.trio),
   save: trio => write(KEYS.trio, trio),
+};
+
+export const asyncStorageGroupStreakStore: GroupStreakStore = {
+  load: () => read(KEYS.groupStreaks),
+  save: streaks => write(KEYS.groupStreaks, streaks),
 };

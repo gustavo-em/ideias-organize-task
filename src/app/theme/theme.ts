@@ -11,6 +11,11 @@ interface ThemeColors {
   accentInk: string;
   /** What is written on top of an accent fill. */
   onAccent: string;
+  /** Support text on top of an accent fill. Ink at 78%: still readable at
+   * label size, quiet enough to sit under the name it belongs to. */
+  onAccentSubtle: string;
+  /** A separator inside an accent band. Ink at 18%: a rule, not a border. */
+  onAccentLine: string;
   background: string;
   card: string;
   cardElevated: string;
@@ -100,6 +105,8 @@ export const lightTheme: AppTheme = {
     accent: '#FFC63D',
     accentInk: '#40392A',
     onAccent: '#1B1710',
+    onAccentSubtle: 'rgba(27, 23, 16, 0.78)',
+    onAccentLine: 'rgba(27, 23, 16, 0.18)',
     // Yellow paper, a step down from white. A card only reads as a card when
     // the sheet under it is not the same colour as the card.
     background: '#FFFBF0',
@@ -133,6 +140,10 @@ export const darkTheme: AppTheme = {
     accent: '#FFC63D',
     accentInk: '#FFB524',
     onAccent: '#1B1710',
+    // `accent` does not change between modes, so what is written on it does
+    // not change either.
+    onAccentSubtle: 'rgba(27, 23, 16, 0.78)',
+    onAccentLine: 'rgba(27, 23, 16, 0.18)',
     // A warm near-black. A neutral grey next to this yellow reads as a
     // different product; the ground keeps the same temperature as the brand.
     background: '#141008',

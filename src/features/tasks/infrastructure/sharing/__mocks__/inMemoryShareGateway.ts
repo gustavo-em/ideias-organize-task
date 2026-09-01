@@ -1,5 +1,6 @@
 import type { ShareGateway } from '../../../application/ports/ShareGateway';
 import { ShareOperationError } from '../../../domain/ShareError';
+import type { SharedMemberDay } from '../../../domain/SharedMemberDay';
 import type { ListShare, TaskList } from '../../../domain/TaskList';
 import type { Task } from '../../../domain/Task';
 
@@ -9,6 +10,7 @@ import type { Task } from '../../../domain/Task';
  */
 export function createInMemoryShareGateway(): ShareGateway {
   const projects = new Map<string, { list: TaskList; tasks: Task[] }>();
+  const days = new Map<string, Map<string, SharedMemberDay>>();
   let sequence = 0;
 
   return {
@@ -54,6 +56,18 @@ export function createInMemoryShareGateway(): ShareGateway {
 
       project.list = { ...list, share: project.list.share };
       project.tasks = [...tasks];
+    },
+
+    async publishDay(share, day) {
+      const key = `${share.token}/${day.dayKey}`;
+      const published = days.get(key) ?? new Map<string, SharedMemberDay>();
+
+      published.set(day.personId, day);
+      days.set(key, published);
+    },
+
+    async pullDays(share, dayKey) {
+      return [...(days.get(`${share.token}/${dayKey}`)?.values() ?? [])];
     },
 
     async joinByToken(token, member) {

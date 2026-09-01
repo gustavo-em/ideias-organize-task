@@ -120,13 +120,15 @@ export function ShareSheet({
     if (list.share != null) onChangeInvitedAs(next);
   }
 
+  // A refusal is not a connection problem: saying "check the internet" when
+  // the server said no sends the person to fix the wrong thing.
   const errorMessage =
     errorKind === 'network'
       ? copy.lists.noNetwork
       : errorKind === 'invalid-invite'
       ? copy.lists.invalidInvite
-      : errorKind != null
-      ? copy.lists.noNetwork
+      : errorKind === 'forbidden' || errorKind === 'unknown'
+      ? copy.lists.shareRefused
       : null;
 
   return (
@@ -148,6 +150,7 @@ export function ShareSheet({
         <Sheet
           entering={SlideInDown.springify().damping(20).stiffness(200)}
           exiting={SlideOutDown.duration(180)}
+          testID="share-sheet"
         >
           <Grabber />
           <Title accessibilityRole="header">
@@ -162,7 +165,11 @@ export function ShareSheet({
               onPress={handleCreateLink}
               testID="share-create-link"
             >
-              <SubmitText>{copy.lists.createLink}</SubmitText>
+              <SubmitText>
+                {status === 'loading'
+                  ? copy.lists.creatingLink
+                  : copy.lists.createLink}
+              </SubmitText>
             </Submit>
           ) : (
             <>

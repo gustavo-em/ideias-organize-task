@@ -24,4 +24,33 @@ describe('open task screen copy', () => {
     expect(copy.today.expand).toBe('Expand section');
     expect(copy.today.collapse).toBe('Collapse section');
   });
+
+  it('says the shared day band in both languages, conjugated by count', () => {
+    const pt = getTaskCopy('pt-BR');
+    const en = getTaskCopy('en-US');
+
+    for (const copy of [pt, en]) {
+      expect(copy.lists.dayBandTitle.length).toBeGreaterThan(0);
+      expect(copy.lists.dayBandEmpty.length).toBeGreaterThan(0);
+      expect(copy.lists.dayBandTakeOne.length).toBeGreaterThan(0);
+      expect(copy.lists.dayBandOffline.length).toBeGreaterThan(0);
+      expect(copy.lists.dayBandAbsent.length).toBeGreaterThan(0);
+      expect(copy.lists.dayBandStateFocusing.length).toBeGreaterThan(0);
+      expect(copy.lists.dayBandStateOpen.length).toBeGreaterThan(0);
+      expect(copy.lists.dayBandStateDone.length).toBeGreaterThan(0);
+      expect(copy.lists.creatingLink.length).toBeGreaterThan(0);
+      // A refusal never tells the person to check the internet.
+      expect(copy.lists.shareRefused).not.toBe(copy.lists.noNetwork);
+      expect(copy.lists.dayBandAllDone(1)).not.toBe(
+        copy.lists.dayBandAllDone(3),
+      );
+      expect(copy.lists.dayBandAllDone(3)).toContain('3');
+      expect(copy.lists.dayBandStreak(1)).not.toBe(copy.lists.dayBandStreak(4));
+      expect(copy.lists.dayBandStreak(4)).toContain('4');
+    }
+
+    expect(pt.lists.dayBandTitle).toBe('Hoje, no combinado');
+    expect(en.lists.dayBandTitle).toBe('Today, together');
+    expect(pt.lists.dayBandTitle).not.toBe(en.lists.dayBandTitle);
+  });
 });

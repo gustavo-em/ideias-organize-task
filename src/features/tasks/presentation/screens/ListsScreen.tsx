@@ -4,6 +4,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import { isCompleted, isOpen, type Task } from '../../domain/Task';
+import { dayKeyOf } from '../../domain/SharedMemberDay';
 import {
   canEdit,
   canShare,
@@ -14,6 +15,11 @@ import {
   type TaskList,
 } from '../../domain/TaskList';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
+import {
+  isGroupDayClosed,
+  sharedDay,
+  EMPTY_GROUP_STREAK,
+} from '../models/sharedDay';
 import type { TasksViewModel } from '../view-models/useTasksViewModel';
 import { ConfirmDialog } from '../views/ConfirmDialog';
 import {
@@ -31,6 +37,7 @@ import { projectTone } from '../models/projectAppearance';
 import { PressableScale } from '../views/PressableScale';
 import { QuickCaptureSheet } from '../views/QuickCaptureSheet';
 import { ScreenHeader } from '../views/ScreenHeader';
+import { SharedDayBand } from '../views/SharedDayBand';
 import { ShareSheet } from '../views/ShareSheet';
 import { TaskCard } from '../views/TaskCard';
 
@@ -131,6 +138,20 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
               canDeleteList ||
               canLeave);
           const showingActions = actionsForListId === list.id;
+          // The band only ever describes today, and only for a project that
+          // is actually shared.
+          const dayEntries = shared
+            ? sharedDay(
+                list.share!.members,
+                viewModel.sharedDays[list.id] ?? [],
+                tasks,
+                viewModel.nowMs,
+              )
+            : [];
+          const tookSomethingToday = dayEntries.some(
+            entry =>
+              entry.member.personId === personId && entry.state !== 'absent',
+          );
 
           return (
             <ListBlock key={list.id}>
@@ -174,6 +195,9 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
                 {canManage ? (
                   <MoreButton
                     accessibilityLabel={copy.lists.moreActions(list.name)}
+                    // Drawn at 38px, so the touch area is widened to the 48px
+                    // the design guide asks for.
+                    hitSlop={5}
                     onPress={() =>
                       setActionsForListId(showingActions ? null : list.id)
                     }
@@ -185,7 +209,10 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
               </ListHeader>
 
               {showingActions ? (
-                <ListActions entering={FadeIn.duration(150)}>
+                <ListActions
+                  entering={FadeIn.duration(150)}
+                  testID="list-actions-open"
+                >
                   {canShare(list) ? (
                     <ActionButton
                       accessibilityLabel={copy.lists.share}
@@ -193,6 +220,9 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
                         setSharingList(list);
                         setActionsForListId(null);
                       }}
+                      // Only one menu is open at a time, so the anchor does
+                      // not need the generated project id to be unique.
+                      testID="list-share"
                     >
                       <ActionText>{copy.lists.share}</ActionText>
                     </ActionButton>
@@ -237,6 +267,32 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
 
               {isOpenList ? (
                 <Expanded entering={FadeIn.duration(200)}>
+                  {shared ? (
+                    <SharedDayBand
+                      allDone={isGroupDayClosed(
+                        list.share!.members,
+                        dayEntries,
+                      )}
+                      copy={copy}
+                      entries={dayEntries}
+                      offline={viewModel.sharedDayOffline[list.id] === true}
+                      onTakeOne={
+                        isViewer || tookSomethingToday
+                          ? undefined
+                          : () => setCapturingForList(list)
+                      }
+                      streakDays={
+                        (viewModel.groupStreaks[list.id] ?? EMPTY_GROUP_STREAK)
+                          .lastDayKey === dayKeyOf(viewModel.nowMs)
+                          ? (
+                              viewModel.groupStreaks[list.id] ??
+                              EMPTY_GROUP_STREAK
+                            ).days
+                          : 0
+                      }
+                    />
+                  ) : null}
+
                   {tasks.length === 0 ? (
                     shared ? (
                       <GroupEmpty>
@@ -456,7 +512,13 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
             viewModel.changeInvitedAs(sharingList.id, role)
           }
           onCopyLink={token => viewModel.copyShareLink(token)}
-          onCreateLink={role => viewModel.createShareLink(sharingList.id, role)}
+          onCreateLink={role => {
+            viewModel.createShareLink(sharingList.id, role);
+            // The project becomes shared right here, so it opens behind the
+            // sheet: closing the sheet lands on the day band, not on a
+            // collapsed card hiding it.
+            setOpenListId(sharingList.id);
+          }}
           onInvite={token =>
             viewModel.inviteToShareLink(token, copy.lists.shareHint)
           }
@@ -490,7 +552,10 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({ scroll: { paddingBottom: 120 } });
+// Enough room for the floating action and the tab bar under it: the last
+// thing on the list — the invite call in a group's empty state — has to end
+// above both, the same clearance the tasks screen already keeps.
+const styles = StyleSheet.create({ scroll: { paddingBottom: 168 } });
 
 const Screen = styled.View`
   flex: 1;
