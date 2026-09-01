@@ -8,6 +8,7 @@ import styled, { useTheme } from 'styled-components/native';
 
 import { DISCLOSURE } from '../../../../app/animation/motion';
 import { ChevronGlyph } from './FieldGlyphs';
+import { HairlineRule } from './HairlineRule';
 import { PressableScale } from './PressableScale';
 
 interface SectionHeaderProps {
@@ -42,7 +43,7 @@ export function SectionHeader({
       {icon ?? null}
       <SectionTitle $emphasis={emphasis}>{title}</SectionTitle>
       <SectionCount>{count}</SectionCount>
-      <SectionRule />
+      <HairlineRule />
       {collapsible ? <AnimatedChevron expanded={expanded} /> : null}
     </HeadingContent>
   );
@@ -117,16 +118,6 @@ const SectionCount = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
   font-weight: 700;
-`;
-
-/* Typographic rule, not a progress indicator — constant hairline,
-   never partially filled or animated. */
-const SectionRule = styled.View`
-  flex: 1;
-  min-width: 0px;
-  height: 1px;
-  align-self: center;
-  background-color: ${({ theme }) => theme.colors.border};
 `;
 
 const Chevron = styled(Animated.View)`

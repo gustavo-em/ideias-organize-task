@@ -55,7 +55,7 @@ export function TabBar<Id extends string>({
   }));
 
   return (
-    <Bar>
+    <Bar accessibilityRole="tablist">
       <Indicator style={indicatorStyle} />
       {items.map(item => {
         const selected = item.id === active;
@@ -64,6 +64,8 @@ export function TabBar<Id extends string>({
           <Tab
             accessibilityLabel={item.label}
             accessibilityRole="tab"
+            // PressableScale already renders one accessible node per tab, so
+            // the label is announced once, never doubled by the inner text.
             accessibilityState={{ selected }}
             key={item.id}
             onPress={() => onSelect(item.id)}
@@ -105,9 +107,11 @@ const Indicator = styled(Animated.View)`
  * A glyph pinned to the left of its own label reads as a layout accident. */
 const Tab = styled(PressableScale)`
   flex: 1;
+  min-height: 48px;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  padding: 4px 0px 2px;
+  padding: 4px 0px;
 `;
 
 const TabLabel = styled.Text<{ $active: boolean }>`

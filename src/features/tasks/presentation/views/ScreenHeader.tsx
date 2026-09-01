@@ -3,9 +3,15 @@ import Animated from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
 import { screenEnter } from '../../../../app/animation/motion';
+import { HairlineRule } from './HairlineRule';
 
 interface ScreenHeaderProps {
   eyebrow: string;
+  /** Optional: how many things the screen holds, next to the eyebrow. */
+  count?: number;
+  /** Spoken form of the count, so the header announces "Tarefas, 3 tarefas". */
+  countLabel?: string;
+  testID?: string;
   /** Optional: a screen whose content already names itself does not need a
    * headline repeating it. */
   title?: string;
@@ -22,14 +28,29 @@ interface ScreenHeaderProps {
  */
 export function ScreenHeader({
   eyebrow,
+  count,
+  countLabel,
+  testID,
   title,
   subtitle,
   trailing,
 }: ScreenHeaderProps) {
   return (
-    <Header entering={screenEnter()}>
+    <Header entering={screenEnter()} testID={testID}>
       <TopLine>
-        <Eyebrow>{eyebrow}</Eyebrow>
+        {/* Eyebrow and count read as one heading; the rule that follows is
+            typography, not content. */}
+        <EyebrowGroup
+          accessibilityLabel={
+            countLabel == null ? eyebrow : `${eyebrow}, ${countLabel}`
+          }
+          accessibilityRole="header"
+          accessible
+        >
+          <Eyebrow>{eyebrow}</Eyebrow>
+          {count == null ? null : <EyebrowCount>{count}</EyebrowCount>}
+        </EyebrowGroup>
+        <HairlineRule />
         {trailing}
       </TopLine>
       {title == null ? null : <Title accessibilityRole="header">{title}</Title>}
@@ -45,11 +66,26 @@ const Header = styled(Animated.View)`
 const TopLine = styled.View`
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.small}px;
   min-height: 26px;
 `;
 
+const EyebrowGroup = styled.View`
+  flex-shrink: 1;
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const EyebrowCount = styled.Text`
+  flex-shrink: 0;
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 700;
+`;
+
 const Eyebrow = styled.Text`
+  flex-shrink: 1;
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
   font-weight: 700;
