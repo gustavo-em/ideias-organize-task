@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
-  ActivityIndicator,
   BackHandler,
   KeyboardAvoidingView,
   Modal,
@@ -13,10 +12,14 @@ import Animated, {
   SlideInDown,
   SlideOutDown,
 } from 'react-native-reanimated';
-import styled, { useTheme } from 'styled-components/native';
+import styled from 'styled-components/native';
 
 import { MemberChip } from '../../../tasks/presentation/views/MemberChip';
-import { PressableScale } from '../../../tasks/presentation/views/PressableScale';
+import {
+  SheetActionsRow,
+  SheetCancelButton,
+  SheetPrimaryButton,
+} from '../../../tasks/presentation/views/SheetActions';
 import type { ProfileErrorKind } from '../../domain/ProfileError';
 import {
   DISPLAY_NAME_MAX_LENGTH,
@@ -79,7 +82,6 @@ export function ProfileSheet({
   onCancel,
   onSubmit,
 }: ProfileSheetProps) {
-  const theme = useTheme();
   const { height } = useWindowDimensions();
   const handleRef = useRef<ComponentRef<typeof HandleInput>>(null);
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
@@ -258,35 +260,19 @@ export function ProfileSheet({
               )}
             </Fields>
 
-            <Footer>
-              <Cancel
-                accessibilityLabel={copy.profile.cancel}
-                accessibilityRole="button"
+            <SheetActionsRow>
+              <SheetCancelButton
+                label={copy.profile.cancel}
                 onPress={onCancel}
-              >
-                <CancelText>{copy.profile.cancel}</CancelText>
-              </Cancel>
-              <Submit
-                accessibilityLabel={copy.profile.submit}
-                accessibilityRole="button"
-                accessibilityState={{
-                  disabled: !submittable || saving,
-                  busy: saving,
-                }}
-                disabled={!submittable || saving}
+              />
+              <SheetPrimaryButton
+                disabled={!submittable}
+                label={copy.profile.submit}
+                loading={saving}
                 onPress={submit}
                 testID="profile-submit"
-              >
-                {saving ? (
-                  <ActivityIndicator
-                    color={theme.colors.onAccent}
-                    size="small"
-                  />
-                ) : (
-                  <SubmitText>{copy.profile.submit}</SubmitText>
-                )}
-              </Submit>
-            </Footer>
+              />
+            </SheetActionsRow>
           </Sheet>
         </Lift>
       </Overlay>
@@ -442,42 +428,4 @@ const ErrorText = styled.Text`
   font-size: ${({ theme }) => theme.type.caption}px;
   font-weight: 700;
   margin-top: ${({ theme }) => theme.spacing.small}px;
-`;
-
-const Footer = styled.View`
-  flex-direction: row;
-  justify-content: flex-end;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.small}px;
-  margin-top: ${({ theme }) => theme.spacing.large}px;
-`;
-
-const Cancel = styled(PressableScale)`
-  min-height: 48px;
-  justify-content: center;
-  padding: 12px 16px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-`;
-
-const CancelText = styled.Text`
-  color: ${({ theme }) => theme.colors.mutedStrong};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 700;
-`;
-
-const Submit = styled(PressableScale)`
-  min-height: 48px;
-  min-width: 120px;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 20px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  background-color: ${({ theme, disabled }) =>
-    disabled ? theme.colors.cardElevated : theme.colors.accent};
-`;
-
-const SubmitText = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 800;
 `;

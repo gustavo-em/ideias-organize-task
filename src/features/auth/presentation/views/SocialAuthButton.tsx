@@ -1,6 +1,10 @@
 import { ActivityIndicator } from 'react-native';
 import styled, { useTheme } from 'styled-components/native';
 
+import {
+  buttonTextAttrs,
+  buttonTextMetrics,
+} from '../../../../app/theme/buttonText';
 import { PressableScale } from '../../../tasks/presentation/views/PressableScale';
 import { AppleGlyph } from './brand/AppleGlyph';
 import { GoogleGlyph } from './brand/GoogleGlyph';
@@ -91,11 +95,12 @@ const Content = styled.View`
   align-items: center;
   justify-content: center;
   gap: ${({ theme }) => theme.spacing.small}px;
-  min-height: 50px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const Label = styled.Text`
-  font-size: ${({ theme }) => theme.type.body}px;
+const Label = styled.Text.attrs(buttonTextAttrs)`
+  flex-shrink: 1;
+  ${({ theme }) => buttonTextMetrics(theme.type.body)}
   /* Medium, as both brand guidelines specify — heavier than this reads as a
      second primary action next to the app's own button. */
   font-weight: 500;

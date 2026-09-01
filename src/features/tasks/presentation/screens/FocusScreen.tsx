@@ -11,6 +11,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import {
+  buttonTextAttrs,
+  buttonTextMetrics,
+} from '../../../../app/theme/buttonText';
 import { isOpen, type Task } from '../../domain/Task';
 import { clampFocusMinutes, focusMinutesFor } from '../../domain/FocusSession';
 import { FADE, GROUND } from '../animation/motion';
@@ -467,12 +471,13 @@ const Primary = styled(PressableScale)`
   gap: ${({ theme }) => theme.spacing.small - 1}px;
   background-color: ${({ theme }) => theme.colors.accent};
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 12px 20px;
+  min-height: 48px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const PrimaryText = styled.Text`
+const PrimaryText = styled.Text.attrs(buttonTextAttrs)`
   color: ${({ theme }) => theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.label}px;
+  ${({ theme }) => buttonTextMetrics(theme.type.label)}
   font-weight: 800;
 `;
 
@@ -490,13 +495,14 @@ const Complete = styled(PressableScale)<{ filled: boolean }>`
         ? 'rgba(255, 255, 255, 0.28)'
         : 'rgba(27, 23, 16, 0.22)'};
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 12px 16px;
+  min-height: 48px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const CompleteText = styled.Text<{ filled: boolean }>`
+const CompleteText = styled.Text.attrs(buttonTextAttrs)<{ filled: boolean }>`
   color: ${({ theme, filled }) =>
     filled ? theme.colors.onAccent : theme.colors.onFocus};
-  font-size: ${({ theme }) => theme.type.label}px;
+  ${({ theme }) => buttonTextMetrics(theme.type.label)}
   font-weight: ${({ filled }) => (filled ? 800 : 700)};
 `;
 
@@ -510,11 +516,12 @@ const Secondary = styled(PressableScale)`
         ? 'rgba(255, 255, 255, 0.28)'
         : 'rgba(27, 23, 16, 0.22)'};
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 12px 16px;
+  min-height: 48px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const SecondaryText = styled.Text`
+const SecondaryText = styled.Text.attrs(buttonTextAttrs)`
   color: ${({ theme }) => theme.colors.onFocus};
-  font-size: ${({ theme }) => theme.type.label}px;
+  ${({ theme }) => buttonTextMetrics(theme.type.label)}
   font-weight: 700;
 `;

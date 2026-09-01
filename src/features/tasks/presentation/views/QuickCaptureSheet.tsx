@@ -26,7 +26,17 @@ import {
 } from './FieldGlyphs';
 import { ListPanel } from './ListPanel';
 import { projectTone } from '../models/projectAppearance';
+import {
+  buttonTextAttrs,
+  buttonTextMetrics,
+} from '../../../../app/theme/buttonText';
 import { PressableScale } from './PressableScale';
+import {
+  SheetActionsRow,
+  SheetActionsSpacer,
+  SheetCancelButton,
+  SheetPrimaryButton,
+} from './SheetActions';
 import { SLIDE } from '../animation/motion';
 
 /** What an existing task looks like when the same sheet is used to change it. */
@@ -257,11 +267,15 @@ export function QuickCaptureSheet({
               onPress={() => openPanel('date')}
               testID="capture-chip-date"
             >
-              <CalendarGlyph
-                color={
-                  dueAtMs == null ? theme.colors.muted : theme.colors.accentInk
-                }
-              />
+              <ChipGlyph>
+                <CalendarGlyph
+                  color={
+                    dueAtMs == null
+                      ? theme.colors.muted
+                      : theme.colors.accentInk
+                  }
+                />
+              </ChipGlyph>
               <ChipText $color={dueAtMs == null ? 'muted' : 'accent'}>
                 {dateLabel}
               </ChipText>
@@ -273,11 +287,13 @@ export function QuickCaptureSheet({
               onPress={cyclePriority}
               testID="capture-chip-priority"
             >
-              <PriorityGlyph
-                color={priorityColor}
-                level={priority === 'low' ? 1 : priority === 'medium' ? 2 : 3}
-                size={16}
-              />
+              <ChipGlyph>
+                <PriorityGlyph
+                  color={priorityColor}
+                  level={priority === 'low' ? 1 : priority === 'medium' ? 2 : 3}
+                  size={16}
+                />
+              </ChipGlyph>
               <PriorityText $tone={priority}>
                 {copy.capture.priority[priority]}
               </PriorityText>
@@ -290,14 +306,16 @@ export function QuickCaptureSheet({
               onPress={() => openPanel('list')}
               testID="capture-chip-list"
             >
-              {chosenList == null || newListName != null ? (
-                <TagGlyph color={theme.colors.muted} />
-              ) : (
-                <ProjectGlyph
-                  color={projectTone(theme, chosenList.color)}
-                  icon={chosenList.icon}
-                />
-              )}
+              <ChipGlyph>
+                {chosenList == null || newListName != null ? (
+                  <TagGlyph color={theme.colors.muted} />
+                ) : (
+                  <ProjectGlyph
+                    color={projectTone(theme, chosenList.color)}
+                    icon={chosenList.icon}
+                  />
+                )}
+              </ChipGlyph>
               <ChipText $color={chosenList == null ? 'muted' : 'text'}>
                 {listLabel}
               </ChipText>
@@ -378,36 +396,29 @@ export function QuickCaptureSheet({
             </>
           ) : null}
 
-          <Footer>
-            <Lead>
-              <Cancel
-                accessibilityLabel={copy.capture.cancel}
-                onPress={onCancel}
-              >
-                <CancelText>{copy.capture.cancel}</CancelText>
-              </Cancel>
+          <SheetActionsRow>
+            <SheetCancelButton label={copy.capture.cancel} onPress={onCancel} />
 
-              {isEditing && onDelete != null ? (
-                <Delete
-                  accessibilityLabel={copy.today.remove}
-                  hitSlop={8}
-                  onPress={onDelete}
-                  scaleTo={0.88}
-                  testID="capture-delete"
-                >
-                  <TrashGlyph color={theme.colors.danger} size={18} />
-                </Delete>
-              ) : null}
-            </Lead>
-            <Save
-              accessibilityLabel={copy.capture.save}
+            {isEditing && onDelete != null ? (
+              <Delete
+                accessibilityLabel={copy.today.remove}
+                hitSlop={8}
+                onPress={onDelete}
+                scaleTo={0.88}
+                testID="capture-delete"
+              >
+                <TrashGlyph color={theme.colors.danger} size={18} />
+              </Delete>
+            ) : null}
+
+            <SheetActionsSpacer />
+            <SheetPrimaryButton
               disabled={!canSave}
+              label={copy.capture.save}
               onPress={save}
               testID="capture-save"
-            >
-              <SaveText>{copy.capture.save}</SaveText>
-            </Save>
-          </Footer>
+            />
+          </SheetActionsRow>
         </Sheet>
       </Lift>
     </Overlay>
@@ -512,8 +523,10 @@ const Chips = styled.View`
 const ChipBase = styled(PressableScale)`
   flex-direction: row;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 7px 11px;
+  min-height: 48px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
   border-width: 1px;
 `;
 
@@ -548,8 +561,10 @@ const ListChip = styled(ChipBase)<{ $open: boolean }>`
     $open ? theme.colors.cardElevated : 'transparent'};
 `;
 
-const ChipText = styled.Text<{ $color: 'muted' | 'text' | 'accent' }>`
-  font-size: ${({ theme }) => theme.type.caption}px;
+const ChipText = styled.Text.attrs(buttonTextAttrs)<{
+  $color: 'muted' | 'text' | 'accent';
+}>`
+  ${({ theme }) => buttonTextMetrics(theme.type.caption)}
   font-weight: 700;
   color: ${({ theme, $color }) =>
     $color === 'muted'
@@ -559,8 +574,19 @@ const ChipText = styled.Text<{ $color: 'muted' | 'text' | 'accent' }>`
       : theme.colors.text};
 `;
 
-const PriorityText = styled.Text<{ $tone: TaskPriority }>`
-  font-size: ${({ theme }) => theme.type.caption}px;
+/* The three chips carry glyphs drawn at different sizes; a box of their own
+   keeps the words beside them on one baseline. */
+const ChipGlyph = styled.View`
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+`;
+
+const PriorityText = styled.Text.attrs(buttonTextAttrs)<{
+  $tone: TaskPriority;
+}>`
+  ${({ theme }) => buttonTextMetrics(theme.type.caption)}
   font-weight: 700;
   color: ${({ theme, $tone }) =>
     $tone === 'high'
@@ -606,68 +632,39 @@ const NewListActions = styled.View`
 `;
 
 const NewListCancel = styled(PressableScale)`
-  padding: 8px 10px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const NewListCancelText = styled.Text`
+const NewListCancelText = styled.Text.attrs(buttonTextAttrs)`
   color: ${({ theme }) => theme.colors.mutedStrong};
-  font-size: ${({ theme }) => theme.type.caption}px;
+  ${({ theme }) => buttonTextMetrics(theme.type.caption)}
   font-weight: 700;
 `;
 
 const NewListUse = styled(PressableScale)`
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
   background-color: ${({ theme, disabled }) =>
     disabled ? theme.colors.cardElevated : theme.colors.accent};
   border-radius: ${({ theme }) => theme.radii.small}px;
-  padding: 8px 13px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const NewListUseText = styled.Text`
+const NewListUseText = styled.Text.attrs(buttonTextAttrs)`
   color: ${({ theme }) => theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.caption}px;
+  ${({ theme }) => buttonTextMetrics(theme.type.caption)}
   font-weight: 800;
-`;
-
-const Footer = styled.View`
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
-`;
-
-const Lead = styled.View`
-  flex-direction: row;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.small}px;
-`;
-
-const Cancel = styled(PressableScale)`
-  padding: 10px 6px;
 `;
 
 /** The one destructive control in the sheet, and the only red in it. */
 const Delete = styled(PressableScale)`
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   align-items: center;
   justify-content: center;
   border-radius: ${({ theme }) => theme.radii.pill}px;
-`;
-
-const CancelText = styled.Text`
-  color: ${({ theme }) => theme.colors.muted};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 600;
-`;
-
-const Save = styled(PressableScale)`
-  background-color: ${({ theme }) => theme.colors.accent};
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 11px 22px;
-`;
-
-const SaveText = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.label + 1}px;
-  font-weight: 800;
 `;
