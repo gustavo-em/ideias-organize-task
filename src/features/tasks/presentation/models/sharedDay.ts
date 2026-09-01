@@ -3,10 +3,28 @@ import {
   previousDayKey,
   type SharedMemberDay,
 } from '../../domain/SharedMemberDay';
+import { ShareOperationError } from '../../domain/ShareError';
 import { isCompleted, isOpen, type Task } from '../../domain/Task';
 import type { ListMember } from '../../domain/TaskList';
 
 export type SharedDayState = 'focusing' | 'done' | 'open' | 'absent';
+
+/**
+ * How much the band can vouch for what is on screen.
+ *
+ * `offline` is the phone's fault, `error` is the other side's: a refused rule
+ * or a server that answered badly is never told as "no connection", because a
+ * person with full signal reading that stops trusting the app.
+ */
+export type SharedDayStatus = 'ok' | 'offline' | 'error';
+
+/** Only a network failure is offline. Everything else — forbidden, unknown,
+ * anything that is not a `ShareOperationError` — is the server's answer. */
+export function sharedDayStatusOf(error: unknown): SharedDayStatus {
+  return error instanceof ShareOperationError && error.kind === 'network'
+    ? 'offline'
+    : 'error';
+}
 
 export interface SharedDayEntry {
   member: ListMember;

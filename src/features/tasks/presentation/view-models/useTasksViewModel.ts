@@ -55,8 +55,10 @@ import {
   isGroupDayClosed,
   sanitizeGroupStreak,
   sharedDay,
+  sharedDayStatusOf,
   EMPTY_GROUP_STREAK,
   type GroupStreak,
+  type SharedDayStatus,
 } from '../models/sharedDay';
 import {
   buildInviteLink,
@@ -171,8 +173,10 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
   const [sharedDays, setSharedDays] = useState<
     Record<string, readonly SharedMemberDay[]>
   >({});
-  const [sharedDayOffline, setSharedDayOffline] = useState<
-    Record<string, boolean>
+  // Per project: whether the day on screen was read, could not be reached, or
+  // was refused. A refusal never borrows the words of a missing network.
+  const [sharedDayStatus, setSharedDayStatus] = useState<
+    Record<string, SharedDayStatus>
   >({});
   const [groupStreaks, setGroupStreaks] = useState<Record<string, GroupStreak>>(
     {},
@@ -601,12 +605,15 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
         [listId]: withMemberDay(previous[listId] ?? [], day),
       }));
 
-      shareGateway.publishDay(list.share, day).catch(() => {
+      shareGateway.publishDay(list.share, day).catch(error => {
         // The day never left the phone: forget it was published, so the next
         // pass tries again once the network is back. Without this, the same
         // trio would never be sent and the others would keep a missing line.
         delete publishedRef.current[listId];
-        setSharedDayOffline(previous => ({ ...previous, [listId]: true }));
+        setSharedDayStatus(previous => ({
+          ...previous,
+          [listId]: sharedDayStatusOf(error),
+        }));
       });
     },
     [clock, myDayFor, shareGateway],
@@ -629,12 +636,17 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
             ...previous,
             [listId]: mine == null ? days : withMemberDay(days, mine),
           }));
-          setSharedDayOffline(previous => ({ ...previous, [listId]: false }));
+          // A read that landed clears every previous warning: no sticky state.
+          setSharedDayStatus(previous => ({ ...previous, [listId]: 'ok' }));
         })
-        .catch(() => {
+        .catch(error => {
           // Silence is not a state: whatever is already on the phone stays on
-          // screen, with a line saying the day could not be fetched.
-          setSharedDayOffline(previous => ({ ...previous, [listId]: true }));
+          // screen, with a line saying why the day could not be fetched —
+          // missing network and refused request are different sentences.
+          setSharedDayStatus(previous => ({
+            ...previous,
+            [listId]: sharedDayStatusOf(error),
+          }));
         });
     },
     [clock, myDayFor, shareGateway],
@@ -879,7 +891,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     refreshSharedList,
     refreshAllSharedLists,
     sharedDays,
-    sharedDayOffline,
+    sharedDayStatus,
     groupStreaks,
     joinSharedList,
     pasteFromClipboard,

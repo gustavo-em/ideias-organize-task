@@ -1,8 +1,9 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import type { TaskCopy } from '../localization/taskCopy';
-import type { SharedDayEntry } from '../models/sharedDay';
+import type { SharedDayEntry, SharedDayStatus } from '../models/sharedDay';
 import {
   contentEnter,
   fadeEnter,
@@ -14,6 +15,15 @@ import { MemberChip } from './MemberChip';
 import { PressableScale } from './PressableScale';
 import { FocusGlyph } from './TabGlyphs';
 
+/** How long the retry stays visibly busy, even when the server refuses in
+ * milliseconds: shorter than this and the tap reads as ignored. */
+const RETRY_FLOOR_MS = 600;
+
+/** How long the label admits the second refusal before offering the plain
+ * action again. Long enough to be read, short enough not to become the
+ * button's name. */
+const RETRY_SETTLED_MS = 4000;
+
 interface SharedDayBandProps {
   copy: TaskCopy;
   /** Already ordered by `sharedDay`: focusing, open, done, absent. */
@@ -22,11 +32,15 @@ interface SharedDayBandProps {
   allDone: boolean;
   /** Days in a row where that happened. Shown only from two upwards. */
   streakDays: number;
-  /** The day could not be fetched: what is on screen is what the phone had. */
-  offline: boolean;
+  /** How much this band can vouch for what is on screen: read, unreachable,
+   * or refused. `error` never borrows the words of a missing network. */
+  status: SharedDayStatus;
   /** Absent when there is nothing for this person to take, or when they only
    * have reading rights. */
   onTakeOne?: () => void;
+  /** Only offered on `error`: asking again is the whole recovery. Returning
+   * the attempt lets the control say it is busy until the answer lands. */
+  onRetry?: () => void | Promise<unknown>;
 }
 
 /**
@@ -41,10 +55,67 @@ export function SharedDayBand({
   entries,
   allDone,
   streakDays,
-  offline,
+  status,
   onTakeOne,
+  onRetry,
 }: SharedDayBandProps) {
   const theme = useTheme();
+  const offline = status === 'offline';
+  const failed = status === 'error';
+  // A tap that changes nothing on screen reads as a dead control: the label
+  // itself carries the wait, so nothing has to spin.
+  const [retrying, setRetrying] = useState(false);
+  // A second refusal ends on the same screen the tap started from. The label
+  // says so once, for a few seconds, so the person knows the app went and
+  // asked instead of ignoring the tap.
+  const [failedAgain, setFailedAgain] = useState(false);
+  const statusRef = useRef(status);
+  const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  statusRef.current = status;
+
+  useEffect(
+    () => () => {
+      if (settleRef.current != null) clearTimeout(settleRef.current);
+    },
+    [],
+  );
+
+  const handleRetry = useCallback(() => {
+    if (onRetry == null || retrying) return;
+
+    const attempt = onRetry();
+    if (attempt == null) return;
+
+    setFailedAgain(false);
+    setRetrying(true);
+    // Whatever the answer is, the label goes back to offering the action —
+    // a second failure leaves the note above it saying what happened. The
+    // floor is what makes an instant refusal readable: without it the label
+    // flickers for a frame and the tap looks lost.
+    Promise.all([
+      attempt.catch(() => undefined),
+      new Promise<void>(resolve => {
+        setTimeout(() => resolve(), RETRY_FLOOR_MS);
+      }),
+    ]).then(() => {
+      setRetrying(false);
+      if (statusRef.current !== 'error') return;
+
+      setFailedAgain(true);
+      if (settleRef.current != null) clearTimeout(settleRef.current);
+      settleRef.current = setTimeout(
+        () => setFailedAgain(false),
+        RETRY_SETTLED_MS,
+      );
+    });
+  }, [onRetry, retrying]);
+
+  const retryLabel = retrying
+    ? copy.lists.dayBandRetrying
+    : failedAgain
+    ? copy.lists.dayBandRetryFailed
+    : copy.lists.dayBandRetry;
 
   function stateLabel(entry: SharedDayEntry): string {
     if (entry.state === 'absent') return copy.lists.dayBandAbsent;
@@ -79,11 +150,20 @@ export function SharedDayBand({
       <Eyebrow>{copy.lists.dayBandTitle}</Eyebrow>
 
       {entries.length === 0 ? (
-        // Empty and offline are exclusive: with no network the band says why it
-        // knows nothing, and never claims an empty day it could not read.
-        offline ? null : (
-          <Empty testID="shared-day-empty">{copy.lists.dayBandEmpty}</Empty>
-        )
+        // An empty day is only stated when it was actually read: with no
+        // network, or with the request refused, the band says why it knows
+        // nothing instead of claiming a day nobody took.
+        <>
+          {status === 'ok' ? (
+            <Empty testID="shared-day-empty">{copy.lists.dayBandEmpty}</Empty>
+          ) : null}
+          {/* What the band is says nothing about today, so it holds even
+              when the day could not be read — and that is the only state a
+              person with a refused project ever sees. */}
+          <EmptyHint $lead={status !== 'ok'} testID="shared-day-empty-hint">
+            {copy.lists.dayBandEmptyHint}
+          </EmptyHint>
+        </>
       ) : allDone ? (
         <>
           <Row
@@ -178,6 +258,30 @@ export function SharedDayBand({
         </Note>
       ) : null}
 
+      {failed ? (
+        <>
+          <Note
+            $ruled={entries.length > 0 && (!allDone || streakDays < 2)}
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            testID="shared-day-error"
+          >
+            {copy.lists.dayBandError}
+          </Note>
+          {onRetry == null ? null : (
+            <Retry
+              accessibilityLabel={retryLabel}
+              accessibilityState={{ busy: retrying, disabled: retrying }}
+              disabled={retrying}
+              onPress={handleRetry}
+              testID="shared-day-retry"
+            >
+              <RetryText>{retryLabel}</RetryText>
+            </Retry>
+          )}
+        </>
+      ) : null}
+
       {onTakeOne == null ? null : (
         <TakeOne
           accessibilityLabel={copy.lists.dayBandTakeOne}
@@ -237,10 +341,20 @@ const Stack = styled.View`
 /** The empty band still says something, in the size of a sentence and not of
  * a footnote — it is the band's only line. */
 const Empty = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccentSubtle};
+  color: ${({ theme }) => theme.colors.onAccent};
   font-size: ${({ theme }) => theme.type.body}px;
   line-height: ${({ theme }) => theme.type.body + 7}px;
   margin-top: ${({ theme }) => theme.spacing.small + 6}px;
+`;
+
+/** The one line that says what the band is for. Sits under the sentence, in
+ * the size of a caption, so the two read as lead and explanation. */
+const EmptyHint = styled.Text<{ $lead?: boolean }>`
+  color: ${({ theme }) => theme.colors.onAccentSubtle};
+  font-size: ${({ theme }) => theme.type.label}px;
+  line-height: ${({ theme }) => theme.type.label + 5}px;
+  margin-top: ${({ theme, $lead }) =>
+    $lead ? theme.spacing.small + 6 : theme.spacing.tiny + 2}px;
 `;
 
 const Who = styled.View`
@@ -275,6 +389,21 @@ const Note = styled.Text<{ $ruled?: boolean }>`
   padding-top: ${({ theme, $ruled }) =>
     $ruled ? theme.spacing.small + 4 : theme.spacing.tiny}px;
   padding-bottom: ${({ theme }) => theme.spacing.tiny}px;
+`;
+
+/** Asking again is a repair, not the band's decision: text only, no ground of
+ * its own, so it never competes with the one filled control below it. */
+const Retry = styled(PressableScale)`
+  align-self: flex-start;
+  min-height: 48px;
+  justify-content: center;
+  padding-right: ${({ theme }) => theme.spacing.medium}px;
+`;
+
+const RetryText = styled.Text`
+  color: ${({ theme }) => theme.colors.onAccent};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 800;
 `;
 
 /** The one control that decides something inverts ink and sun. The ground is
