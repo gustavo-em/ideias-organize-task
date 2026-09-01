@@ -25,6 +25,7 @@ import {
   isGroupDayClosed,
   sharedDay,
   EMPTY_GROUP_STREAK,
+  type SharedDayStatus,
 } from '../models/sharedDay';
 import type { TasksViewModel } from '../view-models/useTasksViewModel';
 import { ConfirmDialog } from '../views/ConfirmDialog';
@@ -131,6 +132,12 @@ export function ListsScreen({
     return grouped;
   }, [viewModel.tasks]);
 
+  // Asking the same project again, from the band that failed to read it.
+  const retryDay = useCallback(
+    (listId: string) => viewModel.refreshSharedList(listId),
+    [viewModel],
+  );
+
   const toggleOpen = useCallback((listId: string) => {
     setOpenListId(current => (current === listId ? null : listId));
     setActionsForListId(null);
@@ -214,7 +221,6 @@ export function ListsScreen({
             key={list.id}
             list={list}
             nowMs={viewModel.nowMs}
-            offline={viewModel.sharedDayOffline[list.id] === true}
             onCapture={openCapture}
             onDeleteList={openDeleteList}
             onDeleteTask={deleteTask}
@@ -222,6 +228,7 @@ export function ListsScreen({
             onLeaveList={openLeave}
             onMoveIntoDay={moveIntoDay}
             onRenameList={openRename}
+            onRetryDay={retryDay}
             onShare={openShare}
             onToggleActions={toggleActions}
             onToggleOpen={toggleOpen}
@@ -229,6 +236,7 @@ export function ListsScreen({
             open={openListId === list.id}
             personId={personId}
             showingActions={actionsForListId === list.id}
+            status={viewModel.sharedDayStatus[list.id] ?? 'ok'}
             streakDays={streakDaysOf(
               viewModel.groupStreaks[list.id],
               viewModel.nowMs,
@@ -509,7 +517,7 @@ interface ProjectBlockProps {
   index: number;
   list: TaskList;
   nowMs: number;
-  offline: boolean;
+  status: SharedDayStatus;
   open: boolean;
   personId: string | null;
   showingActions: boolean;
@@ -522,6 +530,7 @@ interface ProjectBlockProps {
   onLeaveList: (list: TaskList) => void;
   onMoveIntoDay: (taskId: string) => void;
   onRenameList: (list: TaskList) => void;
+  onRetryDay: (listId: string) => Promise<unknown>;
   onShare: (list: TaskList) => void;
   onToggleActions: (listId: string) => void;
   onToggleOpen: (listId: string) => void;
@@ -541,7 +550,7 @@ const ProjectBlock = memo(function ProjectBlockView({
   index,
   list,
   nowMs,
-  offline,
+  status,
   open,
   personId,
   showingActions,
@@ -554,6 +563,7 @@ const ProjectBlock = memo(function ProjectBlockView({
   onLeaveList,
   onMoveIntoDay,
   onRenameList,
+  onRetryDay,
   onShare,
   onToggleActions,
   onToggleOpen,
@@ -608,6 +618,10 @@ const ProjectBlock = memo(function ProjectBlockView({
     [list, onDeleteList],
   );
   const handleCapture = useCallback(() => onCapture(list), [list, onCapture]);
+  const handleRetryDay = useCallback(
+    () => onRetryDay(list.id),
+    [list.id, onRetryDay],
+  );
 
   return (
     <ListBlock entering={rowEnter(index)}>
@@ -714,10 +728,11 @@ const ProjectBlock = memo(function ProjectBlockView({
               allDone={isGroupDayClosed(list.share!.members, dayEntries)}
               copy={copy}
               entries={dayEntries}
-              offline={offline}
+              onRetry={handleRetryDay}
               onTakeOne={
                 isViewer || tookSomethingToday ? undefined : handleCapture
               }
+              status={status}
               streakDays={streakDays}
             />
           ) : null}

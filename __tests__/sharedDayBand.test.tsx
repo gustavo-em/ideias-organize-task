@@ -5,7 +5,10 @@ import { lightTheme } from '../src/app/theme/theme';
 import type { Task } from '../src/features/tasks/domain/Task';
 import type { ListMember } from '../src/features/tasks/domain/TaskList';
 import { getTaskCopy } from '../src/features/tasks/presentation/localization/taskCopy';
-import type { SharedDayEntry } from '../src/features/tasks/presentation/models/sharedDay';
+import type {
+  SharedDayEntry,
+  SharedDayStatus,
+} from '../src/features/tasks/presentation/models/sharedDay';
 import { CheckGlyph } from '../src/features/tasks/presentation/views/FieldGlyphs';
 import { SharedDayBand } from '../src/features/tasks/presentation/views/SharedDayBand';
 import { FocusGlyph } from '../src/features/tasks/presentation/views/TabGlyphs';
@@ -51,16 +54,18 @@ interface BandOptions {
   entries?: readonly SharedDayEntry[];
   allDone?: boolean;
   streakDays?: number;
-  offline?: boolean;
+  status?: SharedDayStatus;
   onTakeOne?: () => void;
+  onRetry?: () => void;
 }
 
 function render({
   entries = [],
   allDone = false,
   streakDays = 0,
-  offline = false,
+  status = 'ok',
   onTakeOne,
+  onRetry,
 }: BandOptions) {
   let renderer!: ReturnType<typeof create>;
 
@@ -71,8 +76,9 @@ function render({
           allDone={allDone}
           copy={copy}
           entries={entries}
-          offline={offline}
+          onRetry={onRetry}
           onTakeOne={onTakeOne}
+          status={status}
           streakDays={streakDays}
         />
       </ThemeProvider>,
@@ -125,6 +131,16 @@ const ALL_FOUR: readonly SharedDayEntry[] = [
 ];
 
 describe('SharedDayBand', () => {
+  // The retry keeps its busy label for a floor of 600ms, so the clock is
+  // this test's to move.
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('shows the eyebrow and one line per person, in the order it received', () => {
     const root = render({ entries: ALL_FOUR });
     const rendered = texts(root);
@@ -276,7 +292,7 @@ describe('SharedDayBand', () => {
     const root = render({
       allDone: true,
       entries: closed,
-      offline: true,
+      status: 'offline',
       streakDays: 4,
     });
     const ruled = hosts(
@@ -324,7 +340,7 @@ describe('SharedDayBand', () => {
   });
 
   it('draws no rule on an empty band, with nothing above the note', () => {
-    const root = render({ entries: [], offline: true });
+    const root = render({ entries: [], status: 'offline' });
     const ruled = hosts(
       root,
       node => isText(node) && flatStyle(node).borderTopWidth === 1.5,
@@ -335,7 +351,7 @@ describe('SharedDayBand', () => {
   });
 
   it('rules above the offline note, so it reads as an aside', () => {
-    const root = render({ entries: ALL_FOUR, offline: true });
+    const root = render({ entries: ALL_FOUR, status: 'offline' });
     const note = hosts(
       root,
       node => isText(node) && node.children.includes(copy.lists.dayBandOffline),
@@ -346,11 +362,171 @@ describe('SharedDayBand', () => {
   });
 
   it('explains a failed fetch without losing the lines already on the phone', () => {
-    const rendered = texts(render({ entries: ALL_FOUR, offline: true }));
+    const rendered = texts(render({ entries: ALL_FOUR, status: 'offline' }));
 
     expect(rendered).toContain(copy.lists.dayBandOffline);
     expect(rendered).toContain('Vera');
     expect(rendered).toContain('Escrever o convite');
+  });
+
+  it('says nothing about the network once the day was read', () => {
+    const rendered = texts(render({ entries: ALL_FOUR, status: 'ok' }));
+
+    expect(rendered).not.toContain(copy.lists.dayBandOffline);
+    expect(rendered).not.toContain(copy.lists.dayBandError);
+  });
+
+  it('tells a refused day in its own words, never as a missing network', () => {
+    const root = render({ entries: ALL_FOUR, status: 'error' });
+    const rendered = texts(root);
+
+    expect(rendered).toContain(copy.lists.dayBandError);
+    expect(rendered).not.toContain(copy.lists.dayBandOffline);
+    expect(root.findByProps({ testID: 'shared-day-error' })).toBeTruthy();
+  });
+
+  it('offers asking again, and asks when tapped', () => {
+    const onRetry = jest.fn();
+    const root = render({ entries: ALL_FOUR, status: 'error', onRetry });
+    const retry = root.findByProps({ testID: 'shared-day-retry' });
+
+    act(() => {
+      retry.props.onPress();
+    });
+
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('says it is trying while the new attempt is in flight', async () => {
+    let settle!: () => void;
+    const onRetry = jest.fn(
+      () =>
+        new Promise<void>(resolve => {
+          settle = resolve;
+        }),
+    );
+    const root = render({ entries: ALL_FOUR, status: 'error', onRetry });
+    const retry = () => root.findByProps({ testID: 'shared-day-retry' });
+
+    expect(retry().props.accessibilityLabel).toBe(copy.lists.dayBandRetry);
+
+    act(() => {
+      retry().props.onPress();
+    });
+
+    expect(texts(root)).toContain(copy.lists.dayBandRetrying);
+    expect(retry().props.accessibilityState).toEqual({
+      busy: true,
+      disabled: true,
+    });
+
+    // A second tap while it waits does not stack another attempt.
+    act(() => {
+      retry().props.onPress();
+    });
+    expect(onRetry).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      settle();
+      jest.advanceTimersByTime(600);
+    });
+
+    expect(texts(root)).not.toContain(copy.lists.dayBandRetrying);
+    expect(texts(root)).toContain(copy.lists.dayBandRetryFailed);
+  });
+
+  it('offers the action again when the new attempt also fails', async () => {
+    const onRetry = jest.fn(() => Promise.reject(new Error('denied')));
+    const root = render({ entries: ALL_FOUR, status: 'error', onRetry });
+
+    await act(async () => {
+      root.findByProps({ testID: 'shared-day-retry' }).props.onPress();
+      jest.advanceTimersByTime(600);
+    });
+
+    expect(texts(root)).toContain(copy.lists.dayBandRetryFailed);
+    expect(texts(root)).toContain(copy.lists.dayBandError);
+
+    await act(async () => {
+      jest.advanceTimersByTime(4000);
+    });
+
+    expect(texts(root)).toContain(copy.lists.dayBandRetry);
+  });
+
+  it('holds the busy label through an instant refusal', async () => {
+    const onRetry = jest.fn(() => Promise.reject(new Error('denied')));
+    const root = render({ entries: ALL_FOUR, status: 'error', onRetry });
+
+    await act(async () => {
+      root.findByProps({ testID: 'shared-day-retry' }).props.onPress();
+    });
+
+    // The server already said no, and the label is still saying it tried.
+    expect(texts(root)).toContain(copy.lists.dayBandRetrying);
+
+    await act(async () => {
+      jest.advanceTimersByTime(600);
+    });
+
+    expect(texts(root)).not.toContain(copy.lists.dayBandRetrying);
+  });
+
+  it('admits the second refusal in the label, then offers the plain action', async () => {
+    const onRetry = jest.fn(() => Promise.resolve());
+    const root = render({ entries: ALL_FOUR, status: 'error', onRetry });
+
+    await act(async () => {
+      root.findByProps({ testID: 'shared-day-retry' }).props.onPress();
+      jest.advanceTimersByTime(600);
+    });
+
+    // The status is still 'error': the band went and asked, and says so.
+    expect(texts(root)).toContain(copy.lists.dayBandRetryFailed);
+    expect(
+      root.findByProps({ testID: 'shared-day-retry' }).props.accessibilityLabel,
+    ).toBe(copy.lists.dayBandRetryFailed);
+
+    await act(async () => {
+      jest.advanceTimersByTime(4000);
+    });
+
+    expect(texts(root)).toContain(copy.lists.dayBandRetry);
+    expect(texts(root)).not.toContain(copy.lists.dayBandRetryFailed);
+  });
+
+  it('announces the error note when it lands', () => {
+    const note = render({ entries: ALL_FOUR, status: 'error' }).findByProps({
+      testID: 'shared-day-error',
+    });
+
+    expect(note.props.accessibilityLiveRegion).toBe('polite');
+    expect(note.props.accessibilityRole).toBe('alert');
+  });
+
+  it('never claims an empty day it could not read, but still says what the band is', () => {
+    const root = render({ entries: [], status: 'error' });
+
+    expect(
+      hosts(root, node => node.props.testID === 'shared-day-empty'),
+    ).toHaveLength(0);
+    expect(texts(root)).not.toContain(copy.lists.dayBandEmpty);
+    expect(texts(root)).toContain(copy.lists.dayBandEmptyHint);
+  });
+
+  it('explains the band on an offline day too', () => {
+    const rendered = texts(render({ entries: [], status: 'offline' }));
+
+    expect(rendered).toContain(copy.lists.dayBandEmptyHint);
+    expect(rendered).toContain(copy.lists.dayBandOffline);
+    expect(rendered).not.toContain(copy.lists.dayBandEmpty);
+  });
+
+  it('explains what the band is for, under the empty sentence', () => {
+    const rendered = texts(render({ entries: [], status: 'ok' }));
+
+    expect(rendered).toContain(copy.lists.dayBandEmpty);
+    expect(rendered).toContain(copy.lists.dayBandEmptyHint);
   });
 
   it('bleeds to both edges over a sun ground', () => {

@@ -4,10 +4,12 @@ import {
 } from '../src/features/tasks/domain/SharedMemberDay';
 import type { Task } from '../src/features/tasks/domain/Task';
 import type { ListMember } from '../src/features/tasks/domain/TaskList';
+import { ShareOperationError } from '../src/features/tasks/domain/ShareError';
 import {
   advanceGroupStreak,
   isGroupDayClosed,
   sharedDay,
+  sharedDayStatusOf,
   EMPTY_GROUP_STREAK,
 } from '../src/features/tasks/presentation/models/sharedDay';
 
@@ -183,5 +185,25 @@ describe('group streak', () => {
 
     expect(advanceGroupStreak(second, TODAY, true)).toBe(second);
     expect(advanceGroupStreak(second, TODAY, false)).toBe(second);
+  });
+});
+
+describe('sharedDayStatusOf', () => {
+  it('calls only a network failure offline', () => {
+    expect(sharedDayStatusOf(new ShareOperationError('network'))).toBe(
+      'offline',
+    );
+  });
+
+  it('never dresses a refused or broken answer as a missing network', () => {
+    expect(sharedDayStatusOf(new ShareOperationError('forbidden'))).toBe(
+      'error',
+    );
+    expect(sharedDayStatusOf(new ShareOperationError('unknown'))).toBe('error');
+    expect(sharedDayStatusOf(new ShareOperationError('invalid-invite'))).toBe(
+      'error',
+    );
+    expect(sharedDayStatusOf(new Error('boom'))).toBe('error');
+    expect(sharedDayStatusOf(null)).toBe('error');
   });
 });

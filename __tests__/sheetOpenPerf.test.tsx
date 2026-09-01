@@ -100,7 +100,7 @@ function viewModel(): TasksViewModel {
     sharedDays: Object.fromEntries(
       lists.map(list => [list.id, days.map(day => ({ ...day }))]),
     ),
-    sharedDayOffline: {},
+    sharedDayStatus: {},
     groupStreaks: {},
     shareStatus: 'idle',
     shareErrorKind: null,

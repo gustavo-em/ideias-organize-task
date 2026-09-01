@@ -119,7 +119,10 @@ const days: readonly SharedMemberDay[] = [
   },
 ];
 
-function viewModelFor(list: TaskList): TasksViewModel {
+function viewModelFor(
+  list: TaskList,
+  overrides: Partial<TasksViewModel> = {},
+): TasksViewModel {
   return {
     nowMs: NOW,
     lists: [list],
@@ -127,7 +130,7 @@ function viewModelFor(list: TaskList): TasksViewModel {
     openTaskCount: 1,
     identity: { personId: ME, name: 'Joana' },
     sharedDays: { [list.id]: days.map(day => ({ ...day })) },
-    sharedDayOffline: {},
+    sharedDayStatus: {},
     groupStreaks: {},
     shareStatus: 'idle',
     shareErrorKind: null,
@@ -138,10 +141,11 @@ function viewModelFor(list: TaskList): TasksViewModel {
     createShareLink: () => undefined,
     moveIntoDay: () => undefined,
     toggle: () => undefined,
+    ...overrides,
   } as unknown as TasksViewModel;
 }
 
-function render(list: TaskList) {
+function render(list: TaskList, overrides: Partial<TasksViewModel> = {}) {
   let renderer!: ReturnType<typeof create>;
 
   act(() => {
@@ -151,7 +155,7 @@ function render(list: TaskList) {
           copy={copy}
           language="pt-BR"
           ownProfile={null}
-          viewModel={viewModelFor(list)}
+          viewModel={viewModelFor(list, overrides)}
         />
       </ThemeProvider>,
     );
@@ -225,6 +229,48 @@ describe('the band inside the lists screen', () => {
       ).length,
     ).toBeGreaterThan(0);
     expect(texts(root)).toContain(copy.lists.dayBandTitle);
+  });
+
+  it('asks the same project again when the day could not be read', async () => {
+    jest.useFakeTimers();
+    const refreshSharedList = jest.fn(() => Promise.resolve());
+    const root = render(sharedList, {
+      sharedDayStatus: { [sharedList.id]: 'error' },
+      refreshSharedList,
+    } as unknown as Partial<TasksViewModel>);
+
+    open(root, sharedList);
+
+    expect(texts(root)).toContain(copy.lists.dayBandError);
+    expect(texts(root)).not.toContain(copy.lists.dayBandOffline);
+
+    press(root, 'shared-day-retry');
+
+    expect(refreshSharedList).toHaveBeenCalledWith(sharedList.id);
+
+    // The band holds a busy label for a floor of 600ms: let it end inside
+    // the test instead of after the environment is gone.
+    await act(async () => {
+      jest.advanceTimersByTime(600);
+    });
+    // And the few seconds in which the label admits the second refusal.
+    await act(async () => {
+      jest.advanceTimersByTime(4000);
+    });
+    jest.useRealTimers();
+  });
+
+  it('carries no warning once the day was read', () => {
+    const root = render(sharedList, {
+      sharedDayStatus: { [sharedList.id]: 'ok' },
+    } as unknown as Partial<TasksViewModel>);
+
+    open(root, sharedList);
+
+    const rendered = texts(root);
+    expect(rendered).toContain(copy.lists.dayBandTitle);
+    expect(rendered).not.toContain(copy.lists.dayBandError);
+    expect(rendered).not.toContain(copy.lists.dayBandOffline);
   });
 
   it('opens a project of your own with no band and nothing in its place', () => {

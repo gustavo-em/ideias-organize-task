@@ -125,10 +125,15 @@ export interface TaskCopy {
     // The band at the top of an open shared project — fase 2.
     dayBandTitle: string;
     dayBandEmpty: string;
+    dayBandEmptyHint: string;
     dayBandTakeOne: string;
     dayBandAllDone: (count: number) => string;
     dayBandStreak: (days: number) => string;
     dayBandOffline: string;
+    dayBandError: string;
+    dayBandRetry: string;
+    dayBandRetrying: string;
+    dayBandRetryFailed: string;
     dayBandAbsent: string;
     dayBandStateFocusing: string;
     dayBandStateOpen: string;
@@ -357,6 +362,8 @@ const ptBR: TaskCopy = {
     sharedWith: count => (count === 1 ? '1 pessoa' : `${count} pessoas`),
     dayBandTitle: 'Hoje, no combinado',
     dayBandEmpty: 'Ninguém levou nada para hoje ainda.',
+    dayBandEmptyHint:
+      'Cada um leva poucas tarefas para o dia. Aqui vocês veem o combinado de todo mundo.',
     dayBandTakeOne: 'Levar uma para hoje',
     dayBandAllDone: count =>
       count === 1 ? 'Uma pessoa fechou hoje' : `Os ${count} fecharam hoje`,
@@ -366,6 +373,10 @@ const ptBR: TaskCopy = {
         : `${days} dias seguidos em que todo mundo fechou o que levou.`,
     dayBandOffline:
       'Sem conexão agora — mostrando o que já estava no aparelho.',
+    dayBandError: 'Não deu para carregar o combinado de hoje.',
+    dayBandRetry: 'Tentar de novo',
+    dayBandRetrying: 'Tentando…',
+    dayBandRetryFailed: 'Ainda não deu — tentar de novo',
     dayBandAbsent: 'Ainda não levou nada',
     dayBandStateFocusing: 'em foco',
     dayBandStateOpen: 'em aberto',
@@ -624,6 +635,8 @@ const enUS: TaskCopy = {
     sharedWith: count => (count === 1 ? '1 person' : `${count} people`),
     dayBandTitle: 'Today, together',
     dayBandEmpty: 'Nobody took anything for today yet.',
+    dayBandEmptyHint:
+      'Each person takes a few tasks for the day. Here you see what everyone took.',
     dayBandTakeOne: 'Take one for today',
     dayBandAllDone: count =>
       count === 1 ? 'One person closed today' : `All ${count} closed today`,
@@ -633,6 +646,10 @@ const enUS: TaskCopy = {
         : `${days} days in a row where everybody closed what they took.`,
     dayBandOffline:
       'No connection right now — showing what was already on the phone.',
+    dayBandError: "Could not load today's plan.",
+    dayBandRetry: 'Try again',
+    dayBandRetrying: 'Trying…',
+    dayBandRetryFailed: 'Still no luck — try again',
     dayBandAbsent: 'Has not taken anything yet',
     dayBandStateFocusing: 'in focus',
     dayBandStateOpen: 'open',

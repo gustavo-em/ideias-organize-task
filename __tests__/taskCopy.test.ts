@@ -33,7 +33,12 @@ describe('open task screen copy', () => {
       expect(copy.lists.dayBandTitle.length).toBeGreaterThan(0);
       expect(copy.lists.dayBandEmpty.length).toBeGreaterThan(0);
       expect(copy.lists.dayBandTakeOne.length).toBeGreaterThan(0);
+      expect(copy.lists.dayBandEmptyHint.length).toBeGreaterThan(0);
       expect(copy.lists.dayBandOffline.length).toBeGreaterThan(0);
+      expect(copy.lists.dayBandError.length).toBeGreaterThan(0);
+      expect(copy.lists.dayBandRetry.length).toBeGreaterThan(0);
+      expect(copy.lists.dayBandRetrying.length).toBeGreaterThan(0);
+      expect(copy.lists.dayBandRetryFailed.length).toBeGreaterThan(0);
       expect(copy.lists.dayBandAbsent.length).toBeGreaterThan(0);
       expect(copy.lists.dayBandStateFocusing.length).toBeGreaterThan(0);
       expect(copy.lists.dayBandStateOpen.length).toBeGreaterThan(0);
