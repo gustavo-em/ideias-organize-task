@@ -61,7 +61,8 @@ function Confetti() {
     theme.colors.accent,
     theme.colors.focusInk,
     theme.colors.success,
-    theme.colors.danger,
+    // `danger` belongs to destructive action only; celebration never alarms.
+    theme.colors.accent,
   ];
 
   return (

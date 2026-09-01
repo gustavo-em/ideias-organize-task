@@ -25,10 +25,7 @@ export function ProgressScreen({ copy, viewModel }: ProgressScreenProps) {
   const { level } = viewModel;
 
   return (
-    <Content
-      contentContainerStyle={styles.scroll}
-      showsVerticalScrollIndicator={false}
-    >
+    <Content>
       <ScreenHeader
         eyebrow={copy.progress.title}
         subtitle={copy.progress.streakHint}
@@ -75,13 +72,14 @@ export function ProgressScreen({ copy, viewModel }: ProgressScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  scroll: { paddingBottom: 40 },
   count: { fontSize: 30, fontWeight: '800', letterSpacing: -1 },
 });
 
-const Content = styled.ScrollView`
-  flex: 1;
-  padding: 0px ${({ theme }) => theme.spacing.large}px;
+/* The tab owns the scroll; this block only asks for the height it needs, so the
+   seven-day card is never clipped by the settings group under it. */
+const Content = styled.View`
+  padding: 0px ${({ theme }) => theme.spacing.large}px
+    ${({ theme }) => theme.spacing.large}px;
 `;
 
 const Section = styled(Animated.View)`

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StatusBar, useColorScheme } from 'react-native';
+import { StatusBar, StyleSheet, useColorScheme } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import styled, { ThemeProvider } from 'styled-components/native';
 
@@ -179,7 +179,10 @@ function AppContent({
         ) : null}
 
         {app.activeTab === 'you' ? (
-          <YouTab>
+          <YouTab
+            contentContainerStyle={styles.youTab}
+            showsVerticalScrollIndicator={false}
+          >
             <ProgressScreen copy={app.copy} viewModel={tasks} />
             <SettingsScreen
               accountCopy={getAuthCopy(app.language)}
@@ -363,6 +366,10 @@ const BottomSafe = styled(SafeAreaView)`
   background-color: ${({ theme }) => theme.colors.background};
 `;
 
-const YouTab = styled.View`
+/* One scroll for the whole tab: the rhythm block and the settings group share a
+   single column, so neither can be clipped by the other. */
+const YouTab = styled.ScrollView`
   flex: 1;
 `;
+
+const styles = StyleSheet.create({ youTab: { paddingBottom: 24 } });

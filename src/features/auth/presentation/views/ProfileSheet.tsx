@@ -170,6 +170,7 @@ export function ProfileSheet({
             accessibilityLabel={copy.profile.cancel}
             accessibilityRole="button"
             onPress={onCancel}
+            testID="profile-cancel"
           />
         </Scrim>
         <Lift behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
