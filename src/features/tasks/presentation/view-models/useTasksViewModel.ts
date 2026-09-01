@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import type { Clipboard } from '../../application/ports/Clipboard';
 import type { Clock } from '../../application/ports/Clock';
 import type { Haptics } from '../../application/ports/Haptics';
 import type { ListStore } from '../../application/ports/ListStore';
 import type { ProgressStore } from '../../application/ports/ProgressStore';
+import type { ShareGateway } from '../../application/ports/ShareGateway';
 import type { TaskStore } from '../../application/ports/TaskStore';
 import type { TrioStore } from '../../application/ports/TrioStore';
 import type { UsageReporter } from '../../application/ports/UsageReporter';
@@ -25,6 +27,14 @@ import {
   planDay,
   reshuffleDay,
 } from '../../application/useCases/planDay';
+import {
+  acceptInvite,
+  applyRemoteList,
+  leaveSharedList,
+  removeMember as removeShareMemberUseCase,
+  shareTaskList,
+  stopSharing,
+} from '../../application/useCases/shareTaskList';
 import { toggleTask } from '../../application/useCases/toggleTask';
 import {
   getLevelProgress,
@@ -33,8 +43,17 @@ import {
   getWeek,
 } from '../../domain/Progress';
 import { startOfDay } from '../../domain/Day';
+import {
+  ShareOperationError,
+  type ShareErrorKind,
+} from '../../domain/ShareError';
 import { isOpen } from '../../domain/Task';
-import { findListById } from '../../domain/TaskList';
+import {
+  buildInviteLink,
+  findListById,
+  parseInviteToken,
+  type ListRole,
+} from '../../domain/TaskList';
 import type { TaskEventBus, UseCaseResult } from '../../domain/TaskEvent';
 import {
   backlogCount,
@@ -50,6 +69,7 @@ import {
 } from '../../domain/Workspace';
 import { createFeedbackSubscriber } from '../../infrastructure/events/createFeedbackSubscriber';
 import { createPersistenceSubscriber } from '../../infrastructure/events/createPersistenceSubscriber';
+import { createSharePushSubscriber } from '../../infrastructure/events/createSharePushSubscriber';
 import { createUsageSubscriber } from '../../infrastructure/events/createUsageSubscriber';
 import { createId } from '../../../../shared/identity/createId';
 
@@ -62,6 +82,11 @@ export interface TasksDependencies {
   taskStore: TaskStore;
   trioStore: TrioStore;
   usageReporter: UsageReporter;
+  shareGateway: ShareGateway;
+  clipboard: Clipboard;
+  /** The signed-in account's identity inside a shared project. Null only in
+   * the instant between the shell mounting and auth resolving. */
+  identity: { personId: string; name: string } | null;
   /** How many tasks the day commits to, from the person's own settings. */
   dayCapacity?: number;
 }
@@ -87,6 +112,9 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     taskStore,
     trioStore,
     usageReporter,
+    shareGateway,
+    clipboard,
+    identity,
     dayCapacity = DEFAULT_DAY_CAPACITY,
   } = dependencies;
 
@@ -97,6 +125,18 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     null,
   );
   const [streakPulse, setStreakPulse] = useState(0);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'loading' | 'error'>(
+    'idle',
+  );
+  const [shareErrorKind, setShareErrorKind] = useState<ShareErrorKind | null>(
+    null,
+  );
+  const [joinStatus, setJoinStatus] = useState<'idle' | 'loading' | 'error'>(
+    'idle',
+  );
+  const [joinErrorKind, setJoinErrorKind] = useState<ShareErrorKind | null>(
+    null,
+  );
   // Actions read the latest workspace rather than the one captured when the
   // callback was made, so two taps in the same frame both land.
   const current = useRef(workspace);
@@ -163,6 +203,15 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     });
   }, [bus, listStore, progressStore, restored, taskStore, trioStore]);
 
+  useEffect(() => {
+    if (restored == null || identity == null) return;
+
+    return createSharePushSubscriber(bus, {
+      shareGateway,
+      personId: identity.personId,
+    });
+  }, [bus, identity, restored, shareGateway]);
+
   useEffect(() => createFeedbackSubscriber(bus, haptics), [bus, haptics]);
 
   useEffect(
@@ -213,8 +262,16 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
   );
 
   const toggle = useCallback(
-    (taskId: string) => run(toggleTask(current.current, taskId, clock.now())),
-    [clock, run],
+    (taskId: string) =>
+      run(
+        toggleTask(
+          current.current,
+          taskId,
+          clock.now(),
+          identity?.personId ?? null,
+        ),
+      ),
+    [clock, identity, run],
   );
 
   const remove = useCallback(
@@ -279,6 +336,219 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     [clock, run],
   );
 
+  function errorKindOf(error: unknown): ShareErrorKind {
+    return error instanceof ShareOperationError ? error.kind : 'unknown';
+  }
+
+  const createShareLink = useCallback(
+    (listId: string, invitedAs: Exclude<ListRole, 'owner'>) => {
+      const list = findListById(current.current.lists, listId);
+      if (list == null || identity == null) return;
+
+      const owner = {
+        personId: identity.personId,
+        name: identity.name,
+        role: 'owner' as const,
+        joined: true,
+      };
+      const tasks = current.current.tasks.filter(
+        task => task.listId === listId,
+      );
+
+      setShareStatus('loading');
+      setShareErrorKind(null);
+      shareGateway
+        .createLink(list, tasks, invitedAs, owner)
+        .then(share => {
+          run(shareTaskList(current.current, listId, share, clock.now()));
+          setShareStatus('idle');
+        })
+        .catch(error => {
+          setShareErrorKind(errorKindOf(error));
+          setShareStatus('error');
+        });
+    },
+    [clock, identity, run, shareGateway],
+  );
+
+  const changeInvitedAs = useCallback(
+    (listId: string, invitedAs: Exclude<ListRole, 'owner'>) => {
+      const list = findListById(current.current.lists, listId);
+      if (list?.share == null) return;
+
+      const share = { ...list.share, invitedAs };
+      run(shareTaskList(current.current, listId, share, clock.now()));
+    },
+    [clock, run],
+  );
+
+  const copyShareLink = useCallback(
+    (token: string) => clipboard.copy(buildInviteLink(token)),
+    [clipboard],
+  );
+
+  const inviteToShareLink = useCallback(
+    (token: string, message: string) =>
+      clipboard.share(buildInviteLink(token), message),
+    [clipboard],
+  );
+
+  const stopSharingList = useCallback(
+    (listId: string) => {
+      const list = findListById(current.current.lists, listId);
+      if (list?.share == null) return;
+
+      setShareStatus('loading');
+      setShareErrorKind(null);
+      shareGateway
+        .revokeLink(list.share)
+        .then(() => {
+          run(stopSharing(current.current, listId, clock.now()));
+          setShareStatus('idle');
+        })
+        .catch(error => {
+          setShareErrorKind(errorKindOf(error));
+          setShareStatus('error');
+        });
+    },
+    [clock, run, shareGateway],
+  );
+
+  const removeShareMember = useCallback(
+    (listId: string, personId: string) => {
+      const list = findListById(current.current.lists, listId);
+      if (list?.share == null) return;
+
+      setShareStatus('loading');
+      setShareErrorKind(null);
+      shareGateway
+        .removeMember(list.share, personId)
+        .then(() => {
+          run(
+            removeShareMemberUseCase(
+              current.current,
+              listId,
+              personId,
+              clock.now(),
+            ),
+          );
+          setShareStatus('idle');
+        })
+        .catch(error => {
+          setShareErrorKind(errorKindOf(error));
+          setShareStatus('error');
+        });
+    },
+    [clock, run, shareGateway],
+  );
+
+  const leaveList = useCallback(
+    (listId: string) => {
+      const list = findListById(current.current.lists, listId);
+      if (list?.share == null || identity == null) return;
+
+      shareGateway.removeMember(list.share, identity.personId).catch(() => {
+        // The device has already left locally either way — the remote
+        // membership will fall out of date until the owner's next pull.
+      });
+      run(
+        leaveSharedList(
+          current.current,
+          listId,
+          identity.personId,
+          clock.now(),
+        ),
+      );
+    },
+    [clock, identity, run, shareGateway],
+  );
+
+  const refreshSharedList = useCallback(
+    (listId: string) => {
+      const list = findListById(current.current.lists, listId);
+      if (list?.share == null) return Promise.resolve();
+
+      setShareStatus('loading');
+      setShareErrorKind(null);
+      return shareGateway
+        .pull(list.share)
+        .then(remote => {
+          if (remote == null) {
+            // Taken down by its owner: this device gets the same outcome as
+            // a local delete, tasks and all moved to Caixa.
+            run(deleteTaskList(current.current, listId, clock.now()));
+          } else {
+            run(applyRemoteList(current.current, listId, remote, clock.now()));
+          }
+          setShareStatus('idle');
+        })
+        .catch(error => {
+          setShareErrorKind(errorKindOf(error));
+          setShareStatus('error');
+        });
+    },
+    [clock, run, shareGateway],
+  );
+
+  const refreshAllSharedLists = useCallback(() => {
+    const shared = current.current.lists.filter(list => list.share != null);
+    return Promise.all(shared.map(list => refreshSharedList(list.id)));
+  }, [refreshSharedList]);
+
+  const joinSharedList = useCallback(
+    (pastedInput: string): Promise<boolean> => {
+      const token = parseInviteToken(pastedInput);
+      if (token == null || identity == null) {
+        setJoinErrorKind('invalid-invite');
+        setJoinStatus('error');
+        return Promise.resolve(false);
+      }
+
+      // `role` here is only a placeholder to satisfy the port's type — the
+      // gateway derives the real role from the link's own `invitedAs`, never
+      // from what this device claims.
+      const joiner = {
+        personId: identity.personId,
+        name: identity.name,
+        role: 'viewer' as const,
+        joined: true,
+      };
+
+      setJoinStatus('loading');
+      setJoinErrorKind(null);
+      return shareGateway
+        .joinByToken(token, joiner)
+        .then(incoming => {
+          const granted =
+            incoming.list.share?.members.find(
+              member => member.personId === identity.personId,
+            ) ?? joiner;
+
+          run(acceptInvite(current.current, incoming, granted, clock.now()));
+          setJoinStatus('idle');
+          return true;
+        })
+        .catch(error => {
+          setJoinErrorKind(errorKindOf(error));
+          setJoinStatus('error');
+          return false;
+        });
+    },
+    [clock, identity, run, shareGateway],
+  );
+
+  const dismissShareError = useCallback(() => {
+    setShareStatus('idle');
+    setShareErrorKind(null);
+  }, []);
+
+  const pasteFromClipboard = useCallback(() => clipboard.paste(), [clipboard]);
+
+  const dismissJoinError = useCallback(() => {
+    setJoinStatus('idle');
+    setJoinErrorKind(null);
+  }, []);
+
   const today = useMemo(
     () => trioTasks(workspace.trio, workspace.tasks),
     [workspace.tasks, workspace.trio],
@@ -321,6 +591,24 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     createList,
     renameList,
     deleteList,
+    identity,
+    shareStatus,
+    shareErrorKind,
+    joinStatus,
+    joinErrorKind,
+    createShareLink,
+    changeInvitedAs,
+    copyShareLink,
+    inviteToShareLink,
+    stopSharingList,
+    removeShareMember,
+    leaveList,
+    refreshSharedList,
+    refreshAllSharedLists,
+    joinSharedList,
+    pasteFromClipboard,
+    dismissShareError,
+    dismissJoinError,
   };
 }
 

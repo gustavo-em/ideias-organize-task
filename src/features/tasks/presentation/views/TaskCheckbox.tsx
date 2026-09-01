@@ -44,6 +44,8 @@ interface TaskCheckboxProps {
   /** On a Sol ground the default outline is invisible and the filled state
    * would be yellow on yellow. Ink does both jobs there. */
   tone?: 'default' | 'onAccent';
+  /** A `viewer` in a shared project sees the box but cannot tick it. */
+  disabled?: boolean;
 }
 
 /**
@@ -60,6 +62,7 @@ export function TaskCheckbox({
   testID,
   hitSlop,
   tone = 'default',
+  disabled = false,
 }: TaskCheckboxProps) {
   const theme = useTheme();
   const progress = useSharedValue(checked ? 1 : 0);
@@ -96,7 +99,8 @@ export function TaskCheckbox({
     <PressableScale
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="checkbox"
-      accessibilityState={{ checked }}
+      accessibilityState={{ checked, disabled }}
+      disabled={disabled}
       hitSlop={hitSlop}
       onPress={onToggle}
       scaleTo={0.88}

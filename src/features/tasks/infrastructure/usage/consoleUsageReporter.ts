@@ -23,6 +23,9 @@ export const consoleUsageReporter: UsageReporter = {
   async screenOpened(screen) {
     report('screen_opened', { screen });
   },
+  async listShared() {
+    report('list_shared', {});
+  },
 };
 
 function report(name: string, payload: Record<string, unknown>): void {

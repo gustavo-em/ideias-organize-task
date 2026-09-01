@@ -3,4 +3,6 @@
 export interface AuthUser {
   uid: string;
   email: string | null;
+  /** Set by the provider's own profile, if the person ever gave one. */
+  displayName: string | null;
 }

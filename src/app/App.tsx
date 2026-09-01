@@ -16,6 +16,8 @@ import { firebaseAuthAdapter } from '../features/auth/infrastructure/firebase/fi
 import type { AuthViewModel } from '../features/auth/presentation/view-models/useAuthViewModel';
 import { systemClock } from '../features/tasks/infrastructure/clock/systemClock';
 import { systemHaptics } from '../features/tasks/infrastructure/haptics/systemHaptics';
+import { firestoreShareGateway } from '../features/tasks/infrastructure/sharing/firestoreShareGateway';
+import { systemClipboard } from '../features/tasks/infrastructure/sharing/systemClipboard';
 import {
   asyncStorageListStore,
   asyncStorageProgressStore,
@@ -23,6 +25,7 @@ import {
   asyncStorageTrioStore,
 } from '../features/tasks/infrastructure/storage/asyncStorageStores';
 import { consoleUsageReporter } from '../features/tasks/infrastructure/usage/consoleUsageReporter';
+import { deriveMemberName } from '../features/tasks/presentation/models/memberIdentity';
 import { FocusScreen } from '../features/tasks/presentation/screens/FocusScreen';
 import { ListsScreen } from '../features/tasks/presentation/screens/ListsScreen';
 import { ProgressScreen } from '../features/tasks/presentation/screens/ProgressScreen';
@@ -68,6 +71,17 @@ function AppContent({
   bus: TaskEventBus;
   onReady: () => void;
 }) {
+  const identity = useMemo(
+    () =>
+      auth.user == null
+        ? null
+        : {
+            personId: auth.user.uid,
+            name: deriveMemberName(auth.user, app.copy.tabs.you),
+          },
+    [auth.user, app.copy],
+  );
+
   const tasks = useTasksViewModel({
     bus,
     clock: systemClock,
@@ -77,6 +91,9 @@ function AppContent({
     taskStore: asyncStorageTaskStore,
     trioStore: asyncStorageTrioStore,
     usageReporter: consoleUsageReporter,
+    shareGateway: firestoreShareGateway,
+    clipboard: systemClipboard,
+    identity,
     dayCapacity: app.dayCapacity,
   });
   const focus = useFocusViewModel({ bus, clock: systemClock });

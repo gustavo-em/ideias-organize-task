@@ -417,6 +417,58 @@ export function StopGlyph({ color, size = 16 }: GlyphProps) {
   );
 }
 
+/** People: the project that stopped being one person's. */
+export function PeopleGlyph({ color, size = 16 }: GlyphProps) {
+  return (
+    <Svg height={size} viewBox="0 0 16 16" width={size}>
+      <Circle
+        cx={6.2}
+        cy={5.6}
+        fill="none"
+        r={2.6}
+        stroke={color}
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M1.8 13.4c0-2.4 2-3.9 4.4-3.9s4.4 1.5 4.4 3.9"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M11.2 4.2a2.4 2.4 0 0 1 0 4.5M12.2 10.1c1.3.5 2 1.7 2 3.3"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+    </Svg>
+  );
+}
+
+/** A link: what gets copied and sent. */
+export function LinkGlyph({ color, size = 16 }: GlyphProps) {
+  return (
+    <Svg height={size} viewBox="0 0 16 16" width={size}>
+      <Path
+        d="M6.4 9.6 9.6 6.4"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M8.7 4.6l1.1-1.1a2.6 2.6 0 0 1 3.7 3.7l-1.1 1.1M7.3 11.4l-1.1 1.1a2.6 2.6 0 0 1-3.7-3.7l1.1-1.1"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+    </Svg>
+  );
+}
+
 export function CheckGlyph({ color, size = 16 }: GlyphProps) {
   return (
     <Svg height={size} viewBox="0 0 16 16" width={size}>

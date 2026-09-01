@@ -1,0 +1,584 @@
+import { useEffect, useRef, useState } from 'react';
+import { BackHandler, Modal } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
+} from 'react-native-reanimated';
+import styled, { useTheme } from 'styled-components/native';
+
+import type { ShareErrorKind } from '../../domain/ShareError';
+import {
+  buildInviteLink,
+  canEdit,
+  type ListRole,
+  type TaskList,
+} from '../../domain/TaskList';
+import { STAGGER_MS } from '../animation/motion';
+import type { TaskCopy } from '../localization/taskCopy';
+import { ConfirmDialog } from './ConfirmDialog';
+import { CheckGlyph, LinkGlyph } from './FieldGlyphs';
+import { MemberChip } from './MemberChip';
+import { PressableScale } from './PressableScale';
+
+type ShareStatus = 'idle' | 'loading' | 'error';
+
+interface ShareSheetProps {
+  copy: TaskCopy;
+  list: TaskList;
+  personId: string;
+  status: ShareStatus;
+  errorKind: ShareErrorKind | null;
+  onCancel: () => void;
+  onCreateLink: (invitedAs: Exclude<ListRole, 'owner'>) => void;
+  onChangeInvitedAs: (invitedAs: Exclude<ListRole, 'owner'>) => void;
+  onCopyLink: (token: string) => void;
+  onInvite: (token: string) => void;
+  onRemoveMember: (personId: string) => void;
+  onStopSharing: () => void;
+}
+
+/**
+ * Turning a project into a group, and reading who is in it.
+ *
+ * Same shell as `ProjectEditorSheet`: only the middle changes. The link is
+ * revealed only after it exists — before that, the one thing on the sheet is
+ * the button that creates it.
+ */
+export function ShareSheet({
+  copy,
+  list,
+  personId,
+  status,
+  errorKind,
+  onCancel,
+  onCreateLink,
+  onChangeInvitedAs,
+  onCopyLink,
+  onInvite,
+  onRemoveMember,
+  onStopSharing,
+}: ShareSheetProps) {
+  const theme = useTheme();
+  const [invitedAs, setInvitedAs] = useState<Exclude<ListRole, 'owner'>>(
+    list.share?.invitedAs ?? 'editor',
+  );
+  const [justCopied, setJustCopied] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState<{
+    personId: string;
+    name: string;
+  } | null>(null);
+  const [confirmingStop, setConfirmingStop] = useState(false);
+  const lastAction = useRef<() => void>(() => onCreateLink(invitedAs));
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const viewer = list.share != null && !canEdit(list, personId);
+  const members = list.share?.members ?? [];
+  // Managing the invite (role, members, stopping the share) is the owner's
+  // job; an editor edits tasks but does not run the group.
+  const isOwner =
+    list.share == null ||
+    members.find(member => member.personId === personId)?.role === 'owner';
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        onCancel();
+        return true;
+      },
+    );
+
+    return () => subscription.remove();
+  }, [onCancel]);
+
+  useEffect(
+    () => () => {
+      if (copiedTimer.current != null) clearTimeout(copiedTimer.current);
+    },
+    [],
+  );
+
+  function handleCreateLink() {
+    lastAction.current = () => onCreateLink(invitedAs);
+    onCreateLink(invitedAs);
+  }
+
+  function handleCopy() {
+    if (list.share == null) return;
+
+    onCopyLink(list.share.token);
+    setJustCopied(true);
+    if (copiedTimer.current != null) clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setJustCopied(false), 1200);
+  }
+
+  function handleChangeInvitedAs(next: Exclude<ListRole, 'owner'>) {
+    setInvitedAs(next);
+    if (list.share != null) onChangeInvitedAs(next);
+  }
+
+  const errorMessage =
+    errorKind === 'network'
+      ? copy.lists.noNetwork
+      : errorKind === 'invalid-invite'
+      ? copy.lists.invalidInvite
+      : errorKind != null
+      ? copy.lists.noNetwork
+      : null;
+
+  return (
+    <Modal
+      animationType="none"
+      onRequestClose={onCancel}
+      statusBarTranslucent
+      transparent
+      visible
+    >
+      <Overlay>
+        <Scrim entering={FadeIn.duration(160)} exiting={FadeOut.duration(140)}>
+          <ScrimTouch
+            accessibilityLabel={copy.capture.cancel}
+            accessibilityRole="button"
+            onPress={onCancel}
+          />
+        </Scrim>
+        <Sheet
+          entering={SlideInDown.springify().damping(20).stiffness(200)}
+          exiting={SlideOutDown.duration(180)}
+        >
+          <Grabber />
+          <Title accessibilityRole="header">
+            {`${copy.lists.share} ${list.name}`}
+          </Title>
+          <Hint>{copy.lists.shareHint}</Hint>
+
+          {list.share == null ? (
+            <Submit
+              accessibilityLabel={copy.lists.createLink}
+              disabled={status === 'loading'}
+              onPress={handleCreateLink}
+              testID="share-create-link"
+            >
+              <SubmitText>{copy.lists.createLink}</SubmitText>
+            </Submit>
+          ) : (
+            <>
+              <LinkRow accessibilityRole="text">
+                <LinkGlyph color={theme.colors.accentInk} size={16} />
+                <LinkText>{buildInviteLink(list.share.token)}</LinkText>
+                <CopyButton
+                  accessibilityLabel={copy.lists.copyLinkAccessible}
+                  hitSlop={8}
+                  onPress={handleCopy}
+                  testID="share-copy-link"
+                >
+                  <CopyText>
+                    {justCopied ? copy.lists.linkCopied : copy.lists.copyLink}
+                  </CopyText>
+                </CopyButton>
+              </LinkRow>
+
+              {!isOwner ? null : (
+                <>
+                  <SectionLabel>{copy.lists.invitedAsLabel}</SectionLabel>
+                  <RoleRow>
+                    <RoleButton
+                      $selected={invitedAs === 'viewer'}
+                      accessibilityLabel={copy.lists.roleViewer}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: invitedAs === 'viewer' }}
+                      onPress={() => handleChangeInvitedAs('viewer')}
+                    >
+                      <RoleButtonText $selected={invitedAs === 'viewer'}>
+                        {copy.lists.roleViewer}
+                      </RoleButtonText>
+                    </RoleButton>
+                    <RoleButton
+                      $selected={invitedAs === 'editor'}
+                      accessibilityLabel={copy.lists.roleEditor}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: invitedAs === 'editor' }}
+                      onPress={() => handleChangeInvitedAs('editor')}
+                    >
+                      {invitedAs === 'editor' ? (
+                        <CheckGlyph color={theme.colors.accentInk} size={14} />
+                      ) : null}
+                      <RoleButtonText $selected={invitedAs === 'editor'}>
+                        {copy.lists.roleEditor}
+                      </RoleButtonText>
+                    </RoleButton>
+                  </RoleRow>
+                  <Note>{copy.lists.roleChangeNote}</Note>
+                </>
+              )}
+
+              <SectionLabel>{`${copy.lists.membersHeader.toUpperCase()} · ${
+                members.length
+              }`}</SectionLabel>
+              {members.map((member, index) => (
+                <MemberRow
+                  entering={FadeInDown.delay(index * STAGGER_MS).duration(280)}
+                  key={member.personId}
+                  $last={index === members.length - 1}
+                >
+                  <MemberChip
+                    name={member.name}
+                    personId={member.personId}
+                    pending={!member.joined}
+                    size="large"
+                  />
+                  <MemberInfo>
+                    <MemberName>{member.name}</MemberName>
+                    {member.joined ? null : (
+                      <MemberSub>{copy.lists.pendingInvite}</MemberSub>
+                    )}
+                  </MemberInfo>
+                  {member.role === 'owner' ? (
+                    <RoleTag>{copy.lists.roleOwner}</RoleTag>
+                  ) : (
+                    <RoleTag>
+                      {member.role === 'editor'
+                        ? copy.lists.roleEditor
+                        : copy.lists.roleViewer}
+                    </RoleTag>
+                  )}
+                  {isOwner && member.personId !== personId ? (
+                    <RemoveButton
+                      accessibilityLabel={copy.lists.removeMember(member.name)}
+                      hitSlop={14}
+                      onPress={() =>
+                        setConfirmingRemove({
+                          personId: member.personId,
+                          name: member.name,
+                        })
+                      }
+                    >
+                      <RemoveText>{copy.lists.removeMemberLabel}</RemoveText>
+                    </RemoveButton>
+                  ) : null}
+                </MemberRow>
+              ))}
+            </>
+          )}
+
+          {errorMessage == null ? null : (
+            <ErrorBanner>
+              <ErrorText>{errorMessage}</ErrorText>
+              <RetryButton
+                accessibilityLabel={copy.lists.tryAgain}
+                hitSlop={12}
+                onPress={() => lastAction.current()}
+              >
+                <RetryText>{copy.lists.tryAgain}</RetryText>
+              </RetryButton>
+            </ErrorBanner>
+          )}
+
+          <Footer>
+            {isOwner && list.share != null ? (
+              <StopLink
+                accessibilityLabel={copy.lists.stopSharing}
+                onPress={() => setConfirmingStop(true)}
+              >
+                <StopLinkText>{copy.lists.stopSharing}</StopLinkText>
+              </StopLink>
+            ) : null}
+            <FooterSpacer />
+            <Cancel accessibilityLabel={copy.capture.cancel} onPress={onCancel}>
+              <CancelText>{copy.capture.cancel}</CancelText>
+            </Cancel>
+            {viewer || list.share == null ? null : (
+              <Submit
+                accessibilityLabel={copy.lists.invite}
+                onPress={() => onInvite(list.share!.token)}
+                testID="share-invite"
+              >
+                <SubmitText>{copy.lists.invite}</SubmitText>
+              </Submit>
+            )}
+          </Footer>
+        </Sheet>
+      </Overlay>
+
+      {confirmingRemove == null ? null : (
+        <ConfirmDialog
+          cancelLabel={copy.today.removeCancel}
+          confirmLabel={copy.today.remove}
+          destructive
+          onCancel={() => setConfirmingRemove(null)}
+          onConfirm={() => {
+            lastAction.current = () =>
+              onRemoveMember(confirmingRemove.personId);
+            onRemoveMember(confirmingRemove.personId);
+            setConfirmingRemove(null);
+          }}
+          testID="share-remove-member-confirm"
+          title={copy.lists.removeMemberConfirm(confirmingRemove.name)}
+        />
+      )}
+
+      {!confirmingStop ? null : (
+        <ConfirmDialog
+          body={copy.lists.stopSharingConfirm}
+          cancelLabel={copy.today.removeCancel}
+          confirmLabel={copy.lists.stopSharing}
+          destructive
+          onCancel={() => setConfirmingStop(false)}
+          onConfirm={() => {
+            lastAction.current = () => onStopSharing();
+            onStopSharing();
+            setConfirmingStop(false);
+          }}
+          testID="share-stop-sharing-confirm"
+          title={copy.lists.stopSharing}
+        />
+      )}
+    </Modal>
+  );
+}
+
+const Overlay = styled.View`
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+  justify-content: flex-end;
+  z-index: 35;
+`;
+
+const Scrim = styled(Animated.View)`
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+  background-color: ${({ theme }) => theme.colors.scrim};
+`;
+
+const ScrimTouch = styled.Pressable`
+  flex: 1;
+`;
+
+const Sheet = styled(Animated.View)`
+  background-color: ${({ theme }) => theme.colors.background};
+  border-top-left-radius: ${({ theme }) => theme.radii.extraLarge}px;
+  border-top-right-radius: ${({ theme }) => theme.radii.extraLarge}px;
+  margin-bottom: -80px;
+  max-height: 91%;
+  padding: ${({ theme }) => theme.spacing.medium}px
+    ${({ theme }) => theme.spacing.large}px
+    ${({ theme }) => theme.spacing.large + 88}px;
+`;
+
+const Grabber = styled.View`
+  width: 36px;
+  height: 4px;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  background-color: ${({ theme }) => theme.colors.border};
+  align-self: center;
+  margin-bottom: ${({ theme }) => theme.spacing.medium}px;
+`;
+
+const Title = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.heading}px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+`;
+
+const Hint = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.label}px;
+  line-height: ${({ theme }) => theme.type.label + 5}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const LinkRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small + 2}px;
+  border: 2px solid ${({ theme }) => theme.colors.accent};
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  background-color: ${({ theme }) => theme.colors.card};
+  padding: 13px 14px;
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+`;
+
+const LinkText = styled.Text.attrs({ numberOfLines: 1 })`
+  flex: 1;
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.body}px;
+  font-variant: tabular-nums;
+`;
+
+const CopyButton = styled(PressableScale)`
+  padding: 8px 14px;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  background-color: ${({ theme }) => theme.colors.accent};
+`;
+
+const CopyText = styled.Text`
+  color: ${({ theme }) => theme.colors.onAccent};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 800;
+`;
+
+const SectionLabel = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+`;
+
+const RoleRow = styled.View`
+  flex-direction: row;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const RoleButton = styled(PressableScale)<{ $selected: boolean }>`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.tiny + 2}px;
+  min-height: 48px;
+  padding: 0px 14px;
+  border: 1px solid
+    ${({ theme, $selected }) =>
+      $selected ? theme.colors.accent : theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  background-color: ${({ theme, $selected }) =>
+    $selected ? theme.colors.cardElevated : theme.colors.card};
+`;
+
+const RoleButtonText = styled.Text<{ $selected: boolean }>`
+  color: ${({ theme, $selected }) =>
+    $selected ? theme.colors.accentInk : theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  font-weight: 800;
+`;
+
+const Note = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const MemberRow = styled(Animated.View)<{ $last: boolean }>`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small + 4}px;
+  min-height: 48px;
+  padding: ${({ theme }) => theme.spacing.small + 4}px 0px;
+  border-bottom-width: ${({ $last }) => ($last ? 0 : 1)}px;
+  border-bottom-color: ${({ theme }) => theme.colors.borderSubtle};
+`;
+
+const MemberInfo = styled.View`
+  flex: 1;
+`;
+
+const MemberName = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.body}px;
+  font-weight: 700;
+`;
+
+const MemberSub = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+`;
+
+const RoleTag = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+`;
+
+const RemoveButton = styled(PressableScale)`
+  padding: ${({ theme }) => theme.spacing.tiny}px;
+`;
+
+const RemoveText = styled.Text`
+  color: ${({ theme }) => theme.colors.danger};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
+`;
+
+const ErrorBanner = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  background-color: ${({ theme }) => theme.colors.cardElevated};
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  padding: ${({ theme }) => theme.spacing.small + 4}px
+    ${({ theme }) => theme.spacing.medium}px;
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+`;
+
+const ErrorText = styled.Text`
+  flex: 1;
+  color: ${({ theme }) => theme.colors.accentInk};
+  font-size: ${({ theme }) => theme.type.label}px;
+  line-height: ${({ theme }) => theme.type.label + 5}px;
+`;
+
+const RetryButton = styled(PressableScale)`
+  padding: 8px 12px;
+`;
+
+const RetryText = styled.Text`
+  color: ${({ theme }) => theme.colors.accentInk};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 800;
+`;
+
+const Footer = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  margin-top: ${({ theme }) => theme.spacing.large}px;
+`;
+
+const FooterSpacer = styled.View`
+  flex: 1;
+`;
+
+const StopLink = styled(PressableScale)`
+  padding: 12px 10px;
+`;
+
+const StopLinkText = styled.Text`
+  color: ${({ theme }) => theme.colors.danger};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
+`;
+
+const Cancel = styled(PressableScale)`
+  padding: 12px 16px;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+`;
+
+const CancelText = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
+`;
+
+const Submit = styled(PressableScale)`
+  padding: 12px 20px;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  background-color: ${({ theme, disabled }) =>
+    disabled ? theme.colors.cardElevated : theme.colors.accent};
+`;
+
+const SubmitText = styled.Text`
+  color: ${({ theme }) => theme.colors.onAccent};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 800;
+`;
