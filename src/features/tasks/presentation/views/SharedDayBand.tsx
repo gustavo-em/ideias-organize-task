@@ -75,7 +75,11 @@ export function SharedDayBand({
       <Eyebrow>{copy.lists.dayBandTitle}</Eyebrow>
 
       {entries.length === 0 ? (
-        <Empty testID="shared-day-empty">{copy.lists.dayBandEmpty}</Empty>
+        // Empty and offline are exclusive: with no network the band says why it
+        // knows nothing, and never claims an empty day it could not read.
+        offline ? null : (
+          <Empty testID="shared-day-empty">{copy.lists.dayBandEmpty}</Empty>
+        )
       ) : allDone ? (
         <>
           <Row

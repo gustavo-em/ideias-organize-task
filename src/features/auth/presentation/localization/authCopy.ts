@@ -110,7 +110,8 @@ const pt: AuthCopy = {
   },
   forgot: {
     title: 'Recuperar senha',
-    subtitle: 'Enviamos um link para redefinir a senha.',
+    subtitle:
+      'Informe o e-mail da conta e enviamos um link para redefinir a senha.',
     submit: 'Enviar e-mail de recuperação',
     backToLoginLink: 'Voltar para o login',
     sent: email => `E-mail de recuperação enviado para ${email}.`,
@@ -209,7 +210,7 @@ const en: AuthCopy = {
   },
   forgot: {
     title: 'Reset password',
-    subtitle: "We'll send a link to reset your password.",
+    subtitle: "Enter your account email and we'll send a reset link.",
     submit: 'Send recovery email',
     backToLoginLink: 'Back to log in',
     sent: email => `Recovery email sent to ${email}.`,

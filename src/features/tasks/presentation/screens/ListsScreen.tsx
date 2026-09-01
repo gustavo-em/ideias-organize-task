@@ -588,7 +588,9 @@ const ProjectBlock = memo(function ProjectBlockView({
     <ListBlock>
       <ListHeader>
         <Row
-          accessibilityLabel={list.name}
+          accessibilityLabel={
+            isViewer ? `${list.name}, ${copy.lists.viewerCannotAdd}` : list.name
+          }
           accessibilityState={{ selected: open }}
           onPress={handleToggleOpen}
           testID={`list-${list.id}`}
@@ -609,6 +611,9 @@ const ProjectBlock = memo(function ProjectBlockView({
               )}
             />
           ) : null}
+          {/* Names the state the screen is already in: without it, a viewer
+              taps a disabled checkbox and gets silence. */}
+          {isViewer ? <ReadOnlyTag>{copy.lists.roleViewer}</ReadOnlyTag> : null}
           <Count>{copy.lists.progress(done, tasks.length)}</Count>
           <Track>
             <Fill
@@ -818,6 +823,15 @@ const Name = styled.Text`
 const Count = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
+`;
+/* Same neutral metadata voice as the count beside it: it states the role, it
+   does not warn. */
+const ReadOnlyTag = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
 `;
 const Track = styled.View`
   width: 100%;

@@ -172,8 +172,10 @@ const FactText = styled.Text<{
   $tone: 'danger' | 'mutedStrong';
   $weight: 500 | 600 | 700;
 }>`
+  /* Lateness is not danger: the danger colour belongs to the destructive
+     action alone. Emphasis reads through ink and weight, never through alarm. */
   color: ${({ theme, $tone }) =>
-    $tone === 'danger' ? theme.colors.danger : theme.colors.mutedStrong};
+    $tone === 'danger' ? theme.colors.text : theme.colors.mutedStrong};
   font-size: ${({ theme }) => theme.type.caption + 0.5}px;
   font-weight: ${({ $weight }) => $weight};
 `;
