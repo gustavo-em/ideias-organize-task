@@ -50,6 +50,10 @@ import { TaskCard } from '../views/TaskCard';
 interface ListsScreenProps {
   copy: TaskCopy;
   language: AppLanguage;
+  /** The signed-in account's own profile as this device knows it, reservation
+   * or not: their own row never waits on the network to show the name and
+   * handle they chose. */
+  ownProfile: { displayName: string; handle: string | null } | null;
   viewModel: TasksViewModel;
 }
 
@@ -75,7 +79,12 @@ function streakDaysOf(
 }
 
 /** Lists hold the next steps of something bigger, opening in place for comparison. */
-export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
+export function ListsScreen({
+  copy,
+  language,
+  ownProfile,
+  viewModel,
+}: ListsScreenProps) {
   const theme = useTheme();
   useRenderCount('ListsScreen');
   const [openListId, setOpenListId] = useState<string | null>(null);
@@ -378,7 +387,15 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
             viewModel.removeShareMember(sharingList.id, memberId)
           }
           onStopSharing={() => viewModel.stopSharingList(sharingList.id)}
-          identity={viewModel.identity}
+          identity={
+            viewModel.identity == null
+              ? null
+              : {
+                  personId: viewModel.identity.personId,
+                  name: ownProfile?.displayName ?? viewModel.identity.name,
+                  handle: ownProfile?.handle ?? viewModel.identity.handle,
+                }
+          }
           personId={personId ?? ''}
           status={viewModel.shareStatus}
         />

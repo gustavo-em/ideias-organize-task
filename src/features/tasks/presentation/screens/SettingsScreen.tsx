@@ -75,9 +75,15 @@ export function SettingsScreen({
           <GroupLabel>{accountCopy.account.label}</GroupLabel>
           <IdentityRow
             accessibilityHint={accountCopy.profile.subtitle}
-            accessibilityLabel={`${profile?.displayName ?? copy.tabs.you}, ${
-              accountCopy.profile.edit
-            }`}
+            // A screen reader hears the same identity the row shows, handle
+            // included: it is the new name of the person, not decoration.
+            accessibilityLabel={[
+              profile?.displayName ?? copy.tabs.you,
+              profile?.handle == null ? null : `@${profile.handle}`,
+              accountCopy.profile.edit,
+            ]
+              .filter(part => part != null)
+              .join(', ')}
             accessibilityRole="button"
             onPress={onEditProfile}
             testID="settings-profile"
