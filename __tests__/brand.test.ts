@@ -1,3 +1,4 @@
+import { darkTheme, lightTheme } from '../src/app/theme/theme';
 import {
   MARK_COLORS,
   MARK_GEOMETRY,
@@ -35,6 +36,19 @@ describe('brand contract', () => {
       reducedFade: 80,
       slowState: 1500,
     });
+  });
+
+  it('writes the same ink on Sol in both modes', () => {
+    // `accent` does not change between light and dark, so neither does what
+    // is written on top of it — the shared day band reads the same in both.
+    expect(lightTheme.colors.onAccentSubtle).toBe('rgba(27, 23, 16, 0.78)');
+    expect(lightTheme.colors.onAccentLine).toBe('rgba(27, 23, 16, 0.18)');
+    expect(darkTheme.colors.onAccentSubtle).toBe(
+      lightTheme.colors.onAccentSubtle,
+    );
+    expect(darkTheme.colors.onAccentLine).toBe(lightTheme.colors.onAccentLine);
+    expect(darkTheme.colors.accent).toBe(lightTheme.colors.accent);
+    expect(darkTheme.colors.onAccent).toBe(lightTheme.colors.onAccent);
   });
 
   it('keeps the approved licensed Bricolage Grotesque wordmark', () => {

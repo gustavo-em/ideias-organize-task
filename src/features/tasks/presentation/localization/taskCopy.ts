@@ -110,6 +110,9 @@ export interface TaskCopy {
     roleChangeNote: string;
     membersHeader: string;
     pendingInvite: string;
+    /** The logged-in person's own row. */
+    memberYou: string;
+    memberYouInitials: string;
     removeMemberLabel: string;
     removeMember: (name: string) => string;
     removeMemberConfirm: (name: string) => string;
@@ -334,6 +337,8 @@ const ptBR: TaskCopy = {
     roleChangeNote: 'Vale para quem entrar depois, não para quem já entrou.',
     membersHeader: 'No projeto',
     pendingInvite: 'convite pendente',
+    memberYou: 'Você',
+    memberYouInitials: 'VC',
     removeMemberLabel: 'Remover',
     removeMember: name => `Remover ${name} do projeto`,
     removeMemberConfirm: name => `Remover ${name} do projeto?`,
@@ -586,6 +591,8 @@ const enUS: TaskCopy = {
     roleChangeNote: 'Applies to whoever joins next, not to who is already in.',
     membersHeader: 'In the project',
     pendingInvite: 'invite pending',
+    memberYou: 'You',
+    memberYouInitials: 'YO',
     removeMemberLabel: 'Remove',
     removeMember: name => `Remove ${name} from the project`,
     removeMemberConfirm: name => `Remove ${name} from the project?`,

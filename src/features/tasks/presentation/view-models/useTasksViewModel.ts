@@ -173,6 +173,8 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
   const [groupStreaks, setGroupStreaks] = useState<Record<string, GroupStreak>>(
     {},
   );
+  /** The stored map is in memory: only then may a day be counted or saved. */
+  const [groupStreaksLoaded, setGroupStreaksLoaded] = useState(false);
   const [joinErrorKind, setJoinErrorKind] = useState<ShareErrorKind | null>(
     null,
   );
@@ -527,6 +529,10 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     [identity],
   );
 
+  // Publishing the day again only when what was taken actually changed: the
+  // clock ticks every minute and none of those ticks is news.
+  const publishedRef = useRef<Record<string, string>>({});
+
   const publishMyDay = useCallback(
     (listId: string) => {
       const list = findListById(current.current.lists, listId);
@@ -540,6 +546,10 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
       }));
 
       shareGateway.publishDay(list.share, day).catch(() => {
+        // The day never left the phone: forget it was published, so the next
+        // pass tries again once the network is back. Without this, the same
+        // trio would never be sent and the others would keep a missing line.
+        delete publishedRef.current[listId];
         setSharedDayOffline(previous => ({ ...previous, [listId]: true }));
       });
     },
@@ -580,23 +590,28 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     groupStreakStore
       .load()
       .then(stored => {
-        if (!isCurrent || typeof stored !== 'object' || stored === null) return;
+        if (!isCurrent) return;
 
-        const entries = Object.entries(stored as Record<string, unknown>).map(
-          ([listId, value]) => [listId, sanitizeGroupStreak(value)] as const,
-        );
-        setGroupStreaks(Object.fromEntries(entries));
+        if (typeof stored === 'object' && stored !== null) {
+          const entries = Object.entries(stored as Record<string, unknown>).map(
+            ([listId, value]) => [listId, sanitizeGroupStreak(value)] as const,
+          );
+          setGroupStreaks(Object.fromEntries(entries));
+        }
+
+        // Only from here on may a day be counted: before the stored map is
+        // in memory, advancing would count on top of an empty map and the
+        // load that lands afterwards would throw the new day away.
+        setGroupStreaksLoaded(true);
       })
-      .catch(() => null);
+      .catch(() => {
+        if (isCurrent) setGroupStreaksLoaded(true);
+      });
 
     return () => {
       isCurrent = false;
     };
   }, [groupStreakStore]);
-
-  // Publishing the day again only when what was taken actually changed: the
-  // clock ticks every minute and none of those ticks is news.
-  const publishedRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     if (restored == null || identity == null) return;
@@ -625,6 +640,8 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
   ]);
 
   useEffect(() => {
+    if (!groupStreaksLoaded) return;
+
     for (const list of workspace.lists) {
       if (list.share == null) continue;
 
@@ -637,24 +654,29 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
       );
       if (!isGroupDayClosed(list.share.members, entries)) continue;
 
+      // The updater only computes: writing to disk from inside it would run
+      // twice under StrictMode. Persisting is its own effect below.
       setGroupStreaks(previous => {
         const streak = previous[list.id] ?? EMPTY_GROUP_STREAK;
         const next = advanceGroupStreak(streak, dayKey, true);
-        if (next === streak) return previous;
 
-        const merged = { ...previous, [list.id]: next };
-        groupStreakStore.save(merged).catch(() => null);
-        return merged;
+        return next === streak ? previous : { ...previous, [list.id]: next };
       });
     }
   }, [
     dayKey,
     dayMs,
-    groupStreakStore,
+    groupStreaksLoaded,
     sharedDays,
     workspace.lists,
     workspace.tasks,
   ]);
+
+  useEffect(() => {
+    if (!groupStreaksLoaded) return;
+
+    groupStreakStore.save(groupStreaks).catch(() => null);
+  }, [groupStreakStore, groupStreaks, groupStreaksLoaded]);
 
   const refreshSharedList = useCallback(
     (listId: string) => {
