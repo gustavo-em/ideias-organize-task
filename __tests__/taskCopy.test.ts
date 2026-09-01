@@ -53,4 +53,27 @@ describe('open task screen copy', () => {
     expect(en.lists.dayBandTitle).toBe('Today, together');
     expect(pt.lists.dayBandTitle).not.toBe(en.lists.dayBandTitle);
   });
+
+  it('carries the same four walk-through steps in both languages', () => {
+    const pt = getTaskCopy('pt-BR');
+    const en = getTaskCopy('en-US');
+
+    expect(pt.onboarding.steps).toHaveLength(4);
+    expect(en.onboarding.steps).toHaveLength(pt.onboarding.steps.length);
+
+    for (const copy of [pt, en]) {
+      for (const step of copy.onboarding.steps) {
+        expect(step.title.length).toBeGreaterThan(0);
+        expect(step.body.length).toBeGreaterThan(0);
+        expect(step.example.length).toBeGreaterThan(0);
+      }
+
+      expect(copy.onboarding.skip.length).toBeGreaterThan(0);
+      expect(copy.onboarding.stepPosition(2, 4)).toContain('2');
+      expect(copy.settings.replayOnboarding.length).toBeGreaterThan(0);
+      expect(copy.settings.replayOnboardingHint.length).toBeGreaterThan(0);
+    }
+
+    expect(pt.onboarding.steps[0].title).not.toBe(en.onboarding.steps[0].title);
+  });
 });

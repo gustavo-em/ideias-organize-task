@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StatusBar, StyleSheet, useColorScheme } from 'react-native';
+import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import styled, { ThemeProvider } from 'styled-components/native';
 
@@ -69,11 +69,15 @@ function AppContent({
   auth,
   bus,
   onReady,
+  onReplayOnboarding,
 }: {
   app: AppViewModel;
   auth: AuthViewModel;
   bus: TaskEventBus;
   onReady: () => void;
+  /** Reopens the walk-through from settings. The shell owns it, because the
+   * same screen also covers the signed-out side. */
+  onReplayOnboarding: () => void;
 }) {
   const profile = useProfileViewModel({
     profilePort: firestoreProfileAdapter,
@@ -193,6 +197,7 @@ function AppContent({
               onAppearanceModeChange={app.changeAppearanceMode}
               onDayCapacityChange={app.changeDayCapacity}
               onLanguageChange={app.changeLanguage}
+              onReplayOnboarding={onReplayOnboarding}
               isAnonymous={auth.user?.isAnonymous ?? false}
               onEditProfile={() => setIsEditingProfile(true)}
               onSignOut={auth.signOut}
@@ -238,12 +243,6 @@ function AppContent({
           saving={profileStatus === 'saving'}
         />
       ) : null}
-
-      {/* The walk-through sits over the app rather than in front of it, so
-          finishing lands on a day screen that is already built. */}
-      {app.hasSeenOnboarding ? null : (
-        <OnboardingScreen copy={app.copy} onFinish={app.finishOnboarding} />
-      )}
     </>
   );
 }
@@ -262,7 +261,12 @@ function AppShell({
   const [isContentReady, setIsContentReady] = useState(false);
   const [isOpening, setIsOpening] = useState(true);
   const [authTimedOut, setAuthTimedOut] = useState(false);
+  const [isReplayingOnboarding, setIsReplayingOnboarding] = useState(false);
   const handleContentReady = useCallback(() => setIsContentReady(true), []);
+  const replayOnboarding = useCallback(
+    () => setIsReplayingOnboarding(true),
+    [],
+  );
 
   // A saved session should open straight into the app, but "checking" can
   // never be allowed to hold the splash open forever — if the native auth
@@ -279,6 +283,17 @@ function AppShell({
     auth.status === 'checking' && authTimedOut ? 'signedOut' : auth.status;
   const isAuthResolved = authStatus !== 'checking';
   const isShellReady = app.isRestored && isAuthResolved;
+  // The walk-through comes before the account: on a clean device it covers the
+  // sign-in screen, and it only comes back when settings ask for it. A restored
+  // session still gets it once — the flag lives on this device, so a keychain
+  // session with no local preferences is also a first opening.
+  const isShowingOnboarding =
+    isShellReady && (isReplayingOnboarding || !app.hasSeenOnboarding);
+
+  const finishOnboarding = () => {
+    setIsReplayingOnboarding(false);
+    if (!app.hasSeenOnboarding) app.finishOnboarding();
+  };
 
   return (
     <Root>
@@ -286,21 +301,40 @@ function AppShell({
         barStyle={appearanceMode === 'dark' ? 'light-content' : 'dark-content'}
       />
 
-      {isShellReady && authStatus === 'signedIn' ? (
-        <AppContent
-          app={app}
-          auth={auth}
-          bus={bus}
-          onReady={handleContentReady}
-        />
-      ) : null}
+      {/* While the walk-through covers the app, what is under it is out of the
+          accessibility tree as well. The flags alone still left the tabs and
+          the settings buttons in the node dump, so the layer is also taken out
+          of layout with `display: none` — the screens stay mounted, so nothing
+          is lost when the walk-through closes. */}
+      <View
+        accessibilityElementsHidden={isShowingOnboarding}
+        importantForAccessibility={
+          isShowingOnboarding ? 'no-hide-descendants' : 'auto'
+        }
+        pointerEvents={isShowingOnboarding ? 'none' : 'auto'}
+        style={isShowingOnboarding ? styles.beneathHidden : styles.beneath}
+      >
+        {isShellReady && authStatus === 'signedIn' ? (
+          <AppContent
+            app={app}
+            auth={auth}
+            bus={bus}
+            onReady={handleContentReady}
+            onReplayOnboarding={replayOnboarding}
+          />
+        ) : null}
 
-      {isShellReady && authStatus === 'signedOut' ? (
-        <AuthGate
-          auth={auth}
-          copy={getAuthCopy(app.language)}
-          onReady={handleContentReady}
-        />
+        {isShellReady && authStatus === 'signedOut' ? (
+          <AuthGate
+            auth={auth}
+            copy={getAuthCopy(app.language)}
+            onReady={handleContentReady}
+          />
+        ) : null}
+      </View>
+
+      {isShowingOnboarding ? (
+        <OnboardingScreen copy={app.copy} onFinish={finishOnboarding} />
       ) : null}
 
       {isOpening ? (
@@ -372,4 +406,10 @@ const YouTab = styled.ScrollView`
   flex: 1;
 `;
 
-const styles = StyleSheet.create({ youTab: { paddingBottom: 24 } });
+const styles = StyleSheet.create({
+  youTab: { paddingBottom: 24 },
+  /* Everything the walk-through can cover, in one plain node: the flags that
+     take it out of the accessibility tree go straight on the native view. */
+  beneath: { flex: 1 },
+  beneathHidden: { flex: 1, display: 'none' },
+});
