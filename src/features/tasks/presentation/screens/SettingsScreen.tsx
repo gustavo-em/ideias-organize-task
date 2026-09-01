@@ -1,6 +1,11 @@
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
+import {
+  contentEnter,
+  fadeEnter,
+  fadeExit,
+} from '../../../../app/animation/motion';
 import { dayCapacities } from '../../../../app/domain/AppPreferences';
 import type { AppearanceMode } from '../../../../app/theme/theme';
 import type { AuthCopy } from '../../../auth/presentation/localization/authCopy';
@@ -66,7 +71,7 @@ export function SettingsScreen({
       {/* The account is named by its profile, never by the e-mail it signs in
           with — and this group is still the only way to reach Sair. */}
       {personId == null ? null : (
-        <Group>
+        <Group entering={contentEnter(0)}>
           <GroupLabel>{accountCopy.account.label}</GroupLabel>
           <IdentityRow
             accessibilityHint={accountCopy.profile.subtitle}
@@ -99,8 +104,8 @@ export function SettingsScreen({
           {profileSaved ? (
             <SavedNote
               accessibilityLiveRegion="polite"
-              entering={FadeIn.duration(160)}
-              exiting={FadeOut.duration(200)}
+              entering={fadeEnter()}
+              exiting={fadeExit()}
               testID="settings-profile-saved"
             >
               {accountCopy.profile.saved}
@@ -119,7 +124,7 @@ export function SettingsScreen({
         </Group>
       )}
 
-      <Group>
+      <Group entering={contentEnter(1)}>
         <GroupLabel>{copy.settings.dayCapacity}</GroupLabel>
         <Segmented>
           {dayCapacities.map(option => (
@@ -140,7 +145,7 @@ export function SettingsScreen({
         <GroupNote>{copy.settings.dayCapacityHint}</GroupNote>
       </Group>
 
-      <Group>
+      <Group entering={contentEnter(2)}>
         <GroupLabel>{copy.settings.appearance}</GroupLabel>
         <Segmented>
           {(['light', 'dark'] as const).map(mode => (
@@ -162,7 +167,7 @@ export function SettingsScreen({
         </Segmented>
       </Group>
 
-      <Group>
+      <Group entering={contentEnter(3)}>
         <GroupLabel>{copy.settings.language}</GroupLabel>
         <Segmented>
           {appLanguages.map(option => (
@@ -182,7 +187,7 @@ export function SettingsScreen({
         </Segmented>
       </Group>
 
-      <Group>
+      <Group entering={contentEnter(3)}>
         <ReplayRow
           accessibilityHint={copy.settings.replayOnboardingHint}
           accessibilityLabel={copy.settings.replayOnboarding}
@@ -195,7 +200,7 @@ export function SettingsScreen({
         <GroupNote>{copy.settings.replayOnboardingHint}</GroupNote>
       </Group>
 
-      <Group>
+      <Group entering={contentEnter(3)}>
         <GroupLabel>{copy.settings.about}</GroupLabel>
         <About>{copy.settings.version(version)}</About>
       </Group>
@@ -218,7 +223,7 @@ const SectionTitle = styled.Text`
   letter-spacing: -0.5px;
 `;
 
-const Group = styled.View`
+const Group = styled(Animated.View)`
   margin-top: ${({ theme }) => theme.spacing.medium}px;
 `;
 

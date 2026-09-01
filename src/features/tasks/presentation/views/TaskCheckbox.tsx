@@ -12,7 +12,7 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from 'styled-components/native';
 
-import { CHECK_SPRING, FADE } from '../animation/motion';
+import { CHECK_SPRING, FADE } from '../../../../app/animation/motion';
 import { PressableScale } from './PressableScale';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);

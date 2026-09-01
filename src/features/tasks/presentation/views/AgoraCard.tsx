@@ -1,4 +1,6 @@
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { contentEnter } from '../../../../app/animation/motion';
 import styled, { useTheme } from 'styled-components/native';
 
 import type { Task } from '../../domain/Task';
@@ -57,7 +59,7 @@ export function AgoraCard({
   const facts = taskFacts(task, nowMs, copy, list.name);
 
   return (
-    <Band entering={FadeIn.duration(220)}>
+    <Band entering={contentEnter(0)}>
       <TopLine>
         <Eyebrow>{copy.today.agora}</Eyebrow>
         {hidden > 0 ? (

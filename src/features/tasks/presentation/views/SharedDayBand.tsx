@@ -1,9 +1,13 @@
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import type { TaskCopy } from '../localization/taskCopy';
 import type { SharedDayEntry } from '../models/sharedDay';
-import { STAGGER_MS } from '../animation/motion';
+import {
+  contentEnter,
+  fadeEnter,
+  rowEnter,
+} from '../../../../app/animation/motion';
 import { CheckGlyph } from './FieldGlyphs';
 import { memberDisplayName } from '../models/memberIdentity';
 import { MemberChip } from './MemberChip';
@@ -71,7 +75,7 @@ export function SharedDayBand({
   }
 
   return (
-    <Band entering={FadeIn.duration(180)} testID="shared-day-band">
+    <Band entering={fadeEnter()} testID="shared-day-band">
       <Eyebrow>{copy.lists.dayBandTitle}</Eyebrow>
 
       {entries.length === 0 ? (
@@ -85,7 +89,7 @@ export function SharedDayBand({
           <Row
             $first
             accessibilityLabel={copy.lists.dayBandAllDone(entries.length)}
-            entering={FadeInDown.duration(280)}
+            entering={contentEnter(0)}
             testID="shared-day-all-done"
           >
             <Stack
@@ -127,7 +131,7 @@ export function SharedDayBand({
           <Row
             $first={index === 0}
             accessibilityLabel={rowLabel(entry)}
-            entering={FadeInDown.delay(index * STAGGER_MS).duration(280)}
+            entering={rowEnter(index)}
             key={entry.member.personId}
             testID={`shared-day-row-${entry.state}`}
           >

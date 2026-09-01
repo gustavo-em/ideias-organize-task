@@ -1,10 +1,6 @@
 import { useEffect } from 'react';
 import { useWindowDimensions } from 'react-native';
 import Animated, {
-  Easing,
-  FadeIn,
-  FadeOut,
-  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -12,6 +8,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import {
+  CELEBRATION_CONFETTI,
+  CELEBRATION_CONFETTI_STAGGER_MS,
+  contentEnter,
+  fadeEnter,
+  fadeExit,
+} from '../../../../app/animation/motion';
 import type { TaskCopy } from '../localization/taskCopy';
 import { PressableScale } from './PressableScale';
 
@@ -37,9 +40,9 @@ export function TrioCelebration({
   onClose,
 }: TrioCelebrationProps) {
   return (
-    <Overlay entering={FadeIn.duration(200)} exiting={FadeOut.duration(220)}>
+    <Overlay entering={fadeEnter()} exiting={fadeExit()}>
       <Confetti />
-      <Card entering={FadeIn.delay(80).duration(260)}>
+      <Card entering={contentEnter(1)}>
         <Title>{copy.celebration.title}</Title>
         <Body>{copy.celebration.body(streakDays)}</Body>
         <Close
@@ -91,18 +94,11 @@ function Piece({ index, width, color }: PieceProps) {
   // runs of the same moment look the same.
   const spread = ((index % PIECES) / (PIECES - 1) - 0.5) * width * 0.86;
   const drift = (index % 3) - 1;
-  const delay = (index % 5) * 40;
+  const delay = (index % 5) * CELEBRATION_CONFETTI_STAGGER_MS;
   const spin = index % 2 === 0 ? 1 : -1;
 
   useEffect(() => {
-    progress.value = withDelay(
-      delay,
-      withTiming(1, {
-        duration: 1200,
-        easing: Easing.out(Easing.cubic),
-        reduceMotion: ReduceMotion.System,
-      }),
-    );
+    progress.value = withDelay(delay, withTiming(1, CELEBRATION_CONFETTI));
   }, [delay, progress]);
 
   const style = useAnimatedStyle(() => ({

@@ -1,15 +1,11 @@
-import Animated, {
-  FadeInDown,
-  LinearTransition,
-  SlideOutLeft,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import { useRenderCount } from '../../../../app/perf/sheetPerf';
 import { daysBetween } from '../../domain/Day';
 import { isCompleted, taskWeight, type Task } from '../../domain/Task';
 import type { ListColor, ProjectIcon } from '../../domain/TaskList';
-import { STAGGER_MS } from '../animation/motion';
+import { rowEnter, rowExit, rowLayout } from '../../../../app/animation/motion';
 import type { TaskCopy } from '../localization/taskCopy';
 import type { HomeGrouping } from '../models/homeSections';
 import { rowFact } from '../models/rowFact';
@@ -77,11 +73,7 @@ export function TaskRow({
   });
 
   return (
-    <Row
-      entering={FadeInDown.delay(index * STAGGER_MS).duration(280)}
-      exiting={SlideOutLeft.duration(240)}
-      layout={LinearTransition.springify().damping(20).stiffness(200)}
-    >
+    <Row entering={rowEnter(index)} exiting={rowExit()} layout={rowLayout()}>
       <TaskCheckbox
         accessibilityLabel={task.title}
         checked={done}

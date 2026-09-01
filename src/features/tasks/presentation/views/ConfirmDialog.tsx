@@ -1,13 +1,14 @@
 import { useEffect } from 'react';
 import { BackHandler } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInDown,
-  SlideOutDown,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
+import {
+  dialogEnter,
+  scrimEnter,
+  scrimExit,
+  sheetExit,
+} from '../../../../app/animation/motion';
 import {
   SheetActionsRow,
   SheetCancelButton,
@@ -62,20 +63,13 @@ export function ConfirmDialog({
   }, [onCancel]);
 
   return (
-    <Overlay
-      entering={FadeIn.duration(160)}
-      exiting={FadeOut.duration(140)}
-      testID={testID}
-    >
+    <Overlay entering={scrimEnter()} exiting={scrimExit()} testID={testID}>
       <Scrim
         accessibilityLabel={cancelLabel}
         accessibilityRole="button"
         onPress={onCancel}
       />
-      <Card
-        entering={SlideInDown.springify().damping(20).stiffness(220)}
-        exiting={SlideOutDown.duration(180)}
-      >
+      <Card entering={dialogEnter()} exiting={sheetExit()}>
         <Title accessibilityRole="header">{title}</Title>
         {body == null ? null : <Body>{body}</Body>}
         <SheetActionsRow>

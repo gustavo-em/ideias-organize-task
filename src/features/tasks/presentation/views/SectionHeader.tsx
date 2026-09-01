@@ -6,7 +6,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
-import { DISCLOSURE } from '../animation/motion';
+import { DISCLOSURE } from '../../../../app/animation/motion';
 import { ChevronGlyph } from './FieldGlyphs';
 import { PressableScale } from './PressableScale';
 

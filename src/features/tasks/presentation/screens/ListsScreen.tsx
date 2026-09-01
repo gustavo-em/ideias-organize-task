@@ -1,8 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, StyleSheet } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import {
+  disclosureEnter,
+  fadeEnter,
+  rowEnter,
+} from '../../../../app/animation/motion';
 import { markSheetPress, useRenderCount } from '../../../../app/perf/sheetPerf';
 import { isCompleted, isOpen, type Task } from '../../domain/Task';
 import { dayKeyOf, type SharedMemberDay } from '../../domain/SharedMemberDay';
@@ -192,10 +197,11 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
           <JoinButtonText>{copy.lists.joinInvite}</JoinButtonText>
         </JoinButton>
 
-        {viewModel.lists.map(list => (
+        {viewModel.lists.map((list, index) => (
           <ProjectBlock
             copy={copy}
             dayRecords={viewModel.sharedDays[list.id] ?? EMPTY_DAY_RECORDS}
+            index={index}
             key={list.id}
             list={list}
             nowMs={viewModel.nowMs}
@@ -483,6 +489,7 @@ const ProjectTask = memo(function ProjectTaskView({
 interface ProjectBlockProps {
   copy: TaskCopy;
   dayRecords: readonly SharedMemberDay[];
+  index: number;
   list: TaskList;
   nowMs: number;
   offline: boolean;
@@ -514,6 +521,7 @@ interface ProjectBlockProps {
 const ProjectBlock = memo(function ProjectBlockView({
   copy,
   dayRecords,
+  index,
   list,
   nowMs,
   offline,
@@ -585,7 +593,7 @@ const ProjectBlock = memo(function ProjectBlockView({
   const handleCapture = useCallback(() => onCapture(list), [list, onCapture]);
 
   return (
-    <ListBlock>
+    <ListBlock entering={rowEnter(index)}>
       <ListHeader>
         <Row
           accessibilityLabel={
@@ -640,7 +648,7 @@ const ProjectBlock = memo(function ProjectBlockView({
       </ListHeader>
 
       {showingActions ? (
-        <ListActions entering={FadeIn.duration(150)} testID="list-actions-open">
+        <ListActions entering={disclosureEnter()} testID="list-actions-open">
           {canShare(list) ? (
             <ActionButton
               accessibilityLabel={copy.lists.share}
@@ -683,7 +691,7 @@ const ProjectBlock = memo(function ProjectBlockView({
       ) : null}
 
       {open ? (
-        <Expanded entering={FadeIn.duration(200)}>
+        <Expanded entering={fadeEnter()}>
           {shared ? (
             <SharedDayBand
               allDone={isGroupDayClosed(list.share!.members, dayEntries)}
@@ -724,10 +732,10 @@ const ProjectBlock = memo(function ProjectBlockView({
             </AllDoneBanner>
           ) : null}
 
-          {tasks.map((task, index) => (
+          {tasks.map((task, taskIndex) => (
             <ProjectTask
               copy={copy}
-              index={index}
+              index={taskIndex}
               isViewer={isViewer}
               key={task.id}
               list={list}

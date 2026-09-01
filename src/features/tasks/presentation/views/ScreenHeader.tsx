@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled from 'styled-components/native';
+
+import { screenEnter } from '../../../../app/animation/motion';
 
 interface ScreenHeaderProps {
   eyebrow: string;
@@ -25,7 +27,7 @@ export function ScreenHeader({
   trailing,
 }: ScreenHeaderProps) {
   return (
-    <Header entering={FadeInDown.duration(300)}>
+    <Header entering={screenEnter()}>
       <TopLine>
         <Eyebrow>{eyebrow}</Eyebrow>
         {trailing}

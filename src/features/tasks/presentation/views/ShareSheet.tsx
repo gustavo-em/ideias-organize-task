@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BackHandler, Modal } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeOut,
-  SlideInDown,
-  SlideOutDown,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
@@ -22,7 +16,13 @@ import {
   type ListRole,
   type TaskList,
 } from '../../domain/TaskList';
-import { STAGGER_MS } from '../animation/motion';
+import {
+  rowEnter,
+  scrimEnter,
+  scrimExit,
+  sheetEnter,
+  sheetExit,
+} from '../../../../app/animation/motion';
 import type { TaskCopy } from '../localization/taskCopy';
 import { ConfirmDialog } from './ConfirmDialog';
 import { CheckGlyph, LinkGlyph } from './FieldGlyphs';
@@ -163,7 +163,7 @@ export function ShareSheet({
       visible
     >
       <Overlay>
-        <Scrim entering={FadeIn.duration(160)} exiting={FadeOut.duration(140)}>
+        <Scrim entering={scrimEnter()} exiting={scrimExit()}>
           <ScrimTouch
             accessibilityLabel={copy.capture.cancel}
             accessibilityRole="button"
@@ -171,8 +171,8 @@ export function ShareSheet({
           />
         </Scrim>
         <Sheet
-          entering={SlideInDown.springify().damping(20).stiffness(200)}
-          exiting={SlideOutDown.duration(180)}
+          entering={sheetEnter()}
+          exiting={sheetExit()}
           onLayout={traceOpen}
           testID="share-sheet"
         >
@@ -286,9 +286,7 @@ export function ShareSheet({
 
                 return (
                   <MemberRow
-                    entering={FadeInDown.delay(index * STAGGER_MS).duration(
-                      280,
-                    )}
+                    entering={rowEnter(index)}
                     key={member.personId}
                     $last={index === members.length - 1}
                   >
