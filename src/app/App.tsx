@@ -9,6 +9,11 @@ import type {
   TaskEventBus,
 } from '../features/tasks/domain/TaskEvent';
 import type { Task } from '../features/tasks/domain/Task';
+import { AuthGate } from '../features/auth/presentation/AuthGate';
+import { getAuthCopy } from '../features/auth/presentation/localization/authCopy';
+import { useAuthViewModel } from '../features/auth/presentation/view-models/useAuthViewModel';
+import { firebaseAuthAdapter } from '../features/auth/infrastructure/firebase/firebaseAuthAdapter';
+import type { AuthViewModel } from '../features/auth/presentation/view-models/useAuthViewModel';
 import { systemClock } from '../features/tasks/infrastructure/clock/systemClock';
 import { systemHaptics } from '../features/tasks/infrastructure/haptics/systemHaptics';
 import {
@@ -54,10 +59,12 @@ import {
  */
 function AppContent({
   app,
+  auth,
   bus,
   onReady,
 }: {
   app: AppViewModel;
+  auth: AuthViewModel;
   bus: TaskEventBus;
   onReady: () => void;
 }) {
@@ -129,6 +136,7 @@ function AppContent({
           <YouTab>
             <ProgressScreen copy={app.copy} viewModel={tasks} />
             <SettingsScreen
+              accountCopy={getAuthCopy(app.language)}
               appearanceMode={app.appearanceMode}
               copy={app.copy}
               dayCapacity={app.dayCapacity}
@@ -136,6 +144,8 @@ function AppContent({
               onAppearanceModeChange={app.changeAppearanceMode}
               onDayCapacityChange={app.changeDayCapacity}
               onLanguageChange={app.changeLanguage}
+              onSignOut={auth.signOut}
+              userEmail={auth.user?.email ?? null}
               version={APP_VERSION}
             />
           </YouTab>
@@ -174,16 +184,35 @@ function AppContent({
 
 function AppShell({
   app,
+  auth,
   appearanceMode,
   bus,
 }: {
   app: AppViewModel;
+  auth: AuthViewModel;
   appearanceMode: AppearanceMode;
   bus: TaskEventBus;
 }) {
   const [isContentReady, setIsContentReady] = useState(false);
   const [isOpening, setIsOpening] = useState(true);
+  const [authTimedOut, setAuthTimedOut] = useState(false);
   const handleContentReady = useCallback(() => setIsContentReady(true), []);
+
+  // A saved session should open straight into the app, but "checking" can
+  // never be allowed to hold the splash open forever — if the native auth
+  // bridge has not answered within a few seconds, fall forward to the safe
+  // default (the login screen) rather than freeze on the launch mark.
+  useEffect(() => {
+    if (auth.status !== 'checking') return;
+
+    const timeout = setTimeout(() => setAuthTimedOut(true), 6000);
+    return () => clearTimeout(timeout);
+  }, [auth.status]);
+
+  const authStatus =
+    auth.status === 'checking' && authTimedOut ? 'signedOut' : auth.status;
+  const isAuthResolved = authStatus !== 'checking';
+  const isShellReady = app.isRestored && isAuthResolved;
 
   return (
     <Root>
@@ -191,13 +220,26 @@ function AppShell({
         barStyle={appearanceMode === 'dark' ? 'light-content' : 'dark-content'}
       />
 
-      {app.isRestored ? (
-        <AppContent app={app} bus={bus} onReady={handleContentReady} />
+      {isShellReady && authStatus === 'signedIn' ? (
+        <AppContent
+          app={app}
+          auth={auth}
+          bus={bus}
+          onReady={handleContentReady}
+        />
+      ) : null}
+
+      {isShellReady && authStatus === 'signedOut' ? (
+        <AuthGate
+          auth={auth}
+          copy={getAuthCopy(app.language)}
+          onReady={handleContentReady}
+        />
       ) : null}
 
       {isOpening ? (
         <AppSplash
-          isReady={app.isRestored && isContentReady}
+          isReady={isShellReady && isContentReady}
           language={app.language}
           onFinished={() => setIsOpening(false)}
         />
@@ -222,6 +264,9 @@ export default function App() {
   // The shell's state is created once, here, and handed down: two calls to the
   // same hook would be two independent apps disagreeing about the theme.
   const app = useAppViewModel(asyncStoragePreferencesStore, bus);
+  // The only place that knows Firebase exists, matching the storage adapters
+  // above: everything downstream depends on AuthPort, never on the SDK.
+  const auth = useAuthViewModel(firebaseAuthAdapter);
   const openingAppearance = app.isRestored
     ? app.appearanceMode
     : systemAppearance === 'dark'
@@ -231,7 +276,12 @@ export default function App() {
   return (
     <ThemeProvider theme={getAppTheme(openingAppearance)}>
       <SafeAreaProvider>
-        <AppShell app={app} appearanceMode={openingAppearance} bus={bus} />
+        <AppShell
+          app={app}
+          auth={auth}
+          appearanceMode={openingAppearance}
+          bus={bus}
+        />
       </SafeAreaProvider>
     </ThemeProvider>
   );

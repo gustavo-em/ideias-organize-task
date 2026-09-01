@@ -9,8 +9,6 @@ import Animated, {
 
 import { PRESS_SPRING } from '../animation/motion';
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 const styles = StyleSheet.create({ disabled: { opacity: 0.45 } });
 
 interface PressableScaleProps {
@@ -68,13 +66,23 @@ export function PressableScale({
   }));
 
   return (
-    <AnimatedPressable
+    // A plain, un-animated Pressable is the node Android reports as
+    // clickable to accessibility services. Wrapping it directly in
+    // `Animated.createAnimatedComponent` used to swap in a component whose
+    // native view never got `View.setClickable(true)`, so TalkBack and
+    // keyboard navigation could not activate it even though a touch worked
+    // fine. The scale animation now lives on a plain child `Animated.View`
+    // instead, which does not carry any accessibility semantics of its own.
+    <Pressable
+      accessible
       accessibilityHint={accessibilityHint}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
       accessibilityState={accessibilityState}
       disabled={disabled}
+      focusable={!disabled}
       hitSlop={hitSlop}
+      importantForAccessibility="yes"
       onPress={onPress}
       onLongPress={onLongPress}
       onPressIn={() => {
@@ -83,10 +91,14 @@ export function PressableScale({
       onPressOut={() => {
         pressed.value = withSpring(0, PRESS_SPRING);
       }}
-      style={[style, disabled ? styles.disabled : null, animatedStyle]}
+      style={style}
       testID={testID}
     >
-      {children}
-    </AnimatedPressable>
+      <Animated.View
+        style={[disabled ? styles.disabled : null, animatedStyle]}
+      >
+        {children}
+      </Animated.View>
+    </Pressable>
   );
 }
