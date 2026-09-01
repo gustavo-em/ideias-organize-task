@@ -52,9 +52,14 @@ export interface TaskCopy {
      * syntax first taught people to type punctuation without ever telling
      * them what it changed. */
     hint: string;
-    syntax: string;
     /** Editing does not read the text, so it must not promise that it will. */
     editHint: string;
+    /** The sheet opens minimal: these name the way into the chips and into the
+     * writing shortcuts, one tap away each. */
+    moreOptions: string;
+    lessOptions: string;
+    syntaxTitle: string;
+    syntaxHelp: string;
     noList: string;
     previousMonth: string;
     nextMonth: string;
@@ -282,9 +287,13 @@ const ptBR: TaskCopy = {
   capture: {
     placeholder: 'O que precisa ser feito?',
     hint: 'Toque nas fichas para ajustar. Alta entra antes no dia e vale mais pontos.',
-    syntax: 'Também entende: amanhã, sexta 9h, urgente, ~30min, #projeto',
     editHint:
       'Aqui o texto vale como está escrito. Data, prioridade e lista mudam só nas fichas.',
+    moreOptions: 'Mais opções',
+    lessOptions: 'Menos opções',
+    syntaxTitle: 'Atalhos de escrita',
+    syntaxHelp:
+      'Nada disso é obrigatório: as fichas fazem o mesmo com um toque.',
     noList: 'sem projeto',
     previousMonth: 'Mês anterior',
     nextMonth: 'Próximo mês',
@@ -564,9 +573,12 @@ const enUS: TaskCopy = {
   capture: {
     placeholder: 'What needs doing?',
     hint: 'Tap the chips to adjust. High goes into the day first and is worth more points.',
-    syntax: 'Also understands: tomorrow, friday 9h, urgent, ~30min, #project',
     editHint:
       'Here the text is kept as written. Date, priority and list change only through the chips.',
+    moreOptions: 'More options',
+    lessOptions: 'Fewer options',
+    syntaxTitle: 'Writing shortcuts',
+    syntaxHelp: 'None of this is required: the chips do the same with one tap.',
     noList: 'no project',
     previousMonth: 'Previous month',
     nextMonth: 'Next month',
