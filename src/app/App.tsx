@@ -163,8 +163,10 @@ function AppContent({
               onAppearanceModeChange={app.changeAppearanceMode}
               onDayCapacityChange={app.changeDayCapacity}
               onLanguageChange={app.changeLanguage}
+              isAnonymous={auth.user?.isAnonymous ?? false}
               onSignOut={auth.signOut}
               userEmail={auth.user?.email ?? null}
+              userName={auth.user?.displayName ?? null}
               version={APP_VERSION}
             />
           </YouTab>

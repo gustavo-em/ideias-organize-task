@@ -8,6 +8,12 @@ export type AuthErrorKind =
   | 'network'
   | 'email-in-use'
   | 'too-many-requests'
+  /** The person backed out of the provider's own sheet. Not a failure: no
+   * screen ever renders a message for this one. */
+  | 'cancelled'
+  | 'play-services-unavailable'
+  | 'provider-unavailable'
+  | 'account-exists-with-different-credential'
   | 'unknown';
 
 export interface AuthError {

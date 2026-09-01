@@ -9,6 +9,18 @@ export interface AuthCopy {
     submit: string;
     forgotLink: string;
     signUpLink: string;
+    divider: string;
+    google: string;
+    apple: string;
+    anonymous: string;
+  };
+  anonymous: {
+    title: string;
+    subtitle: string;
+    submit: string;
+    notice: string;
+    backToLoginLink: string;
+    settingsNote: string;
   };
   signUp: {
     title: string;
@@ -27,8 +39,10 @@ export interface AuthCopy {
     email: string;
     password: string;
     confirmPassword: string;
+    name: string;
   };
   fieldErrors: {
+    nameRequired: string;
     emailRequired: string;
     emailInvalid: string;
     passwordRequired: string;
@@ -50,6 +64,20 @@ const pt: AuthCopy = {
     submit: 'Entrar',
     forgotLink: 'Esqueci minha senha',
     signUpLink: 'Criar conta',
+    divider: 'OU',
+    // The wording Google's own brand guidelines list for pt-BR.
+    google: 'Fazer login com o Google',
+    apple: 'Entrar com Apple',
+    anonymous: 'Continuar só com nome',
+  },
+  anonymous: {
+    title: 'Continuar só com nome',
+    subtitle: 'Sem e-mail, sem senha. Só o nome que aparece nos projetos.',
+    submit: 'Entrar',
+    notice:
+      'Esta conta fica só neste aparelho. Trocar de celular ou desinstalar o app leva as ideias junto. Dá para vincular a um e-mail ou ao Google depois, sem perder nada.',
+    backToLoginLink: 'Voltar para o login',
+    settingsNote: 'Conta só neste aparelho',
   },
   signUp: {
     title: 'Criar conta',
@@ -68,8 +96,10 @@ const pt: AuthCopy = {
     email: 'E-mail',
     password: 'Senha',
     confirmPassword: 'Confirmar senha',
+    name: 'Nome',
   },
   fieldErrors: {
+    nameRequired: 'Digite um nome.',
     emailRequired: 'Digite seu e-mail.',
     emailInvalid: 'E-mail inválido.',
     passwordRequired: 'Digite sua senha.',
@@ -84,6 +114,14 @@ const pt: AuthCopy = {
       'Este e-mail já tem conta. Que tal entrar em vez de cadastrar?',
     'too-many-requests':
       'Muitas tentativas seguidas. Espere um pouco e tente de novo.',
+    // Never rendered: a cancelled sheet leaves the screen exactly as it was.
+    cancelled: '',
+    'play-services-unavailable':
+      'O Google Play Services não está disponível neste aparelho. Dá para entrar com e-mail e senha.',
+    'provider-unavailable':
+      'Esta forma de entrar está indisponível agora. Dá para entrar com e-mail e senha.',
+    'account-exists-with-different-credential':
+      'Este e-mail já entra por outro caminho. Use aquele para continuar.',
     unknown: 'Algo não funcionou.',
   },
   retry: 'Tentar de novo',
@@ -100,6 +138,19 @@ const en: AuthCopy = {
     submit: 'Log in',
     forgotLink: 'Forgot my password',
     signUpLink: 'Create account',
+    divider: 'OR',
+    google: 'Sign in with Google',
+    apple: 'Sign in with Apple',
+    anonymous: 'Continue with just a name',
+  },
+  anonymous: {
+    title: 'Continue with just a name',
+    subtitle: 'No email, no password. Just the name shown in your projects.',
+    submit: 'Continue',
+    notice:
+      'This account stays on this device. Switching phones or uninstalling the app takes the ideas with it. You can link it to an email or to Google later, without losing anything.',
+    backToLoginLink: 'Back to log in',
+    settingsNote: 'Account on this device only',
   },
   signUp: {
     title: 'Create account',
@@ -118,8 +169,10 @@ const en: AuthCopy = {
     email: 'Email',
     password: 'Password',
     confirmPassword: 'Confirm password',
+    name: 'Name',
   },
   fieldErrors: {
+    nameRequired: 'Enter a name.',
     emailRequired: 'Enter your email.',
     emailInvalid: 'Invalid email.',
     passwordRequired: 'Enter your password.',
@@ -133,6 +186,14 @@ const en: AuthCopy = {
     'email-in-use': 'This email already has an account. Log in instead?',
     'too-many-requests':
       'Too many attempts in a row. Wait a bit and try again.',
+    // Never rendered: a cancelled sheet leaves the screen exactly as it was.
+    cancelled: '',
+    'play-services-unavailable':
+      'Google Play Services is not available on this device. Email and password still works.',
+    'provider-unavailable':
+      'This way in is unavailable right now. Email and password still works.',
+    'account-exists-with-different-credential':
+      'This email already signs in another way. Use that one to continue.',
     unknown: "Something didn't work.",
   },
   retry: 'Try again',

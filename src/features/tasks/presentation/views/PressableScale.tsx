@@ -26,6 +26,9 @@ interface PressableScaleProps {
      * says whether the panel is open. */
     expanded?: boolean;
     disabled?: boolean;
+    /** Set while the control is waiting on something it started, so a screen
+     * reader says "busy" instead of reading a button that answers nothing. */
+    busy?: boolean;
   };
   style?: StyleProp<ViewStyle>;
   /** Widens the touch area past the drawn one, for controls small enough that

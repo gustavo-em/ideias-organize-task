@@ -17,6 +17,10 @@ interface SettingsScreenProps {
   dayCapacity: number;
   language: AppLanguage;
   userEmail: string | null;
+  /** What to call the account when there is no email to show — the name an
+   * anonymous account was created with. */
+  userName: string | null;
+  isAnonymous: boolean;
   version: string;
   onAppearanceModeChange: (mode: AppearanceMode) => void;
   onDayCapacityChange: (capacity: number) => void;
@@ -36,6 +40,8 @@ export function SettingsScreen({
   dayCapacity,
   language,
   userEmail,
+  userName,
+  isAnonymous,
   version,
   onAppearanceModeChange,
   onDayCapacityChange,
@@ -46,10 +52,15 @@ export function SettingsScreen({
     <Content>
       <SectionTitle>{copy.settings.title}</SectionTitle>
 
-      {userEmail == null ? null : (
+      {/* An anonymous account has no email and, if naming it ever failed,
+          no name either — and it is still the only way to reach Sair. */}
+      {userEmail == null && userName == null && !isAnonymous ? null : (
         <Group>
           <GroupLabel>{accountCopy.account.label}</GroupLabel>
-          <AccountEmail>{userEmail}</AccountEmail>
+          <AccountEmail>{userEmail ?? userName ?? copy.tabs.you}</AccountEmail>
+          {isAnonymous ? (
+            <AccountNote>{accountCopy.anonymous.settingsNote}</AccountNote>
+          ) : null}
           <SignOutButton
             accessibilityLabel={accountCopy.account.signOut}
             onPress={onSignOut}
@@ -199,6 +210,13 @@ const AccountEmail = styled.Text`
   color: ${({ theme }) => theme.colors.text};
   font-size: ${({ theme }) => theme.type.body}px;
   font-weight: 600;
+`;
+
+const AccountNote = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.label}px;
+  margin-top: ${({ theme }) => theme.spacing.tiny}px;
+  line-height: 18px;
 `;
 
 const SignOutButton = styled(PressableScale)`

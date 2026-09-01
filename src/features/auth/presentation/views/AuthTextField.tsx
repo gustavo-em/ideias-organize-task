@@ -7,7 +7,8 @@ export type AuthFieldKind =
   | 'email'
   | 'password'
   | 'newPassword'
-  | 'confirmPassword';
+  | 'confirmPassword'
+  | 'name';
 
 interface AuthTextFieldProps {
   label: string;
@@ -17,6 +18,11 @@ interface AuthTextFieldProps {
   error?: string;
   returnKeyType?: 'next' | 'done';
   onSubmitEditing?: () => void;
+  autoFocus?: boolean;
+  maxLength?: number;
+  /** False while another way in is waiting on its own sheet: the form is
+   * still on screen and readable, it just cannot be typed into. */
+  editable?: boolean;
   testID?: string;
 }
 
@@ -25,9 +31,9 @@ const KIND_PROPS: Record<
   {
     secureTextEntry: boolean;
     keyboardType: 'default' | 'email-address';
-    autoComplete: 'email' | 'password' | 'password-new' | 'off';
-    textContentType: 'emailAddress' | 'password' | 'newPassword';
-    autoCapitalize: 'none' | 'sentences';
+    autoComplete: 'email' | 'password' | 'password-new' | 'name' | 'off';
+    textContentType: 'emailAddress' | 'password' | 'newPassword' | 'name';
+    autoCapitalize: 'none' | 'sentences' | 'words';
   }
 > = {
   email: {
@@ -57,6 +63,13 @@ const KIND_PROPS: Record<
     autoComplete: 'password-new',
     textContentType: 'newPassword',
     autoCapitalize: 'none',
+  },
+  name: {
+    secureTextEntry: false,
+    keyboardType: 'default',
+    autoComplete: 'name',
+    textContentType: 'name',
+    autoCapitalize: 'words',
   },
 };
 
@@ -100,6 +113,9 @@ export const AuthTextField = forwardRef<
     error,
     returnKeyType,
     onSubmitEditing,
+    autoFocus,
+    maxLength,
+    editable = true,
     testID,
   },
   ref,
@@ -112,10 +128,14 @@ export const AuthTextField = forwardRef<
       <Label>{label}</Label>
       <Input
         accessibilityLabel={label}
+        accessibilityState={{ disabled: !editable }}
         autoCapitalize={kindProps.autoCapitalize}
         autoComplete={kindProps.autoComplete}
         autoCorrect={false}
+        autoFocus={autoFocus}
+        editable={editable}
         keyboardType={kindProps.keyboardType}
+        maxLength={maxLength}
         onChangeText={onChangeText}
         onSubmitEditing={onSubmitEditing}
         placeholderTextColor={theme.colors.muted}

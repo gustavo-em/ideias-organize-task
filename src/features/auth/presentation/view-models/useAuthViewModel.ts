@@ -31,6 +31,9 @@ export function useAuthViewModel(authPort: AuthPort) {
   const [forgot, setForgot] = useState<SubmitState>(IDLE);
   const [forgotSentTo, setForgotSentTo] = useState<string | null>(null);
   const [signOutState, setSignOutState] = useState<SubmitState>(IDLE);
+  const [google, setGoogle] = useState<SubmitState>(IDLE);
+  const [apple, setApple] = useState<SubmitState>(IDLE);
+  const [anonymous, setAnonymous] = useState<SubmitState>(IDLE);
 
   useEffect(() => {
     try {
@@ -88,6 +91,59 @@ export function useAuthViewModel(authPort: AuthPort) {
     [authPort],
   );
 
+  /** Backing out of a provider's own sheet is not a failure and never shows
+   * a message: the form simply goes back to how it was before the tap. */
+  const settle = useCallback(
+    (apply: (next: SubmitState) => void, error: unknown) => {
+      const kind = errorKindOf(error);
+
+      apply(kind === 'cancelled' ? IDLE : { status: 'error', errorKind: kind });
+    },
+    [],
+  );
+
+  const signInWithGoogle = useCallback(async () => {
+    setGoogle(SUBMITTING);
+    try {
+      await authPort.signInWithGoogle();
+      setGoogle(IDLE);
+    } catch (error) {
+      settle(setGoogle, error);
+    }
+  }, [authPort, settle]);
+
+  const signInWithApple = useCallback(async () => {
+    setApple(SUBMITTING);
+    try {
+      await authPort.signInWithApple();
+      setApple(IDLE);
+    } catch (error) {
+      settle(setApple, error);
+    }
+  }, [authPort, settle]);
+
+  const signInAnonymously = useCallback(
+    async (displayName: string) => {
+      setAnonymous(SUBMITTING);
+      try {
+        await authPort.signInAnonymously(displayName);
+        setAnonymous(IDLE);
+      } catch (error) {
+        settle(setAnonymous, error);
+      }
+    },
+    [authPort, settle],
+  );
+
+  /** Called when the gate swaps screens: an error from the last attempt
+   * belongs to the screen that produced it, and must not greet whoever comes
+   * back to it later without having touched anything. */
+  const resetProviderErrors = useCallback(() => {
+    setGoogle(IDLE);
+    setApple(IDLE);
+    setAnonymous(IDLE);
+  }, []);
+
   // Cleared on leaving the forgot-password screen, so coming back to it
   // later starts from the form again instead of the confirmation.
   const resetForgotConfirmation = useCallback(() => setForgotSentTo(null), []);
@@ -110,7 +166,14 @@ export function useAuthViewModel(authPort: AuthPort) {
     forgot,
     forgotSentTo,
     signOutState,
+    google,
+    apple,
+    anonymous,
     signIn,
+    signInWithGoogle,
+    signInWithApple,
+    signInAnonymously,
+    resetProviderErrors,
     submitSignUp,
     sendPasswordReset,
     resetForgotConfirmation,
