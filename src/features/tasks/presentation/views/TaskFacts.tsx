@@ -36,8 +36,10 @@ export function TaskFacts({
   compact = false,
 }: TaskFactsProps) {
   const theme = useTheme();
+  // Priority and lateness are not danger: `danger` belongs to the destructive
+  // action alone. High priority reads as the strongest ink on the card.
   const toneOf = {
-    danger: theme.colors.danger,
+    danger: theme.colors.text,
     accent: theme.colors.accentInk,
     muted: theme.colors.muted,
   };
@@ -50,7 +52,7 @@ export function TaskFacts({
   const dueColor = dimmed
     ? theme.colors.border
     : facts.due?.late
-    ? theme.colors.danger
+    ? theme.colors.text
     : theme.colors.muted;
   const quiet = dimmed ? theme.colors.border : theme.colors.muted;
 

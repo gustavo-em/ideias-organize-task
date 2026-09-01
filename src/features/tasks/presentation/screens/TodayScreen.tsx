@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -14,8 +15,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import { markSheetPress, useRenderCount } from '../../../../app/perf/sheetPerf';
 import { type Task } from '../../domain/Task';
-import { INBOX_LIST_ID } from '../../domain/TaskList';
+import {
+  INBOX_LIST_ID,
+  type ListColor,
+  type ProjectIcon,
+} from '../../domain/TaskList';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
 import { formatDayLabel } from '../models/dateLabel';
 import { homeSections, type HomeGrouping } from '../models/homeSections';
@@ -69,6 +75,7 @@ export function TodayScreen({
   onChooseFocusDuration,
 }: TodayScreenProps) {
   const theme = useTheme();
+  useRenderCount('TodayScreen');
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const todayRestTop = useRef(0);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -110,6 +117,15 @@ export function TodayScreen({
       reconcileCollapsedSectionIds(current, grouping, sections),
     );
   }, [grouping, sections]);
+
+  const editTask = useCallback((task: Task) => {
+    markSheetPress('QuickCaptureSheet');
+    setEditing(task);
+  }, []);
+  const toggleTask = useCallback(
+    (taskId: string) => viewModel.toggle(taskId),
+    [viewModel],
+  );
 
   const changeGrouping = useCallback(
     (nextGrouping: HomeGrouping) => {
@@ -349,7 +365,7 @@ export function TodayScreen({
 
               {expanded
                 ? section.tasks.map((task, index) => (
-                    <TaskRow
+                    <HomeTaskRow
                       copy={copy}
                       index={index}
                       key={task.id}
@@ -361,8 +377,8 @@ export function TodayScreen({
                       listIcon={viewModel.listOf(task.listId)?.icon ?? null}
                       listName={viewModel.listOf(task.listId)?.name ?? null}
                       nowMs={viewModel.nowMs}
-                      onEdit={() => setEditing(task)}
-                      onToggle={() => viewModel.toggle(task.id)}
+                      onEditTask={editTask}
+                      onToggleTask={toggleTask}
                       sectionId={section.id}
                       task={task}
                     />
@@ -375,7 +391,10 @@ export function TodayScreen({
 
       <FloatingAction
         label={copy.today.capture}
-        onPress={() => setIsCapturing(true)}
+        onPress={() => {
+          markSheetPress('QuickCaptureSheet');
+          setIsCapturing(true);
+        }}
         testID="today-capture"
       />
 
@@ -437,6 +456,63 @@ export function TodayScreen({
  * at bottom:32 with a 54px+ pill and its own shadow, so the scroll needs
  * clearance past that plus a real gap, or the last expanded row hides
  * behind it. */
+interface HomeTaskRowProps {
+  copy: TaskCopy;
+  index: number;
+  lens: HomeGrouping;
+  listColor: ListColor | null;
+  listIcon: ProjectIcon | null;
+  listName: string | null;
+  nowMs: number;
+  sectionId: string;
+  task: Task;
+  onEditTask: (task: Task) => void;
+  onToggleTask: (taskId: string) => void;
+}
+
+/**
+ * One row of the day, wrapped so its props hold still.
+ *
+ * Opening a sheet only changes state on the screen, and the row used to get a
+ * pair of freshly built handlers on every one of those renders — so every task
+ * on screen re-rendered in the frame the sheet was trying to animate in.
+ */
+const HomeTaskRow = memo(function HomeTaskRowView({
+  copy,
+  index,
+  lens,
+  listColor,
+  listIcon,
+  listName,
+  nowMs,
+  sectionId,
+  task,
+  onEditTask,
+  onToggleTask,
+}: HomeTaskRowProps) {
+  const handleEdit = useCallback(() => onEditTask(task), [onEditTask, task]);
+  const handleToggle = useCallback(
+    () => onToggleTask(task.id),
+    [onToggleTask, task.id],
+  );
+
+  return (
+    <TaskRow
+      copy={copy}
+      index={index}
+      lens={lens}
+      listColor={listColor}
+      listIcon={listIcon}
+      listName={listName}
+      nowMs={nowMs}
+      onEdit={handleEdit}
+      onToggle={handleToggle}
+      sectionId={sectionId}
+      task={task}
+    />
+  );
+});
+
 const styles = StyleSheet.create({ scroll: { paddingBottom: 168 } });
 
 const sectionLayout = LinearTransition.duration(DISCLOSURE.duration)

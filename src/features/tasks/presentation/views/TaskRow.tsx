@@ -5,6 +5,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import { useRenderCount } from '../../../../app/perf/sheetPerf';
 import { daysBetween } from '../../domain/Day';
 import { isCompleted, taskWeight, type Task } from '../../domain/Task';
 import type { ListColor, ProjectIcon } from '../../domain/TaskList';
@@ -60,6 +61,7 @@ export function TaskRow({
   onToggle,
   onEdit,
 }: TaskRowProps) {
+  useRenderCount('TaskRow');
   const theme = useTheme();
   const done = isCompleted(task);
   const facts = taskFacts(task, nowMs, copy, listName);

@@ -50,13 +50,17 @@ jest.mock('react-native-reanimated', () => {
     FadeInDown: makeAnimationBuilder(),
     SlideInDown: makeAnimationBuilder(),
     SlideOutDown: makeAnimationBuilder(),
+    SlideOutLeft: makeAnimationBuilder(),
     LinearTransition: makeAnimationBuilder(),
+    useAnimatedKeyboard: () => ({ height: { value: 0 } }),
   };
 
   function makeAnimationBuilder() {
     const builder = {
       delay: () => builder,
       duration: () => builder,
+      easing: () => builder,
+      reduceMotion: () => builder,
       springify: () => builder,
       damping: () => builder,
       stiffness: () => builder,

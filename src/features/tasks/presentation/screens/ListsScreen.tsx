@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, StyleSheet } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import { markSheetPress, useRenderCount } from '../../../../app/perf/sheetPerf';
 import { isCompleted, isOpen, type Task } from '../../domain/Task';
-import { dayKeyOf } from '../../domain/SharedMemberDay';
+import { dayKeyOf, type SharedMemberDay } from '../../domain/SharedMemberDay';
 import {
   canEdit,
   canShare,
@@ -47,9 +48,31 @@ interface ListsScreenProps {
   viewModel: TasksViewModel;
 }
 
+/** Shared, frozen fallbacks: a new `[]` on every render is a new prop, and a
+ * new prop defeats the memo that keeps the projects still. */
+const EMPTY_TASKS: readonly Task[] = [];
+const EMPTY_DAY_RECORDS: readonly SharedMemberDay[] = [];
+const EMPTY_DAY_ENTRIES: ReturnType<typeof sharedDay> = [];
+
+function memberFor(list: TaskList, id: string | null): ListMember | null {
+  if (id == null || list.share == null) return null;
+  return list.share.members.find(member => member.personId === id) ?? null;
+}
+
+/** A group streak only counts while it is today's. */
+function streakDaysOf(
+  streak: { days: number; lastDayKey: string | null } | undefined,
+  nowMs: number,
+): number {
+  const current = streak ?? EMPTY_GROUP_STREAK;
+
+  return current.lastDayKey === dayKeyOf(nowMs) ? current.days : 0;
+}
+
 /** Lists hold the next steps of something bigger, opening in place for comparison. */
 export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
   const theme = useTheme();
+  useRenderCount('ListsScreen');
   const [openListId, setOpenListId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState<Task | null>(null);
@@ -80,10 +103,61 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
     setRefreshing(false);
   }
 
-  function memberFor(list: TaskList, id: string | null): ListMember | null {
-    if (id == null || list.share == null) return null;
-    return list.share.members.find(member => member.personId === id) ?? null;
-  }
+  // Grouping the tasks once beats filtering the whole set again for every
+  // project on every render of the screen.
+  const tasksByList = useMemo(() => {
+    const grouped = new Map<string, Task[]>();
+
+    for (const task of viewModel.tasks) {
+      const bucket = grouped.get(task.listId ?? '');
+      if (bucket == null) grouped.set(task.listId ?? '', [task]);
+      else bucket.push(task);
+    }
+
+    return grouped;
+  }, [viewModel.tasks]);
+
+  const toggleOpen = useCallback((listId: string) => {
+    setOpenListId(current => (current === listId ? null : listId));
+    setActionsForListId(null);
+  }, []);
+  const toggleActions = useCallback((listId: string) => {
+    setActionsForListId(current => (current === listId ? null : listId));
+  }, []);
+  const openShare = useCallback((list: TaskList) => {
+    markSheetPress('ShareSheet');
+    setSharingList(list);
+    setActionsForListId(null);
+  }, []);
+  const openRename = useCallback((list: TaskList) => {
+    setRenamingList(list);
+    setActionsForListId(null);
+  }, []);
+  const openLeave = useCallback((list: TaskList) => {
+    setLeavingList(list);
+    setActionsForListId(null);
+  }, []);
+  const openDeleteList = useCallback((list: TaskList) => {
+    setDeletingList(list);
+    setActionsForListId(null);
+  }, []);
+  const openCapture = useCallback((list: TaskList) => {
+    markSheetPress('QuickCaptureSheet');
+    setCapturingForList(list);
+  }, []);
+  const editTask = useCallback((task: Task) => {
+    markSheetPress('QuickCaptureSheet');
+    setEditing(task);
+  }, []);
+  const deleteTask = useCallback((task: Task) => setDeleting(task), []);
+  const toggleTask = useCallback(
+    (taskId: string) => viewModel.toggle(taskId),
+    [viewModel],
+  );
+  const moveIntoDay = useCallback(
+    (taskId: string) => viewModel.moveIntoDay(taskId),
+    [viewModel],
+  );
 
   return (
     <Screen>
@@ -108,273 +182,45 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
 
         <JoinButton
           accessibilityLabel={copy.lists.joinInvite}
-          onPress={() => setJoiningInvite(true)}
+          onPress={() => {
+            markSheetPress('JoinInviteSheet');
+            setJoiningInvite(true);
+          }}
           testID="join-invite"
         >
           <LinkGlyph color={theme.colors.accentInk} size={14} />
           <JoinButtonText>{copy.lists.joinInvite}</JoinButtonText>
         </JoinButton>
 
-        {viewModel.lists.map(list => {
-          const tasks = viewModel.tasks.filter(task => task.listId === list.id);
-          const done = tasks.filter(isCompleted).length;
-          const isOpenList = openListId === list.id;
-          const shared = list.share != null;
-          const role = shared
-            ? list.share!.members.find(member => member.personId === personId)
-                ?.role ?? null
-            : null;
-          const isViewer = shared && !canEdit(list, personId ?? '');
-          const canManageAppearance =
-            list.id !== INBOX_LIST_ID && canEdit(list, personId ?? '');
-          const canDeleteList = shared
-            ? role === 'owner'
-            : list.id !== INBOX_LIST_ID;
-          const canLeave = shared && role !== 'owner';
-          const canManage =
-            list.id !== INBOX_LIST_ID &&
-            (canShare(list) ||
-              canManageAppearance ||
-              canDeleteList ||
-              canLeave);
-          const showingActions = actionsForListId === list.id;
-          // The band only ever describes today, and only for a project that
-          // is actually shared.
-          const dayEntries = shared
-            ? sharedDay(
-                list.share!.members,
-                viewModel.sharedDays[list.id] ?? [],
-                tasks,
-                viewModel.nowMs,
-              )
-            : [];
-          const tookSomethingToday = dayEntries.some(
-            entry =>
-              entry.member.personId === personId && entry.state !== 'absent',
-          );
-
-          return (
-            <ListBlock key={list.id}>
-              <ListHeader>
-                <Row
-                  accessibilityLabel={list.name}
-                  accessibilityState={{ selected: isOpenList }}
-                  onPress={() => {
-                    setOpenListId(isOpenList ? null : list.id);
-                    setActionsForListId(null);
-                  }}
-                  testID={`list-${list.id}`}
-                >
-                  <ProjectBadge $tone={projectTone(theme, list.color)}>
-                    <ProjectGlyph
-                      color={projectTone(theme, list.color)}
-                      icon={list.icon}
-                      size={18}
-                    />
-                  </ProjectBadge>
-                  <Name numberOfLines={1}>{list.name}</Name>
-                  {isShared(list) ? (
-                    <MemberStack
-                      members={list.share!.members}
-                      sharedWithLabel={copy.lists.sharedWith(
-                        list.share!.members.length,
-                      )}
-                    />
-                  ) : null}
-                  <Count>{copy.lists.progress(done, tasks.length)}</Count>
-                  <Track>
-                    <Fill
-                      style={{
-                        width: `${
-                          tasks.length === 0 ? 0 : (done / tasks.length) * 100
-                        }%`,
-                      }}
-                    />
-                  </Track>
-                </Row>
-                {canManage ? (
-                  <MoreButton
-                    accessibilityLabel={copy.lists.moreActions(list.name)}
-                    // Drawn at 38px, so the touch area is widened to the 48px
-                    // the design guide asks for.
-                    hitSlop={5}
-                    onPress={() =>
-                      setActionsForListId(showingActions ? null : list.id)
-                    }
-                    testID={`list-actions-${list.id}`}
-                  >
-                    <MoreGlyph color="#756b56" />
-                  </MoreButton>
-                ) : null}
-              </ListHeader>
-
-              {showingActions ? (
-                <ListActions
-                  entering={FadeIn.duration(150)}
-                  testID="list-actions-open"
-                >
-                  {canShare(list) ? (
-                    <ActionButton
-                      accessibilityLabel={copy.lists.share}
-                      onPress={() => {
-                        setSharingList(list);
-                        setActionsForListId(null);
-                      }}
-                      // Only one menu is open at a time, so the anchor does
-                      // not need the generated project id to be unique.
-                      testID="list-share"
-                    >
-                      <ActionText>{copy.lists.share}</ActionText>
-                    </ActionButton>
-                  ) : null}
-                  {canManageAppearance ? (
-                    <ActionButton
-                      accessibilityLabel={copy.lists.rename}
-                      onPress={() => {
-                        setRenamingList(list);
-                        setActionsForListId(null);
-                      }}
-                    >
-                      <ActionText>{copy.lists.rename}</ActionText>
-                    </ActionButton>
-                  ) : null}
-                  {canLeave ? (
-                    <ActionButton
-                      $danger
-                      accessibilityLabel={copy.lists.leaveProject}
-                      onPress={() => {
-                        setLeavingList(list);
-                        setActionsForListId(null);
-                      }}
-                    >
-                      <ActionText $danger>{copy.lists.leaveProject}</ActionText>
-                    </ActionButton>
-                  ) : null}
-                  {canDeleteList ? (
-                    <ActionButton
-                      $danger
-                      accessibilityLabel={copy.lists.delete}
-                      onPress={() => {
-                        setDeletingList(list);
-                        setActionsForListId(null);
-                      }}
-                    >
-                      <ActionText $danger>{copy.lists.delete}</ActionText>
-                    </ActionButton>
-                  ) : null}
-                </ListActions>
-              ) : null}
-
-              {isOpenList ? (
-                <Expanded entering={FadeIn.duration(200)}>
-                  {shared ? (
-                    <SharedDayBand
-                      allDone={isGroupDayClosed(
-                        list.share!.members,
-                        dayEntries,
-                      )}
-                      copy={copy}
-                      entries={dayEntries}
-                      offline={viewModel.sharedDayOffline[list.id] === true}
-                      onTakeOne={
-                        isViewer || tookSomethingToday
-                          ? undefined
-                          : () => setCapturingForList(list)
-                      }
-                      streakDays={
-                        (viewModel.groupStreaks[list.id] ?? EMPTY_GROUP_STREAK)
-                          .lastDayKey === dayKeyOf(viewModel.nowMs)
-                          ? (
-                              viewModel.groupStreaks[list.id] ??
-                              EMPTY_GROUP_STREAK
-                            ).days
-                          : 0
-                      }
-                    />
-                  ) : null}
-
-                  {tasks.length === 0 ? (
-                    shared ? (
-                      <GroupEmpty>
-                        <EmptyText>{copy.lists.groupEmpty}</EmptyText>
-                        {list.share!.members.length <= 1 ? (
-                          <InviteHighlight
-                            accessibilityLabel={copy.lists.share}
-                            onPress={() => setSharingList(list)}
-                          >
-                            <PeopleGlyph
-                              color={theme.colors.accentInk}
-                              size={16}
-                            />
-                            <InviteHighlightText>
-                              {copy.lists.groupEmptyInvite}
-                            </InviteHighlightText>
-                          </InviteHighlight>
-                        ) : null}
-                      </GroupEmpty>
-                    ) : (
-                      <EmptyText>{copy.lists.empty}</EmptyText>
-                    )
-                  ) : null}
-
-                  {tasks.length > 0 && shared && done === tasks.length ? (
-                    <AllDoneBanner>
-                      <AllDoneText>{copy.lists.groupAllDone}</AllDoneText>
-                    </AllDoneBanner>
-                  ) : null}
-
-                  {tasks.map((task, index) => (
-                    <TaskCard
-                      action={
-                        !isViewer && isOpen(task)
-                          ? {
-                              label: copy.lists.addToDay,
-                              onPress: () => viewModel.moveIntoDay(task.id),
-                            }
-                          : undefined
-                      }
-                      completedByMember={
-                        isCompleted(task) && task.completedBy !== personId
-                          ? memberFor(list, task.completedBy ?? null)
-                          : null
-                      }
-                      copy={copy}
-                      disabled={isViewer}
-                      index={index}
-                      key={task.id}
-                      listColor={null}
-                      listIcon={null}
-                      listName={null}
-                      nowMs={viewModel.nowMs}
-                      onDelete={isViewer ? undefined : () => setDeleting(task)}
-                      onEdit={isViewer ? undefined : () => setEditing(task)}
-                      onToggle={() => viewModel.toggle(task.id)}
-                      task={task}
-                    />
-                  ))}
-                  {isViewer ? null : (
-                    <AddTaskButton
-                      accessibilityLabel={
-                        tasks.length === 0
-                          ? copy.lists.addFirstTask
-                          : copy.lists.addTask
-                      }
-                      onPress={() => setCapturingForList(list)}
-                      testID={`add-task-${list.id}`}
-                    >
-                      <PlusGlyph color="#6d5314" />
-                      <AddTaskText>
-                        {tasks.length === 0
-                          ? copy.lists.addFirstTask
-                          : copy.lists.addTask}
-                      </AddTaskText>
-                    </AddTaskButton>
-                  )}
-                </Expanded>
-              ) : null}
-            </ListBlock>
-          );
-        })}
+        {viewModel.lists.map(list => (
+          <ProjectBlock
+            copy={copy}
+            dayRecords={viewModel.sharedDays[list.id] ?? EMPTY_DAY_RECORDS}
+            key={list.id}
+            list={list}
+            nowMs={viewModel.nowMs}
+            offline={viewModel.sharedDayOffline[list.id] === true}
+            onCapture={openCapture}
+            onDeleteList={openDeleteList}
+            onDeleteTask={deleteTask}
+            onEditTask={editTask}
+            onLeaveList={openLeave}
+            onMoveIntoDay={moveIntoDay}
+            onRenameList={openRename}
+            onShare={openShare}
+            onToggleActions={toggleActions}
+            onToggleOpen={toggleOpen}
+            onToggleTask={toggleTask}
+            open={openListId === list.id}
+            personId={personId}
+            showingActions={actionsForListId === list.id}
+            streakDays={streakDaysOf(
+              viewModel.groupStreaks[list.id],
+              viewModel.nowMs,
+            )}
+            tasks={tasksByList.get(list.id) ?? EMPTY_TASKS}
+          />
+        ))}
       </Content>
 
       {creatingList || renamingList != null ? null : (
@@ -556,6 +402,363 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
 // Enough room for the floating action and the tab bar under it: the last
 // thing on the list — the invite call in a group's empty state — has to end
 // above both, the same clearance the tasks screen already keeps.
+
+interface ProjectTaskProps {
+  copy: TaskCopy;
+  index: number;
+  isViewer: boolean;
+  list: TaskList;
+  nowMs: number;
+  personId: string | null;
+  task: Task;
+  onDeleteTask: (task: Task) => void;
+  onEditTask: (task: Task) => void;
+  onMoveIntoDay: (taskId: string) => void;
+  onToggleTask: (taskId: string) => void;
+}
+
+/**
+ * One task card inside a project.
+ *
+ * The card is wrapped so its props hold still: the action object and the three
+ * handlers used to be rebuilt on every render of the project, which meant a
+ * project opening a menu re-rendered every card under it.
+ */
+const ProjectTask = memo(function ProjectTaskView({
+  copy,
+  index,
+  isViewer,
+  list,
+  nowMs,
+  personId,
+  task,
+  onDeleteTask,
+  onEditTask,
+  onMoveIntoDay,
+  onToggleTask,
+}: ProjectTaskProps) {
+  const handleDelete = useCallback(
+    () => onDeleteTask(task),
+    [onDeleteTask, task],
+  );
+  const handleEdit = useCallback(() => onEditTask(task), [onEditTask, task]);
+  const handleToggle = useCallback(
+    () => onToggleTask(task.id),
+    [onToggleTask, task.id],
+  );
+  const action = useMemo(
+    () =>
+      !isViewer && isOpen(task)
+        ? {
+            label: copy.lists.addToDay,
+            onPress: () => onMoveIntoDay(task.id),
+          }
+        : undefined,
+    [copy.lists.addToDay, isViewer, onMoveIntoDay, task],
+  );
+
+  return (
+    <TaskCard
+      action={action}
+      completedByMember={
+        isCompleted(task) && task.completedBy !== personId
+          ? memberFor(list, task.completedBy ?? null)
+          : null
+      }
+      copy={copy}
+      disabled={isViewer}
+      index={index}
+      listColor={null}
+      listIcon={null}
+      listName={null}
+      nowMs={nowMs}
+      onDelete={isViewer ? undefined : handleDelete}
+      onEdit={isViewer ? undefined : handleEdit}
+      onToggle={handleToggle}
+      task={task}
+    />
+  );
+});
+
+interface ProjectBlockProps {
+  copy: TaskCopy;
+  dayRecords: readonly SharedMemberDay[];
+  list: TaskList;
+  nowMs: number;
+  offline: boolean;
+  open: boolean;
+  personId: string | null;
+  showingActions: boolean;
+  streakDays: number;
+  tasks: readonly Task[];
+  onCapture: (list: TaskList) => void;
+  onDeleteList: (list: TaskList) => void;
+  onDeleteTask: (task: Task) => void;
+  onEditTask: (task: Task) => void;
+  onLeaveList: (list: TaskList) => void;
+  onMoveIntoDay: (taskId: string) => void;
+  onRenameList: (list: TaskList) => void;
+  onShare: (list: TaskList) => void;
+  onToggleActions: (listId: string) => void;
+  onToggleOpen: (listId: string) => void;
+  onToggleTask: (taskId: string) => void;
+}
+
+/**
+ * One project on the screen.
+ *
+ * It is its own component so that opening a sheet — which only changes state
+ * that lives on the screen — does not re-render every project and every task
+ * card in the same frame the sheet is trying to animate in.
+ */
+const ProjectBlock = memo(function ProjectBlockView({
+  copy,
+  dayRecords,
+  list,
+  nowMs,
+  offline,
+  open,
+  personId,
+  showingActions,
+  streakDays,
+  tasks,
+  onCapture,
+  onDeleteList,
+  onDeleteTask,
+  onEditTask,
+  onLeaveList,
+  onMoveIntoDay,
+  onRenameList,
+  onShare,
+  onToggleActions,
+  onToggleOpen,
+  onToggleTask,
+}: ProjectBlockProps) {
+  const theme = useTheme();
+  useRenderCount('ProjectBlock');
+
+  const done = tasks.filter(isCompleted).length;
+  const shared = list.share != null;
+  const role = shared
+    ? list.share!.members.find(member => member.personId === personId)?.role ??
+      null
+    : null;
+  const isViewer = shared && !canEdit(list, personId ?? '');
+  const canManageAppearance =
+    list.id !== INBOX_LIST_ID && canEdit(list, personId ?? '');
+  const canDeleteList = shared ? role === 'owner' : list.id !== INBOX_LIST_ID;
+  const canLeave = shared && role !== 'owner';
+  const canManage =
+    list.id !== INBOX_LIST_ID &&
+    (canShare(list) || canManageAppearance || canDeleteList || canLeave);
+  // The band only ever describes today, and only for a project that is
+  // actually shared.
+  const dayEntries = useMemo(
+    () =>
+      list.share == null
+        ? EMPTY_DAY_ENTRIES
+        : sharedDay(list.share.members, dayRecords, tasks, nowMs),
+    [dayRecords, list.share, nowMs, tasks],
+  );
+  const tookSomethingToday = dayEntries.some(
+    entry => entry.member.personId === personId && entry.state !== 'absent',
+  );
+
+  const handleToggleOpen = useCallback(
+    () => onToggleOpen(list.id),
+    [list.id, onToggleOpen],
+  );
+  const handleToggleActions = useCallback(
+    () => onToggleActions(list.id),
+    [list.id, onToggleActions],
+  );
+  const handleShare = useCallback(() => onShare(list), [list, onShare]);
+  const handleRename = useCallback(
+    () => onRenameList(list),
+    [list, onRenameList],
+  );
+  const handleLeave = useCallback(() => onLeaveList(list), [list, onLeaveList]);
+  const handleDeleteList = useCallback(
+    () => onDeleteList(list),
+    [list, onDeleteList],
+  );
+  const handleCapture = useCallback(() => onCapture(list), [list, onCapture]);
+
+  return (
+    <ListBlock>
+      <ListHeader>
+        <Row
+          accessibilityLabel={list.name}
+          accessibilityState={{ selected: open }}
+          onPress={handleToggleOpen}
+          testID={`list-${list.id}`}
+        >
+          <ProjectBadge $tone={projectTone(theme, list.color)}>
+            <ProjectGlyph
+              color={projectTone(theme, list.color)}
+              icon={list.icon}
+              size={18}
+            />
+          </ProjectBadge>
+          <Name numberOfLines={1}>{list.name}</Name>
+          {isShared(list) ? (
+            <MemberStack
+              members={list.share!.members}
+              sharedWithLabel={copy.lists.sharedWith(
+                list.share!.members.length,
+              )}
+            />
+          ) : null}
+          <Count>{copy.lists.progress(done, tasks.length)}</Count>
+          <Track>
+            <Fill
+              style={{
+                width: `${
+                  tasks.length === 0 ? 0 : (done / tasks.length) * 100
+                }%`,
+              }}
+            />
+          </Track>
+        </Row>
+        {canManage ? (
+          <MoreButton
+            accessibilityLabel={copy.lists.moreActions(list.name)}
+            // Drawn at 38px, so the touch area is widened to the 48px
+            // the design guide asks for.
+            hitSlop={5}
+            onPress={handleToggleActions}
+            testID={`list-actions-${list.id}`}
+          >
+            <MoreGlyph color="#756b56" />
+          </MoreButton>
+        ) : null}
+      </ListHeader>
+
+      {showingActions ? (
+        <ListActions entering={FadeIn.duration(150)} testID="list-actions-open">
+          {canShare(list) ? (
+            <ActionButton
+              accessibilityLabel={copy.lists.share}
+              onPress={handleShare}
+              // Only one menu is open at a time, so the anchor does
+              // not need the generated project id to be unique.
+              testID="list-share"
+            >
+              <ActionText>{copy.lists.share}</ActionText>
+            </ActionButton>
+          ) : null}
+          {canManageAppearance ? (
+            <ActionButton
+              accessibilityLabel={copy.lists.rename}
+              onPress={handleRename}
+            >
+              <ActionText>{copy.lists.rename}</ActionText>
+            </ActionButton>
+          ) : null}
+          {canLeave ? (
+            // Sair de um projeto não é a ação destrutiva: o vermelho fica com
+            // Excluir, e sair lê no mesmo tom de Compartilhar e Renomear.
+            <ActionButton
+              accessibilityLabel={copy.lists.leaveProject}
+              onPress={handleLeave}
+            >
+              <ActionText>{copy.lists.leaveProject}</ActionText>
+            </ActionButton>
+          ) : null}
+          {canDeleteList ? (
+            <ActionButton
+              $danger
+              accessibilityLabel={copy.lists.delete}
+              onPress={handleDeleteList}
+            >
+              <ActionText $danger>{copy.lists.delete}</ActionText>
+            </ActionButton>
+          ) : null}
+        </ListActions>
+      ) : null}
+
+      {open ? (
+        <Expanded entering={FadeIn.duration(200)}>
+          {shared ? (
+            <SharedDayBand
+              allDone={isGroupDayClosed(list.share!.members, dayEntries)}
+              copy={copy}
+              entries={dayEntries}
+              offline={offline}
+              onTakeOne={
+                isViewer || tookSomethingToday ? undefined : handleCapture
+              }
+              streakDays={streakDays}
+            />
+          ) : null}
+
+          {tasks.length === 0 ? (
+            shared ? (
+              <GroupEmpty>
+                <EmptyText>{copy.lists.groupEmpty}</EmptyText>
+                {list.share!.members.length <= 1 ? (
+                  <InviteHighlight
+                    accessibilityLabel={copy.lists.share}
+                    onPress={handleShare}
+                  >
+                    <PeopleGlyph color={theme.colors.accentInk} size={16} />
+                    <InviteHighlightText>
+                      {copy.lists.groupEmptyInvite}
+                    </InviteHighlightText>
+                  </InviteHighlight>
+                ) : null}
+              </GroupEmpty>
+            ) : (
+              <EmptyText>{copy.lists.empty}</EmptyText>
+            )
+          ) : null}
+
+          {tasks.length > 0 && shared && done === tasks.length ? (
+            <AllDoneBanner>
+              <AllDoneText>{copy.lists.groupAllDone}</AllDoneText>
+            </AllDoneBanner>
+          ) : null}
+
+          {tasks.map((task, index) => (
+            <ProjectTask
+              copy={copy}
+              index={index}
+              isViewer={isViewer}
+              key={task.id}
+              list={list}
+              nowMs={nowMs}
+              onDeleteTask={onDeleteTask}
+              onEditTask={onEditTask}
+              onMoveIntoDay={onMoveIntoDay}
+              onToggleTask={onToggleTask}
+              personId={personId}
+              task={task}
+            />
+          ))}
+          {isViewer ? null : (
+            <AddTaskButton
+              accessibilityLabel={
+                tasks.length === 0
+                  ? copy.lists.addFirstTask
+                  : copy.lists.addTask
+              }
+              onPress={handleCapture}
+              testID={`add-task-${list.id}`}
+            >
+              <PlusGlyph color="#6d5314" />
+              <AddTaskText>
+                {tasks.length === 0
+                  ? copy.lists.addFirstTask
+                  : copy.lists.addTask}
+              </AddTaskText>
+            </AddTaskButton>
+          )}
+        </Expanded>
+      ) : null}
+    </ListBlock>
+  );
+});
+
 const styles = StyleSheet.create({ scroll: { paddingBottom: 168 } });
 
 const Screen = styled.View`

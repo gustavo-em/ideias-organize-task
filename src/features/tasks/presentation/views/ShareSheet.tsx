@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
 import {
   buttonTextAttrs,
   buttonTextMetrics,
@@ -83,6 +84,7 @@ export function ShareSheet({
   onStopSharing,
 }: ShareSheetProps) {
   const theme = useTheme();
+  const traceOpen = useSheetOpenTrace('ShareSheet');
   const [invitedAs, setInvitedAs] = useState<Exclude<ListRole, 'owner'>>(
     list.share?.invitedAs ?? 'editor',
   );
@@ -171,6 +173,7 @@ export function ShareSheet({
         <Sheet
           entering={SlideInDown.springify().damping(20).stiffness(200)}
           exiting={SlideOutDown.duration(180)}
+          onLayout={traceOpen}
           testID="share-sheet"
         >
           <Grabber />
