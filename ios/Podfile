@@ -14,8 +14,19 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
+# Firebase resolved as pods rather than Swift Package Manager: with SPM every
+# react-native-firebase pod embeds its own copy of firebase-ios-sdk, and under
+# the static linkage this app builds with those copies collide at link time.
+$RNFirebaseDisableSPM = true
+
 target 'IdeiasOrganizeTask' do
   config = use_native_modules!
+
+  # Google Sign-In and the Firebase pods are Swift, and importing them from a
+  # static library needs module maps on every interop pod they reach. Turned
+  # on for the whole target because the chain (GoogleUtilities, Recaptcha,
+  # FirebaseAuthInterop, FirebaseAppCheckInterop, …) keeps growing otherwise.
+  use_modular_headers!
 
   use_react_native!(
     :path => config[:reactNativePath],
