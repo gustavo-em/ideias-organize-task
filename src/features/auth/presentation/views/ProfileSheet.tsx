@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
-import {
-  BackHandler,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  useWindowDimensions,
-} from 'react-native';
-import Animated from 'react-native-reanimated';
+import { BackHandler, useWindowDimensions } from 'react-native';
+import Animated, {
+  useAnimatedKeyboard,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
 import {
@@ -86,10 +83,21 @@ export function ProfileSheet({
 }: ProfileSheetProps) {
   const traceOpen = useSheetOpenTrace('ProfileSheet');
   const { height } = useWindowDimensions();
+  // The app draws edge to edge, so the window never shrinks for the keyboard
+  // and `KeyboardAvoidingView` has nothing to react to: the sheet rides the
+  // keyboard itself, on the UI thread, the same way the capture sheet does.
+  const keyboard = useAnimatedKeyboard();
+  const lift = useAnimatedStyle(() => ({
+    paddingBottom: keyboard.height.value,
+  }));
   const handleRef = useRef<ComponentRef<typeof HandleInput>>(null);
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
   const [handle, setHandle] = useState(profile?.handle ?? '');
   const [issue, setIssue] = useState<LocalIssue | null>(null);
+  // The refusal belongs to the handle that was sent; the first keystroke on a
+  // new one makes it history, and the message goes with it.
+  const [dismissedError, setDismissedError] = useState(false);
+  const serverError = dismissedError ? null : errorKind;
 
   const trimmedName = displayName.trim();
   // Exactly what the account row in Ajustes shows, so the chip and the name
@@ -127,14 +135,19 @@ export function ProfileSheet({
   // A refusal from the server always belongs to the handle field, and the
   // typed text stays exactly as it is.
   useEffect(() => {
+    if (errorKind == null) return;
+
+    setDismissedError(false);
     if (errorKind === 'handle-taken') handleRef.current?.focus();
   }, [errorKind]);
 
-  const errorMessage =
-    issue != null
+  const nameError =
+    issue === 'display-name-required' ? messageFor(copy, issue) : null;
+  const handleError =
+    issue != null && issue !== 'display-name-required'
       ? messageFor(copy, issue)
-      : errorKind != null
-      ? serverMessageFor(copy, errorKind)
+      : serverError != null
+      ? serverMessageFor(copy, serverError)
       : null;
 
   async function submit() {
@@ -157,131 +170,132 @@ export function ProfileSheet({
     if (saved) onCancel();
   }
 
+  // No `Modal`: a modal is a window of its own, and the keyboard insets that
+  // lift this sheet never reach inside it. The sheet is an overlay in the
+  // app's own tree, exactly like the capture sheet.
   return (
-    <Modal
-      animationType="none"
-      onRequestClose={onCancel}
-      statusBarTranslucent
-      transparent
-      visible
-    >
-      <Overlay>
-        <Scrim entering={scrimEnter()} exiting={scrimExit()}>
-          <ScrimTouch
-            accessibilityLabel={copy.profile.cancel}
-            accessibilityRole="button"
-            onPress={onCancel}
-            testID="profile-cancel"
-          />
-        </Scrim>
-        <Lift behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <Sheet
-            entering={sheetEnter()}
-            exiting={sheetExit()}
-            onLayout={traceOpen}
+    <Overlay>
+      <Scrim entering={scrimEnter()} exiting={scrimExit()}>
+        <ScrimTouch
+          accessibilityLabel={copy.profile.cancel}
+          accessibilityRole="button"
+          onPress={onCancel}
+          testID="profile-cancel"
+        />
+      </Scrim>
+      <Lift style={lift}>
+        <Sheet
+          entering={sheetEnter()}
+          exiting={sheetExit()}
+          onLayout={traceOpen}
+        >
+          <Grabber />
+          <Fields
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="none"
+            showsVerticalScrollIndicator={false}
+            // Room for the header and the actions row: whatever is left is
+            // scrollable, so the focused field and Salvar stay reachable
+            // with the keyboard up.
+            style={{ maxHeight: height * 0.52 }}
           >
-            <Grabber />
-            <Fields
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              style={{ maxHeight: height * 0.62 }}
-            >
-              <Title accessibilityRole="header">{copy.profile.title}</Title>
-              <Hint>{copy.profile.subtitle}</Hint>
+            <Title accessibilityRole="header">{copy.profile.title}</Title>
+            <Hint>{copy.profile.subtitle}</Hint>
 
-              <Preview>
-                <MemberChip
-                  name={previewName}
-                  personId={personId}
-                  size="large"
-                />
-                <PreviewText>
-                  <PreviewName numberOfLines={1} ellipsizeMode="tail">
-                    {previewName}
-                  </PreviewName>
-                  <PreviewHandle numberOfLines={1} ellipsizeMode="tail">
-                    {`@${
-                      handle.length > 0
-                        ? handle
-                        : copy.profile.handlePlaceholder
-                    }`}
-                  </PreviewHandle>
-                </PreviewText>
-              </Preview>
+            <Preview>
+              <MemberChip name={previewName} personId={personId} size="large" />
+              <PreviewText>
+                <PreviewName numberOfLines={1} ellipsizeMode="tail">
+                  {previewName}
+                </PreviewName>
+                <PreviewHandle numberOfLines={1} ellipsizeMode="tail">
+                  {`@${
+                    handle.length > 0 ? handle : copy.profile.handlePlaceholder
+                  }`}
+                </PreviewHandle>
+              </PreviewText>
+            </Preview>
 
-              <FieldLabel>{copy.profile.displayNameLabel}</FieldLabel>
-              <Field
-                accessibilityLabel={copy.profile.displayNameLabel}
-                autoCapitalize="words"
-                autoCorrect={false}
-                maxLength={DISPLAY_NAME_MAX_LENGTH}
-                onChangeText={value => {
-                  setDisplayName(value);
-                  setIssue(null);
-                }}
-                placeholder={copy.profile.displayNamePlaceholder}
-                returnKeyType="next"
-                testID="profile-display-name"
-                value={displayName}
-              />
-
-              <FieldLabel>{copy.profile.handleLabel}</FieldLabel>
-              <HandleField
-                $invalid={
-                  errorMessage != null && issue !== 'display-name-required'
-                }
+            <FieldLabel>{copy.profile.displayNameLabel}</FieldLabel>
+            <Field
+              $invalid={nameError != null}
+              accessibilityLabel={copy.profile.displayNameLabel}
+              autoCapitalize="words"
+              autoCorrect={false}
+              maxLength={DISPLAY_NAME_MAX_LENGTH}
+              onChangeText={value => {
+                setDisplayName(value);
+                setIssue(null);
+                setDismissedError(true);
+              }}
+              placeholder={copy.profile.displayNamePlaceholder}
+              returnKeyType="next"
+              testID="profile-display-name"
+              value={displayName}
+            />
+            {/* The message sits under the field it belongs to, never under
+                  the next one. */}
+            {nameError == null ? null : (
+              <ErrorText
+                accessibilityLiveRegion="polite"
+                testID="profile-name-error"
               >
-                <HandlePrefix>@</HandlePrefix>
-                <HandleInput
-                  accessibilityLabel={copy.profile.handleLabel}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  maxLength={HANDLE_MAX_LENGTH}
-                  onBlur={() => {
-                    if (handle.length === 0) return;
-                    setIssue(validateHandle(handle));
-                  }}
-                  onChangeText={value => {
-                    setHandle(normalizeHandle(value));
-                    setIssue(null);
-                  }}
-                  onSubmitEditing={submit}
-                  placeholder={copy.profile.handlePlaceholder}
-                  ref={handleRef}
-                  returnKeyType="done"
-                  testID="profile-handle"
-                  value={handle}
-                />
-              </HandleField>
-              <FieldHint>{copy.profile.handleHint}</FieldHint>
+                {nameError}
+              </ErrorText>
+            )}
 
-              {errorMessage == null ? null : (
-                <ErrorText
-                  accessibilityLiveRegion="polite"
-                  testID="profile-error"
-                >
-                  {errorMessage}
-                </ErrorText>
-              )}
-            </Fields>
+            <FieldLabel>{copy.profile.handleLabel}</FieldLabel>
+            <HandleField $invalid={handleError != null}>
+              <HandlePrefix>@</HandlePrefix>
+              <HandleInput
+                accessibilityLabel={copy.profile.handleLabel}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={HANDLE_MAX_LENGTH}
+                onBlur={() => {
+                  if (handle.length === 0) return;
+                  setIssue(validateHandle(handle));
+                }}
+                onChangeText={value => {
+                  setHandle(normalizeHandle(value));
+                  setIssue(null);
+                  // Typing a different handle answers the refusal: the
+                  // message goes, the text stays.
+                  setDismissedError(true);
+                }}
+                onSubmitEditing={submit}
+                placeholder={copy.profile.handlePlaceholder}
+                ref={handleRef}
+                returnKeyType="done"
+                testID="profile-handle"
+                value={handle}
+              />
+            </HandleField>
+            <FieldHint>{copy.profile.handleHint}</FieldHint>
 
-            <SheetActionsRow>
-              <SheetCancelButton
-                label={copy.profile.cancel}
-                onPress={onCancel}
-              />
-              <SheetPrimaryButton
-                disabled={!submittable}
-                label={copy.profile.submit}
-                loading={saving}
-                onPress={submit}
-                testID="profile-submit"
-              />
-            </SheetActionsRow>
-          </Sheet>
-        </Lift>
-      </Overlay>
-    </Modal>
+            {handleError == null ? null : (
+              <ErrorText
+                accessibilityLiveRegion="polite"
+                testID="profile-error"
+              >
+                {handleError}
+              </ErrorText>
+            )}
+          </Fields>
+
+          <SheetActionsRow>
+            <SheetCancelButton label={copy.profile.cancel} onPress={onCancel} />
+            <SheetPrimaryButton
+              disabled={!submittable}
+              label={copy.profile.submit}
+              loading={saving}
+              onPress={submit}
+              testID="profile-submit"
+            />
+          </SheetActionsRow>
+        </Sheet>
+      </Lift>
+    </Overlay>
   );
 }
 
@@ -308,7 +322,8 @@ const ScrimTouch = styled.Pressable`
   flex: 1;
 `;
 
-const Lift = styled(KeyboardAvoidingView)`
+const Lift = styled(Animated.View)`
+  width: 100%;
   justify-content: flex-end;
 `;
 
@@ -383,8 +398,10 @@ const FieldLabel = styled.Text`
 
 const Field = styled.TextInput.attrs(({ theme }) => ({
   placeholderTextColor: theme.colors.muted,
-}))`
-  border: 2px solid ${({ theme }) => theme.colors.accent};
+}))<{ $invalid?: boolean }>`
+  border: 2px solid
+    ${({ theme, $invalid }) =>
+      $invalid === true ? theme.colors.projectCoral : theme.colors.accent};
   border-radius: ${({ theme }) => theme.radii.medium}px;
   background-color: ${({ theme }) => theme.colors.card};
   color: ${({ theme }) => theme.colors.text};

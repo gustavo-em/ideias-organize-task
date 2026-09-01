@@ -150,6 +150,7 @@ function render(list: TaskList) {
         <ListsScreen
           copy={copy}
           language="pt-BR"
+          ownProfile={null}
           viewModel={viewModelFor(list)}
         />
       </ThemeProvider>,

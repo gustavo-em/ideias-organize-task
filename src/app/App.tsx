@@ -169,6 +169,7 @@ function AppContent({
           <ListsScreen
             copy={app.copy}
             language={app.language}
+            ownProfile={profile.profile}
             viewModel={tasks}
           />
         ) : null}

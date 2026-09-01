@@ -137,7 +137,12 @@ function render(): ReactTestInstance {
   act(() => {
     renderer = create(
       <ThemeProvider theme={lightTheme}>
-        <ListsScreen copy={copy} language="pt-BR" viewModel={viewModel()} />
+        <ListsScreen
+          copy={copy}
+          language="pt-BR"
+          ownProfile={null}
+          viewModel={viewModel()}
+        />
       </ThemeProvider>,
     );
   });
