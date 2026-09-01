@@ -654,7 +654,9 @@ const ProjectBlock = memo(function ProjectBlockView({
           ) : null}
           {/* Names the state the screen is already in: without it, a viewer
               taps a disabled checkbox and gets silence. */}
-          {isViewer ? <ReadOnlyTag>{copy.lists.roleViewer}</ReadOnlyTag> : null}
+          {isViewer ? (
+            <ReadOnlyTag>{copy.lists.readOnlyTag}</ReadOnlyTag>
+          ) : null}
           <Count>{copy.lists.progress(done, tasks.length)}</Count>
           <Track>
             <Fill
@@ -682,6 +684,12 @@ const ProjectBlock = memo(function ProjectBlockView({
 
       {showingActions ? (
         <ListActions entering={disclosureEnter()} testID="list-actions-open">
+          {/* Floating in the gap, the row belonged to no project in
+              particular. Naming the project ties the actions back to the card
+              that opened them. */}
+          <ActionsOwner numberOfLines={1}>
+            {copy.lists.actionsFor(list.name)}
+          </ActionsOwner>
           {canShare(list) ? (
             <ActionButton
               accessibilityLabel={copy.lists.share}
@@ -887,12 +895,20 @@ const Fill = styled.View`
   border-radius: ${({ theme }) => theme.radii.pill}px;
   background-color: ${({ theme }) => theme.colors.accent};
 `;
+/* Tight under the card it belongs to, never adrift in the gap before the next
+   one. No ground of its own: the card above is the only surface here. */
 const ListActions = styled(Animated.View)`
   flex-direction: row;
+  align-items: center;
   justify-content: flex-end;
   gap: ${({ theme }) => theme.spacing.small}px;
-  padding: ${({ theme }) => theme.spacing.small}px
+  padding: ${({ theme }) => theme.spacing.tiny}px
     ${({ theme }) => theme.spacing.small}px 0px;
+`;
+const ActionsOwner = styled.Text`
+  flex: 1;
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
 `;
 const ActionButton = styled(PressableScale)<{ $danger?: boolean }>`
   padding: 8px 10px;

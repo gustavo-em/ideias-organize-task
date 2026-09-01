@@ -154,6 +154,15 @@ export function ShareSheet({
       ? copy.lists.shareRefused
       : null;
 
+  // A link the server has not taken is not a link yet: while the last attempt
+  // is refused, it stays on screen as unfinished work instead of as something
+  // ready to send to somebody.
+  const notPublished =
+    list.share != null &&
+    (errorKind === 'network' ||
+      errorKind === 'forbidden' ||
+      errorKind === 'unknown');
+
   return (
     <Modal
       animationType="none"
@@ -196,20 +205,36 @@ export function ShareSheet({
             />
           ) : (
             <>
-              <LinkRow accessibilityRole="text">
-                <LinkGlyph color={theme.colors.accentInk} size={16} />
-                <LinkText>{buildInviteLink(list.share.token)}</LinkText>
+              <LinkRow $pending={notPublished} accessibilityRole="text">
+                <LinkGlyph
+                  color={
+                    notPublished ? theme.colors.muted : theme.colors.accentInk
+                  }
+                  size={16}
+                />
+                <LinkText $pending={notPublished}>
+                  {buildInviteLink(list.share.token)}
+                </LinkText>
                 <CopyButton
+                  $pending={notPublished}
                   accessibilityLabel={copy.lists.copyLinkAccessible}
+                  accessibilityState={{ disabled: notPublished }}
+                  disabled={notPublished}
                   hitSlop={8}
                   onPress={handleCopy}
                   testID="share-copy-link"
                 >
-                  <CopyText>
+                  <CopyText $pending={notPublished}>
                     {justCopied ? copy.lists.linkCopied : copy.lists.copyLink}
                   </CopyText>
                 </CopyButton>
               </LinkRow>
+
+              {notPublished ? (
+                <PendingNote testID="share-link-pending">
+                  {copy.lists.linkNotPublished}
+                </PendingNote>
+              ) : null}
 
               {!isOwner ? null : (
                 <>
@@ -476,34 +501,47 @@ const Hint = styled.Text`
   margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 
-const LinkRow = styled.View`
+/* Waiting on the server, the row loses the accent it wears when the link is
+   real: quiet ink, never an alarm colour. */
+const LinkRow = styled.View<{ $pending: boolean }>`
   flex-direction: row;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.small + 2}px;
-  border: 2px solid ${({ theme }) => theme.colors.accent};
+  border: 2px solid
+    ${({ theme, $pending }) =>
+      $pending ? theme.colors.border : theme.colors.accent};
   border-radius: ${({ theme }) => theme.radii.medium}px;
   background-color: ${({ theme }) => theme.colors.card};
   padding: 13px 14px;
   margin-top: ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const LinkText = styled.Text.attrs({ numberOfLines: 1 })`
+const LinkText = styled.Text.attrs({ numberOfLines: 1 })<{ $pending: boolean }>`
   flex: 1;
-  color: ${({ theme }) => theme.colors.text};
+  color: ${({ theme, $pending }) =>
+    $pending ? theme.colors.muted : theme.colors.text};
   font-size: ${({ theme }) => theme.type.body}px;
   font-variant: tabular-nums;
 `;
 
-const CopyButton = styled(PressableScale)`
+const CopyButton = styled(PressableScale)<{ $pending: boolean }>`
   padding: 8px 14px;
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  background-color: ${({ theme }) => theme.colors.accent};
+  background-color: ${({ theme, $pending }) =>
+    $pending ? theme.colors.border : theme.colors.accent};
 `;
 
-const CopyText = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccent};
+const CopyText = styled.Text<{ $pending: boolean }>`
+  color: ${({ theme, $pending }) =>
+    $pending ? theme.colors.muted : theme.colors.onAccent};
   font-size: ${({ theme }) => theme.type.label}px;
   font-weight: 800;
+`;
+
+const PendingNote = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 
 const SectionLabel = styled.Text`

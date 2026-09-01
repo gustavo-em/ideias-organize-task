@@ -127,10 +127,17 @@ const Body = styled.Text`
   margin-top: 4px;
 `;
 
+/* Bold text alone read as a sentence, not as something to press. An outlined
+   pill says "control" without the solid fill that belongs to the capture
+   button. */
 const ViewAll = styled(PressableScale)`
   align-self: flex-start;
-  min-height: 44px;
+  min-height: 48px;
+  align-items: center;
   justify-content: center;
+  padding: 0px 14px;
+  border: 1px solid ${({ theme }) => theme.colors.borderSubtle};
+  border-radius: ${({ theme }) => theme.radii.pill}px;
   margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 

@@ -113,11 +113,13 @@ const SectionTitle = styled.Text<{ $emphasis: boolean }>`
   text-transform: uppercase;
 `;
 
+/* The count belongs to the heading, so it is read with the same weight and
+   contrast as the label; only the size stays smaller. */
 const SectionCount = styled.Text`
   flex-shrink: 0;
-  color: ${({ theme }) => theme.colors.muted};
+  color: ${({ theme }) => theme.colors.mutedStrong};
   font-size: ${({ theme }) => theme.type.caption}px;
-  font-weight: 700;
+  font-weight: 800;
 `;
 
 const Chevron = styled(Animated.View)`

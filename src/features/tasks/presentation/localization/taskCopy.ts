@@ -102,6 +102,13 @@ export interface TaskCopy {
     copyLink: string;
     copyLinkAccessible: string;
     linkCopied: string;
+    /** Shown while the server has not confirmed the share, so nobody sends a
+     * link that will not open. */
+    linkNotPublished: string;
+    /** What a project card means when this account can only read it. */
+    readOnlyTag: string;
+    /** Names which project the open action row belongs to. */
+    actionsFor: (name: string) => string;
     invite: string;
     invitedAsLabel: string;
     roleViewer: string;
@@ -164,6 +171,9 @@ export interface TaskCopy {
     idle: string;
     idleEmpty: string;
     idleHint: string;
+    /** Says which slice of the tasks is on this list, so a short list is not
+     * read as a missing one. */
+    idleScope: string;
     remaining: string;
     pause: string;
     resume: string;
@@ -349,6 +359,9 @@ const ptBR: TaskCopy = {
     copyLink: 'Copiar',
     copyLinkAccessible: 'Copiar link do projeto',
     linkCopied: 'Link copiado',
+    linkNotPublished: 'Link ainda não publicado.',
+    readOnlyTag: 'Somente leitura',
+    actionsFor: name => `Ações de ${name}`,
     invite: 'Convidar',
     invitedAsLabel: 'Quem entrar pode',
     roleViewer: 'Ver',
@@ -417,6 +430,7 @@ const ptBR: TaskCopy = {
     idle: 'Escolha uma para começar',
     idleEmpty: 'Nada aberto no dia. Feche o app e vá viver.',
     idleHint: 'Escolha o tempo que você acha que vai levar.',
+    idleScope: 'Aqui ficam as tarefas do dia. Para outra, abra ela na lista.',
     remaining: 'restantes',
     pause: 'Pausar',
     resume: 'Continuar',
@@ -627,6 +641,9 @@ const enUS: TaskCopy = {
     copyLink: 'Copy',
     copyLinkAccessible: 'Copy the project link',
     linkCopied: 'Link copied',
+    linkNotPublished: 'Link not published yet.',
+    readOnlyTag: 'Read only',
+    actionsFor: name => `${name} actions`,
     invite: 'Invite',
     invitedAsLabel: 'Whoever joins can',
     roleViewer: 'View',
@@ -694,6 +711,8 @@ const enUS: TaskCopy = {
     idle: 'Pick one to start',
     idleEmpty: 'Nothing open today. Close the app and go live.',
     idleHint: 'Pick how long you think it will take.',
+    idleScope:
+      "Today's tasks are listed here. For another one, open it in the list.",
     remaining: 'remaining',
     pause: 'Pause',
     resume: 'Resume',

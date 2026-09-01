@@ -154,6 +154,11 @@ export function QuickCaptureSheet({
     estimateMinutes == null ? '' : copy.capture.minutes(estimateMinutes);
   // High priority is emphasis, not alarm: `danger` is kept for the destructive
   // action.
+  // The default ("média") is not a choice yet: it only takes the strong
+  // outline once the text or the chip says so, or the other two chips read as
+  // unset next to one that looks picked.
+  const priorityChosen =
+    priorityOverride != null || draft.priority !== 'medium';
   const priorityColor =
     priority === 'high'
       ? theme.colors.text
@@ -293,6 +298,7 @@ export function QuickCaptureSheet({
             </DateChip>
 
             <PriorityChip
+              $chosen={priorityChosen}
               $tone={priority}
               accessibilityLabel={copy.capture.priority[priority]}
               onPress={cyclePriority}
@@ -566,10 +572,15 @@ const DateChip = styled(ChipBase)<{ $open: boolean; $set: boolean }>`
 
 /** The only chip that carries colour, because priority is the only one of the
  * three that means severity. */
-const PriorityChip = styled(ChipBase)<{ $tone: TaskPriority }>`
+const PriorityChip = styled(ChipBase)<{
+  $tone: TaskPriority;
+  $chosen: boolean;
+}>`
   border-radius: ${({ theme }) => theme.radii.pill}px;
-  border-color: ${({ theme, $tone }) =>
-    $tone === 'high'
+  border-color: ${({ theme, $tone, $chosen }) =>
+    !$chosen
+      ? theme.colors.border
+      : $tone === 'high'
       ? theme.colors.text
       : $tone === 'medium'
       ? theme.colors.accentInk

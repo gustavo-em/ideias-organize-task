@@ -14,6 +14,18 @@ const KEYS = {
   groupStreaks: 'ideias.groupStreaks.v1',
 } as const;
 
+/** Which account the data on this device belongs to. Device preferences
+ * (theme, language, onboarding) are not personal data and live elsewhere. */
+const OWNER_KEY = 'ideias.session.owner.v1';
+
+const PERSONAL_KEYS: readonly string[] = [
+  KEYS.tasks,
+  KEYS.lists,
+  KEYS.progress,
+  KEYS.trio,
+  KEYS.groupStreaks,
+];
+
 /**
  * Reading one key.
  *
@@ -62,3 +74,26 @@ export const asyncStorageGroupStreakStore: GroupStreakStore = {
   load: () => read(KEYS.groupStreaks),
   save: streaks => write(KEYS.groupStreaks, streaks),
 };
+
+/**
+ * Everything one account wrote on this device, removed in one go.
+ *
+ * Signing out or signing in as somebody else must not leave another person's
+ * tasks on screen: what one account wrote is never what the next one reads.
+ */
+export async function clearLocalTaskData(): Promise<void> {
+  await Promise.all(PERSONAL_KEYS.map(key => AsyncStorage.removeItem(key)));
+}
+
+/** The account the stored data belongs to, or null on a clean device. */
+export async function readDataOwner(): Promise<string | null> {
+  return AsyncStorage.getItem(OWNER_KEY);
+}
+
+export async function writeDataOwner(personId: string): Promise<void> {
+  await AsyncStorage.setItem(OWNER_KEY, personId);
+}
+
+export async function clearDataOwner(): Promise<void> {
+  await AsyncStorage.removeItem(OWNER_KEY);
+}
