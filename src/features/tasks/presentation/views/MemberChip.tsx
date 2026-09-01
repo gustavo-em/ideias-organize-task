@@ -115,6 +115,8 @@ const Chip = styled.View<{
       ? $inverted
         ? theme.colors.onAccentSubtle
         : theme.colors.border
+      : $inverted
+      ? theme.colors.accent
       : theme.colors.card};
   margin-left: ${({ $stacked }) => ($stacked ? -9 : 0)}px;
 `;

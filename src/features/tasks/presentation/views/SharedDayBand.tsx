@@ -4,9 +4,10 @@ import styled, { useTheme } from 'styled-components/native';
 import type { TaskCopy } from '../localization/taskCopy';
 import type { SharedDayEntry } from '../models/sharedDay';
 import { STAGGER_MS } from '../animation/motion';
-import { CheckGlyph, PlayGlyph } from './FieldGlyphs';
+import { CheckGlyph } from './FieldGlyphs';
 import { MemberChip } from './MemberChip';
 import { PressableScale } from './PressableScale';
+import { FocusGlyph } from './TabGlyphs';
 
 interface SharedDayBandProps {
   copy: TaskCopy;
@@ -67,7 +68,46 @@ export function SharedDayBand({
       <Eyebrow>{copy.lists.dayBandTitle}</Eyebrow>
 
       {entries.length === 0 ? (
-        <Note>{copy.lists.dayBandEmpty}</Note>
+        <Empty testID="shared-day-empty">{copy.lists.dayBandEmpty}</Empty>
+      ) : allDone ? (
+        <>
+          <Row
+            $first
+            accessibilityLabel={copy.lists.dayBandAllDone(entries.length)}
+            entering={FadeInDown.duration(280)}
+            testID="shared-day-all-done"
+          >
+            <Stack
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              {entries.map((entry, index) => (
+                <MemberChip
+                  inverted
+                  key={entry.member.personId}
+                  name={entry.member.name}
+                  personId={entry.member.personId}
+                  size="large"
+                  stacked={index > 0}
+                />
+              ))}
+            </Stack>
+            <Who>
+              <ClosedText>
+                {copy.lists.dayBandAllDone(entries.length)}
+              </ClosedText>
+            </Who>
+            <State
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              <CheckGlyph color={theme.colors.onAccent} size={16} />
+            </State>
+          </Row>
+          {streakDays >= 2 ? (
+            <Note $ruled>{copy.lists.dayBandStreak(streakDays)}</Note>
+          ) : null}
+        </>
       ) : (
         entries.map((entry, index) => (
           <Row
@@ -75,6 +115,7 @@ export function SharedDayBand({
             accessibilityLabel={rowLabel(entry)}
             entering={FadeInDown.delay(index * STAGGER_MS).duration(280)}
             key={entry.member.personId}
+            testID={`shared-day-row-${entry.state}`}
           >
             <MemberChip
               inverted
@@ -84,8 +125,12 @@ export function SharedDayBand({
               size="large"
             />
             <Who>
-              <Name numberOfLines={1}>{entry.member.name}</Name>
-              <What numberOfLines={1}>{stateLabel(entry)}</What>
+              <Name $dim={entry.state === 'absent'} numberOfLines={1}>
+                {entry.member.name}
+              </Name>
+              <What $done={entry.state === 'done'} numberOfLines={1}>
+                {stateLabel(entry)}
+              </What>
             </Who>
             {entry.state === 'focusing' || entry.state === 'done' ? (
               <State
@@ -93,7 +138,7 @@ export function SharedDayBand({
                 importantForAccessibility="no-hide-descendants"
               >
                 {entry.state === 'focusing' ? (
-                  <PlayGlyph color={theme.colors.onAccent} size={20} />
+                  <FocusGlyph active color={theme.colors.onAccent} size={20} />
                 ) : (
                   <CheckGlyph color={theme.colors.onAccent} size={16} />
                 )}
@@ -103,16 +148,17 @@ export function SharedDayBand({
         ))
       )}
 
-      {allDone ? (
-        <Closed>
-          <ClosedText>{copy.lists.dayBandAllDone(entries.length)}</ClosedText>
-          {streakDays >= 2 ? (
-            <Note>{copy.lists.dayBandStreak(streakDays)}</Note>
-          ) : null}
-        </Closed>
+      {offline ? (
+        // One rule per band, and only under something: with no line above it
+        // the filete would separate the sentence from nothing, and a second
+        // one under the streak note would read as a box.
+        <Note
+          $ruled={entries.length > 0 && (!allDone || streakDays < 2)}
+          testID="shared-day-offline"
+        >
+          {copy.lists.dayBandOffline}
+        </Note>
       ) : null}
-
-      {offline ? <Note>{copy.lists.dayBandOffline}</Note> : null}
 
       {onTakeOne == null ? null : (
         <TakeOne
@@ -163,26 +209,37 @@ const State = styled.View`
   justify-content: center;
 `;
 
+/** The stack of everyone who closed, in place of the lines: the day is one
+ * fact now, not four. */
+const Stack = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+
+/** The empty band still says something, in the size of a sentence and not of
+ * a footnote — it is the band's only line. */
+const Empty = styled.Text`
+  color: ${({ theme }) => theme.colors.onAccentSubtle};
+  font-size: ${({ theme }) => theme.type.body}px;
+  line-height: ${({ theme }) => theme.type.body + 7}px;
+  margin-top: ${({ theme }) => theme.spacing.small + 6}px;
+`;
+
 const Who = styled.View`
   flex: 1;
 `;
 
-const Name = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccent};
+const Name = styled.Text<{ $dim?: boolean }>`
+  color: ${({ theme, $dim }) =>
+    $dim ? theme.colors.onAccentSubtle : theme.colors.onAccent};
   font-size: ${({ theme }) => theme.type.body}px;
   font-weight: 700;
 `;
 
-const What = styled.Text`
+const What = styled.Text<{ $done?: boolean }>`
   color: ${({ theme }) => theme.colors.onAccentSubtle};
   font-size: ${({ theme }) => theme.type.label}px;
-`;
-
-const Closed = styled.View`
-  margin-top: ${({ theme }) => theme.spacing.small}px;
-  border-top-width: 1.5px;
-  border-top-color: ${({ theme }) => theme.colors.onAccentLine};
-  padding-top: ${({ theme }) => theme.spacing.small}px;
+  text-decoration-line: ${({ $done }) => ($done ? 'line-through' : 'none')};
 `;
 
 const ClosedText = styled.Text`
@@ -191,10 +248,15 @@ const ClosedText = styled.Text`
   font-weight: 700;
 `;
 
-const Note = styled.Text`
+const Note = styled.Text<{ $ruled?: boolean }>`
   color: ${({ theme }) => theme.colors.onAccentSubtle};
   font-size: ${({ theme }) => theme.type.label}px;
-  padding: ${({ theme }) => theme.spacing.tiny}px 0px;
+  line-height: ${({ theme }) => theme.type.label + 5}px;
+  border-top-width: ${({ $ruled }) => ($ruled ? 1.5 : 0)}px;
+  border-top-color: ${({ theme }) => theme.colors.onAccentLine};
+  padding-top: ${({ theme, $ruled }) =>
+    $ruled ? theme.spacing.small + 4 : theme.spacing.tiny}px;
+  padding-bottom: ${({ theme }) => theme.spacing.tiny}px;
 `;
 
 /** The one control that decides something inverts ink and sun. The ground is
@@ -202,8 +264,9 @@ const Note = styled.Text`
  * label would sit on it at 1.4:1. What is written on Sol does not change
  * between modes, and neither does what Sol is written on. */
 const TakeOne = styled(PressableScale)`
-  align-self: flex-start;
+  align-self: stretch;
   min-height: 48px;
+  align-items: center;
   justify-content: center;
   margin-top: ${({ theme }) => theme.spacing.medium}px;
   padding: 15px;

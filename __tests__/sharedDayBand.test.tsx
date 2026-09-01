@@ -6,11 +6,9 @@ import type { Task } from '../src/features/tasks/domain/Task';
 import type { ListMember } from '../src/features/tasks/domain/TaskList';
 import { getTaskCopy } from '../src/features/tasks/presentation/localization/taskCopy';
 import type { SharedDayEntry } from '../src/features/tasks/presentation/models/sharedDay';
-import {
-  CheckGlyph,
-  PlayGlyph,
-} from '../src/features/tasks/presentation/views/FieldGlyphs';
+import { CheckGlyph } from '../src/features/tasks/presentation/views/FieldGlyphs';
 import { SharedDayBand } from '../src/features/tasks/presentation/views/SharedDayBand';
+import { FocusGlyph } from '../src/features/tasks/presentation/views/TabGlyphs';
 
 const copy = getTaskCopy('pt-BR');
 const NOW = new Date(2026, 8, 1, 10, 0, 0).getTime();
@@ -160,7 +158,7 @@ describe('SharedDayBand', () => {
 
   it('draws a glyph only for focusing and done, hidden from the reader', () => {
     const root = render({ entries: ALL_FOUR });
-    const focusing = root.findAllByType(PlayGlyph);
+    const focusing = root.findAllByType(FocusGlyph);
     const done = root.findAllByType(CheckGlyph);
 
     // One for the person in focus, one for the person who closed. Open and
@@ -229,6 +227,122 @@ describe('SharedDayBand', () => {
     expect(
       texts(render({ entries: closed, allDone: true, streakDays: 1 })),
     ).not.toContain(copy.lists.dayBandStreak(1));
+  });
+
+  it('replaces the lines with the stack when everybody closed', () => {
+    const closed = [
+      entry('p-1', 'Joana', 'done', 'Escrever o convite'),
+      entry('p-2', 'Rafa', 'done', 'Revisar o preço'),
+    ];
+    const root = render({ entries: closed, allDone: true, streakDays: 4 });
+    const rendered = texts(root);
+
+    // One fact, not two lines: no name and no task title survives.
+    expect(rendered).not.toContain('Joana');
+    expect(rendered).not.toContain('Escrever o convite');
+    expect(rendered).toContain(copy.lists.dayBandAllDone(2));
+
+    // The stack is the chips of everyone, the second one clipping the first.
+    const chips = root.findAll(
+      node => typeof node.type !== 'string' && node.props.inverted === true,
+    );
+    expect(chips).toHaveLength(2);
+    expect(chips.map(chip => chip.props.stacked)).toEqual([false, true]);
+    expect(root.findAllByType(CheckGlyph)).toHaveLength(1);
+  });
+
+  it('strikes through what is already closed and dims who took nothing', () => {
+    const root = render({ entries: ALL_FOUR });
+    const struck = hosts(
+      root,
+      node => flatStyle(node).textDecorationLine === 'line-through',
+    );
+    const dimmed = hosts(
+      root,
+      node =>
+        isText(node) &&
+        flatStyle(node).fontWeight === '700' &&
+        flatStyle(node).color === lightTheme.colors.onAccentSubtle,
+    );
+
+    expect(struck).toHaveLength(1);
+    expect(struck[0].children).toContain('Escrever o convite');
+    expect(dimmed).toHaveLength(1);
+    expect(dimmed[0].children).toContain('Caio');
+  });
+
+  it('draws one rule only, when the streak note already carries it', () => {
+    const closed = [entry('p-1', 'Joana', 'done', 'Escrever o convite')];
+    const root = render({
+      allDone: true,
+      entries: closed,
+      offline: true,
+      streakDays: 4,
+    });
+    const ruled = hosts(
+      root,
+      node => isText(node) && flatStyle(node).borderTopWidth === 1.5,
+    );
+
+    expect(ruled).toHaveLength(1);
+    expect(ruled[0].children).toContain(copy.lists.dayBandStreak(4));
+  });
+
+  /** The two panels a single account can reach on a device: the empty band
+   * and the closed line. Fixed here so the comparison against 6c and 6b
+   * survives a cycle where the screenshot could not be collected. */
+  it('shows the empty band as a sentence and a button, with no rule', () => {
+    const root = render({ entries: [], onTakeOne: () => undefined });
+    const empty = hosts(root, node => node.props.testID === 'shared-day-empty');
+    const style = flatStyle(empty[empty.length - 1]);
+
+    expect(style.fontSize).toBe(lightTheme.type.body);
+    expect(style.borderTopWidth).toBeUndefined();
+    expect(texts(root)).toContain(copy.lists.dayBandEmpty);
+    expect(root.findByProps({ testID: 'shared-day-take-one' })).toBeTruthy();
+  });
+
+  it('marks the closed line, strikes its title and checks it once', () => {
+    const root = render({ entries: ALL_FOUR });
+    const done = root.findAllByProps({ testID: 'shared-day-row-done' });
+    const open = root.findAllByProps({ testID: 'shared-day-row-open' });
+
+    expect(done).not.toHaveLength(0);
+    expect(open).not.toHaveLength(0);
+
+    const struck = hosts(
+      done[done.length - 1],
+      node => flatStyle(node).textDecorationLine === 'line-through',
+    );
+    expect(struck).toHaveLength(1);
+    expect(struck[0].children).toContain('Escrever o convite');
+    expect(done[done.length - 1].findAllByType(CheckGlyph)).toHaveLength(1);
+
+    // The open line carries no glyph at all: nothing to say yet.
+    expect(open[open.length - 1].findAllByType(CheckGlyph)).toHaveLength(0);
+    expect(open[open.length - 1].findAllByType(FocusGlyph)).toHaveLength(0);
+  });
+
+  it('draws no rule on an empty band, with nothing above the note', () => {
+    const root = render({ entries: [], offline: true });
+    const ruled = hosts(
+      root,
+      node => isText(node) && flatStyle(node).borderTopWidth === 1.5,
+    );
+
+    expect(ruled).toHaveLength(0);
+    expect(texts(root)).toContain(copy.lists.dayBandOffline);
+  });
+
+  it('rules above the offline note, so it reads as an aside', () => {
+    const root = render({ entries: ALL_FOUR, offline: true });
+    const note = hosts(
+      root,
+      node => isText(node) && node.children.includes(copy.lists.dayBandOffline),
+    )[0];
+
+    expect(flatStyle(note).borderTopWidth).toBe(1.5);
+    expect(flatStyle(note).borderTopColor).toBe(lightTheme.colors.onAccentLine);
   });
 
   it('explains a failed fetch without losing the lines already on the phone', () => {
