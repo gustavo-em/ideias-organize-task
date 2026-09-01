@@ -72,8 +72,20 @@ const sharedList: TaskList = {
     token: 'tok-1',
     invitedAs: 'editor',
     members: [
-      { personId: ME, name: 'Joana', role: 'owner', joined: true },
-      { personId: 'p-2', name: 'Rafa', role: 'editor', joined: true },
+      {
+        personId: ME,
+        name: 'Joana',
+        handle: null,
+        role: 'owner',
+        joined: true,
+      },
+      {
+        personId: 'p-2',
+        name: 'Rafa',
+        handle: null,
+        role: 'editor',
+        joined: true,
+      },
     ],
   },
 };

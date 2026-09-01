@@ -13,6 +13,9 @@ import { AuthGate } from '../features/auth/presentation/AuthGate';
 import { getAuthCopy } from '../features/auth/presentation/localization/authCopy';
 import { useAuthViewModel } from '../features/auth/presentation/view-models/useAuthViewModel';
 import { firebaseAuthAdapter } from '../features/auth/infrastructure/firebase/firebaseAuthAdapter';
+import { firestoreProfileAdapter } from '../features/auth/infrastructure/firebase/firestoreProfileAdapter';
+import { useProfileViewModel } from '../features/auth/presentation/view-models/useProfileViewModel';
+import { ProfileSheet } from '../features/auth/presentation/views/ProfileSheet';
 import type { AuthViewModel } from '../features/auth/presentation/view-models/useAuthViewModel';
 import { systemClock } from '../features/tasks/infrastructure/clock/systemClock';
 import { systemHaptics } from '../features/tasks/infrastructure/haptics/systemHaptics';
@@ -26,7 +29,7 @@ import {
   asyncStorageTrioStore,
 } from '../features/tasks/infrastructure/storage/asyncStorageStores';
 import { consoleUsageReporter } from '../features/tasks/infrastructure/usage/consoleUsageReporter';
-import { deriveMemberName } from '../features/tasks/presentation/models/memberIdentity';
+import { deriveMemberIdentity } from '../features/tasks/presentation/models/memberIdentity';
 import { FocusScreen } from '../features/tasks/presentation/screens/FocusScreen';
 import { ListsScreen } from '../features/tasks/presentation/screens/ListsScreen';
 import { ProgressScreen } from '../features/tasks/presentation/screens/ProgressScreen';
@@ -72,16 +75,40 @@ function AppContent({
   bus: TaskEventBus;
   onReady: () => void;
 }) {
+  const profile = useProfileViewModel({
+    profilePort: firestoreProfileAdapter,
+    user: auth.user,
+    fallbackName: app.copy.tabs.you,
+  });
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+
   const identity = useMemo(
     () =>
       auth.user == null
         ? null
         : {
             personId: auth.user.uid,
-            name: deriveMemberName(auth.user, app.copy.tabs.you),
+            ...deriveMemberIdentity(
+              profile.visibleProfile,
+              auth.user.displayName,
+              app.copy.tabs.you,
+            ),
           },
-    [auth.user, app.copy],
+    [auth.user, app.copy, profile.visibleProfile],
   );
+
+  // The confirmation is a line in the account group, not a screen of its own:
+  // it says the save landed and then gets out of the way.
+  const { status: profileStatus, dismissSaved } = profile;
+
+  useEffect(() => {
+    if (profileStatus !== 'saved') return;
+
+    // Only the status and the callback matter: depending on the whole view
+    // model would restart the timer on every render of the shell.
+    const timeout = setTimeout(dismissSaved, 2500);
+    return () => clearTimeout(timeout);
+  }, [dismissSaved, profileStatus]);
 
   const tasks = useTasksViewModel({
     bus,
@@ -164,9 +191,11 @@ function AppContent({
               onDayCapacityChange={app.changeDayCapacity}
               onLanguageChange={app.changeLanguage}
               isAnonymous={auth.user?.isAnonymous ?? false}
+              onEditProfile={() => setIsEditingProfile(true)}
               onSignOut={auth.signOut}
-              userEmail={auth.user?.email ?? null}
-              userName={auth.user?.displayName ?? null}
+              personId={auth.user?.uid ?? null}
+              profile={profile.profile}
+              profileSaved={profileStatus === 'saved'}
               version={APP_VERSION}
             />
           </YouTab>
@@ -193,6 +222,19 @@ function AppContent({
           streakDays={tasks.celebratingStreak}
         />
       )}
+
+      {isEditingProfile && auth.user != null ? (
+        <ProfileSheet
+          copy={getAuthCopy(app.language)}
+          errorKind={profile.errorKind}
+          fallbackName={app.copy.tabs.you}
+          onCancel={() => setIsEditingProfile(false)}
+          onSubmit={profile.save}
+          personId={auth.user.uid}
+          profile={profile.profile}
+          saving={profileStatus === 'saving'}
+        />
+      ) : null}
 
       {/* The walk-through sits over the app rather than in front of it, so
           finishing lands on a day screen that is already built. */}

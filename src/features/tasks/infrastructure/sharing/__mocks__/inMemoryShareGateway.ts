@@ -28,6 +28,23 @@ export function createInMemoryShareGateway(): ShareGateway {
       projects.delete(share.token);
     },
 
+    async updateMemberIdentity(share, member) {
+      const project = projects.get(share.token);
+      if (project?.list.share == null) return;
+
+      project.list = {
+        ...project.list,
+        share: {
+          ...project.list.share,
+          members: project.list.share.members.map(candidate =>
+            candidate.personId === member.personId
+              ? { ...candidate, name: member.name, handle: member.handle }
+              : candidate,
+          ),
+        },
+      };
+    },
+
     async removeMember(share, personId) {
       const project = projects.get(share.token);
       if (project?.list.share == null) return;

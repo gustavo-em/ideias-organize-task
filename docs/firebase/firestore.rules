@@ -18,6 +18,41 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Perfil visível: nome de exibição e handle. O e-mail da conta nunca é
+    // gravado aqui — identidade em tela é nome + @handle, não endereço.
+    // Leitura por qualquer pessoa autenticada porque um membro precisa ler
+    // quem são os outros do projeto; escrita só do próprio uid.
+    match /users/{uid} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create, update: if request.auth != null &&
+        request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly(
+          ['displayName', 'handle', 'updatedAtMs']
+        ) &&
+        request.resource.data.handle is string &&
+        request.resource.data.handle.matches('^[a-z0-9_]{3,20}$');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Reserva de handle: o id do documento é o próprio handle, e é isso que
+    // garante a unicidade. `create` sem sobrescrever documento existente é a
+    // reserva; trocar de handle cria o novo e apaga o antigo no mesmo commit.
+    match /usernames/{handle} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create: if request.auth != null &&
+        request.resource.data.keys().hasOnly(['uid', 'updatedAtMs']) &&
+        request.resource.data.uid == request.auth.uid &&
+        handle.matches('^[a-z0-9_]{3,20}$');
+      allow update: if request.auth != null &&
+        resource.data.uid == request.auth.uid &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.keys().hasOnly(['uid', 'updatedAtMs']);
+      allow delete: if request.auth != null &&
+        resource.data.uid == request.auth.uid;
+    }
+
     match /sharedLists/{token} {
       function isMember() {
         return request.auth != null &&
@@ -71,12 +106,23 @@ service cloud.firestore {
             .hasOnly([request.auth.uid]);
       }
 
+      // Como a própria pessoa é chamada dentro do projeto: só o array
+      // `members` muda, e `memberIds`/`editorIds` continuam iguais — ninguém
+      // entra, sai ou muda de papel por aqui.
+      function isMemberIdentityUpdate() {
+        return isMember() &&
+          onlyChanges(['members']) &&
+          request.resource.data.memberIds == resource.data.memberIds &&
+          request.resource.data.editorIds == resource.data.editorIds;
+      }
+
       allow get: if isMember();
       allow list: if false; // nunca por consulta — só pelo token do link.
       allow create: if request.auth != null &&
         request.auth.uid in request.resource.data.memberIds &&
         request.auth.uid == request.resource.data.ownerId;
-      allow update: if isContentUpdate() || isMembershipUpdate() || isJoining();
+      allow update: if isContentUpdate() || isMembershipUpdate() ||
+        isJoining() || isMemberIdentityUpdate();
       allow delete: if isOwner();
 
       // Fase 2 — "Hoje, no combinado".

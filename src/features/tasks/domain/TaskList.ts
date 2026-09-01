@@ -27,6 +27,9 @@ export interface ListMember {
   personId: string;
   /** Short display name; initials are derived from it. */
   name: string;
+  /** The unique handle the person chose, shown next to the name. Null for a
+   * member recorded before handles existed. */
+  handle: string | null;
   role: ListRole;
   /** Invite accepted or still pending. */
   joined: boolean;
@@ -92,6 +95,19 @@ export function canEdit(list: TaskList, personId: string): boolean {
 
   return (
     member != null && (member.role === 'owner' || member.role === 'editor')
+  );
+}
+
+/** Whether a stored member name is really an e-mail address, or the local
+ * part of one with its plus tag (`tester+share5`) — what the app derived from
+ * accounts before profiles existed. Both have no spaces; a name somebody
+ * typed, like `Ana + Bia`, does, and stays a name. */
+export function isAddressLikeName(name: string): boolean {
+  const trimmed = name.trim();
+
+  return (
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ||
+    /^[^\s@+]+\+[^\s@+]+$/.test(trimmed)
   );
 }
 
@@ -243,12 +259,17 @@ function sanitizeMember(value: unknown): ListMember | null {
       ? candidate.personId
       : null;
   const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
+  const handle =
+    typeof candidate.handle === 'string' && candidate.handle.trim().length > 0
+      ? candidate.handle.trim().toLowerCase()
+      : null;
 
   if (personId == null || name.length === 0) return null;
 
   return {
     personId,
     name,
+    handle,
     role: listRoles.includes(candidate.role as ListRole)
       ? (candidate.role as ListRole)
       : 'viewer',

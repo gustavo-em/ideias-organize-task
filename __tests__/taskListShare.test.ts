@@ -13,12 +13,14 @@ import {
 const owner = {
   personId: 'p-1',
   name: 'Joana Melo',
+  handle: null,
   role: 'owner' as const,
   joined: true,
 };
 const editor = {
   personId: 'p-2',
   name: 'Rafa',
+  handle: null,
   role: 'editor' as const,
   joined: true,
 };
@@ -49,6 +51,7 @@ describe('shared project rules', () => {
     const viewer = {
       personId: 'p-3',
       name: 'Léo',
+      handle: null,
       role: 'viewer' as const,
       joined: true,
     };

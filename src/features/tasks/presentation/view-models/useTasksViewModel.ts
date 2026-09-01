@@ -97,7 +97,11 @@ export interface TasksDependencies {
   clipboard: Clipboard;
   /** The signed-in account's identity inside a shared project. Null only in
    * the instant between the shell mounting and auth resolving. */
-  identity: { personId: string; name: string } | null;
+  identity: {
+    personId: string;
+    name: string;
+    handle: string | null;
+  } | null;
   /** How many tasks the day commits to, from the person's own settings. */
   dayCapacity?: number;
 }
@@ -253,6 +257,57 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     });
   }, [bus, identity, restored, shareGateway]);
 
+  // How the other members read this person: a project joined before the
+  // profile existed still carries whatever name was derived back then, so the
+  // current name and handle are published once, per project, whenever they
+  // differ from what is stored there.
+  useEffect(() => {
+    if (restored == null || identity == null) return;
+
+    for (const list of current.current.lists) {
+      const share = list.share;
+      if (share == null) continue;
+
+      const mine = share.members.find(
+        member => member.personId === identity.personId,
+      );
+      if (
+        mine == null ||
+        (mine.name === identity.name && mine.handle === identity.handle)
+      ) {
+        continue;
+      }
+
+      const renamed = {
+        ...mine,
+        name: identity.name,
+        handle: identity.handle,
+      };
+
+      // The copy on this device is fixed straight away, so the members list
+      // stops showing a name derived before the profile existed even while
+      // the network call is still on its way.
+      run(
+        shareTaskList(
+          current.current,
+          list.id,
+          {
+            ...share,
+            members: share.members.map(member =>
+              member.personId === identity.personId ? renamed : member,
+            ),
+          },
+          clock.now(),
+        ),
+      );
+
+      shareGateway.updateMemberIdentity(share, renamed).catch(() => {
+        // Being called by an older name for a while is not worth an error
+        // in front of somebody; the next change tries again.
+      });
+    }
+  }, [clock, identity, restored, run, shareGateway]);
+
   useEffect(() => createFeedbackSubscriber(bus, haptics), [bus, haptics]);
 
   useEffect(
@@ -389,6 +444,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
       const owner = {
         personId: identity.personId,
         name: identity.name,
+        handle: identity.handle,
         role: 'owner' as const,
         joined: true,
       };
@@ -726,6 +782,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
       const joiner = {
         personId: identity.personId,
         name: identity.name,
+        handle: identity.handle,
         role: 'viewer' as const,
         joined: true,
       };

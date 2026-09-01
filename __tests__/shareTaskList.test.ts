@@ -13,6 +13,7 @@ const now = new Date(2026, 7, 25, 10, 0).getTime();
 const owner = {
   personId: 'owner-1',
   name: 'Joana',
+  handle: null,
   role: 'owner' as const,
   joined: true,
 };
@@ -59,6 +60,7 @@ describe('sharing a project', () => {
     const joana = {
       personId: 'p-2',
       name: 'Rafa',
+      handle: null,
       role: 'editor' as const,
       joined: true,
     };

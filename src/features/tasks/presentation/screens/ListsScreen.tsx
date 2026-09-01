@@ -526,6 +526,7 @@ export function ListsScreen({ copy, language, viewModel }: ListsScreenProps) {
             viewModel.removeShareMember(sharingList.id, memberId)
           }
           onStopSharing={() => viewModel.stopSharingList(sharingList.id)}
+          identity={viewModel.identity}
           personId={personId ?? ''}
           status={viewModel.shareStatus}
         />

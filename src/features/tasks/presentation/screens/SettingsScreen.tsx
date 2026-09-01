@@ -1,3 +1,4 @@
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
 import { dayCapacities } from '../../../../app/domain/AppPreferences';
@@ -8,6 +9,7 @@ import {
   type AppLanguage,
   type TaskCopy,
 } from '../localization/taskCopy';
+import { MemberChip } from '../views/MemberChip';
 import { PressableScale } from '../views/PressableScale';
 
 interface SettingsScreenProps {
@@ -16,15 +18,19 @@ interface SettingsScreenProps {
   copy: TaskCopy;
   dayCapacity: number;
   language: AppLanguage;
-  userEmail: string | null;
-  /** What to call the account when there is no email to show — the name an
-   * anonymous account was created with. */
-  userName: string | null;
+  /** Who the account is, in the only two things anyone else sees. Null while
+   * the profile has not been read yet. */
+  profile: { displayName: string; handle: string | null } | null;
+  /** The uid, so the chip's tone matches the one shown in shared projects. */
+  personId: string | null;
+  /** True right after a save, for the confirmation line. */
+  profileSaved: boolean;
   isAnonymous: boolean;
   version: string;
   onAppearanceModeChange: (mode: AppearanceMode) => void;
   onDayCapacityChange: (capacity: number) => void;
   onLanguageChange: (language: AppLanguage) => void;
+  onEditProfile: () => void;
   onSignOut: () => void;
 }
 
@@ -39,25 +45,64 @@ export function SettingsScreen({
   copy,
   dayCapacity,
   language,
-  userEmail,
-  userName,
+  profile,
+  personId,
+  profileSaved,
   isAnonymous,
   version,
   onAppearanceModeChange,
   onDayCapacityChange,
   onLanguageChange,
+  onEditProfile,
   onSignOut,
 }: SettingsScreenProps) {
   return (
     <Content>
       <SectionTitle>{copy.settings.title}</SectionTitle>
 
-      {/* An anonymous account has no email and, if naming it ever failed,
-          no name either — and it is still the only way to reach Sair. */}
-      {userEmail == null && userName == null && !isAnonymous ? null : (
+      {/* The account is named by its profile, never by the e-mail it signs in
+          with — and this group is still the only way to reach Sair. */}
+      {personId == null ? null : (
         <Group>
           <GroupLabel>{accountCopy.account.label}</GroupLabel>
-          <AccountEmail>{userEmail ?? userName ?? copy.tabs.you}</AccountEmail>
+          <IdentityRow
+            accessibilityHint={accountCopy.profile.subtitle}
+            accessibilityLabel={`${profile?.displayName ?? copy.tabs.you}, ${
+              accountCopy.profile.edit
+            }`}
+            accessibilityRole="button"
+            onPress={onEditProfile}
+            testID="settings-profile"
+          >
+            <IdentityContent>
+              <MemberChip
+                name={profile?.displayName ?? copy.tabs.you}
+                personId={personId}
+                size="large"
+              />
+              <IdentityText>
+                <AccountName numberOfLines={1} ellipsizeMode="tail">
+                  {profile?.displayName ?? copy.tabs.you}
+                </AccountName>
+                {profile?.handle == null ? null : (
+                  <AccountHandle numberOfLines={1} ellipsizeMode="tail">
+                    {`@${profile.handle}`}
+                  </AccountHandle>
+                )}
+              </IdentityText>
+              <EditLabel>{accountCopy.profile.edit}</EditLabel>
+            </IdentityContent>
+          </IdentityRow>
+          {profileSaved ? (
+            <SavedNote
+              accessibilityLiveRegion="polite"
+              entering={FadeIn.duration(160)}
+              exiting={FadeOut.duration(200)}
+              testID="settings-profile-saved"
+            >
+              {accountCopy.profile.saved}
+            </SavedNote>
+          ) : null}
           {isAnonymous ? (
             <AccountNote>{accountCopy.anonymous.settingsNote}</AccountNote>
           ) : null}
@@ -206,10 +251,51 @@ const About = styled.Text`
   font-size: ${({ theme }) => theme.type.label}px;
 `;
 
-const AccountEmail = styled.Text`
+const IdentityRow = styled(PressableScale)`
+  min-height: 56px;
+  justify-content: center;
+`;
+
+/** The row itself: `PressableScale` puts its children inside an animated view
+ * of its own, so the layout has to live below that, not on the pressable. */
+const IdentityContent = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  min-height: 56px;
+  padding: ${({ theme }) => theme.spacing.tiny}px 0px;
+`;
+
+const IdentityText = styled.View`
+  flex: 1;
+  min-width: 0px;
+`;
+
+const AccountName = styled.Text`
   color: ${({ theme }) => theme.colors.text};
   font-size: ${({ theme }) => theme.type.body}px;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: ${({ theme }) => theme.type.body + 6}px;
+`;
+
+const AccountHandle = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.label}px;
+  line-height: ${({ theme }) => theme.type.label + 5}px;
+  margin-top: 2px;
+`;
+
+const EditLabel = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
+`;
+
+const SavedNote = styled(Animated.Text)`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
+  margin-top: ${({ theme }) => theme.spacing.tiny}px;
 `;
 
 const AccountNote = styled.Text`
