@@ -16,6 +16,7 @@ import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
 import { CalendarPanel } from './CalendarPanel';
 import {
   CalendarGlyph,
+  ChevronGlyph,
   PlayGlyph,
   PriorityGlyph,
   ProjectGlyph,
@@ -36,8 +37,11 @@ import {
   SheetPrimaryButton,
 } from './SheetActions';
 import {
+  disclosureEnter,
+  fadeExit,
   scrimEnter,
   scrimExit,
+  sectionLayout,
   sheetExit,
   sheetSlideEnter,
 } from '../../../../app/animation/motion';
@@ -131,9 +135,13 @@ export function QuickCaptureSheet({
   // list behind. The use case creates both together only on save.
   const [newListName, setNewListName] = useState<string | null>(null);
 
-  const [panel, setPanel] = useState<'none' | 'date' | 'list' | 'listNew'>(
-    'none',
-  );
+  const [panel, setPanel] = useState<
+    'none' | 'date' | 'list' | 'listNew' | 'syntax'
+  >('none');
+  // The sheet opens on its smallest layer: a field and two ways in. Editing is
+  // the exception — the chips are the whole point of reopening a task. This is
+  // local state on purpose: every new capture starts minimal again.
+  const [expanded, setExpanded] = useState(isEditing);
 
   const priority = priorityOverride ?? draft.priority;
   const dueAtMs = dueOverride === undefined ? draft.dueAtMs : dueOverride;
@@ -175,6 +183,18 @@ export function QuickCaptureSheet({
           dueOverride === undefined && draft.hasTimeOfDay,
         );
 
+  // A chip that already carries an answer shows itself, expanded or not: what
+  // the text was understood as is never hidden behind a disclosure.
+  const showDate = expanded || dueAtMs != null;
+  const showPriority = expanded || priorityChosen;
+  const showList =
+    expanded ||
+    listId != null ||
+    newListName != null ||
+    (listOverride === undefined && draft.listName != null);
+  const showChips =
+    showDate || showPriority || showList || estimateMinutes != null;
+
   useEffect(() => {
     // The keyboard is the point of this screen; opening it is not the user's
     // job.
@@ -215,6 +235,16 @@ export function QuickCaptureSheet({
 
       return opening ? next : 'none';
     });
+  }
+
+  /** Collapsing takes the whole layer down with it: a calendar left open over
+   * a chip that no longer exists has nothing to point back at. The writing
+   * shortcuts are not part of that layer, so they stay. */
+  function toggleExpanded() {
+    const next = !expanded;
+
+    setExpanded(next);
+    if (!next && panel !== 'syntax') setPanel('none');
   }
 
   function save() {
@@ -270,80 +300,148 @@ export function QuickCaptureSheet({
             value={typed}
           />
 
-          <Chips>
-            {/* Three unrelated things, so three different shapes: a date is a
+          {showChips ? (
+            <Chips layout={sectionLayout()}>
+              {/* Three unrelated things, so three different shapes: a date is a
                 square-cornered field that opens a calendar, a priority is a
                 coloured attention mark, a list is a dot with a
                 name. Nothing here is a generic pill any more. */}
-            <DateChip
-              $open={panel === 'date'}
-              $set={dueAtMs != null}
-              accessibilityLabel={dateLabel}
-              accessibilityState={{ expanded: panel === 'date' }}
-              onPress={() => openPanel('date')}
-              testID="capture-chip-date"
-            >
-              <ChipGlyph>
-                <CalendarGlyph
-                  color={
-                    dueAtMs == null
-                      ? theme.colors.muted
-                      : theme.colors.accentInk
-                  }
-                />
-              </ChipGlyph>
-              <ChipText $color={dueAtMs == null ? 'muted' : 'accent'}>
-                {dateLabel}
-              </ChipText>
-            </DateChip>
+              {showDate ? (
+                <Animated.View
+                  entering={disclosureEnter()}
+                  exiting={fadeExit()}
+                >
+                  <DateChip
+                    $open={panel === 'date'}
+                    $set={dueAtMs != null}
+                    accessibilityLabel={dateLabel}
+                    accessibilityState={{ expanded: panel === 'date' }}
+                    onPress={() => openPanel('date')}
+                    testID="capture-chip-date"
+                  >
+                    <ChipGlyph>
+                      <CalendarGlyph
+                        color={
+                          dueAtMs == null
+                            ? theme.colors.muted
+                            : theme.colors.accentInk
+                        }
+                      />
+                    </ChipGlyph>
+                    <ChipText $color={dueAtMs == null ? 'muted' : 'accent'}>
+                      {dateLabel}
+                    </ChipText>
+                  </DateChip>
+                </Animated.View>
+              ) : null}
 
-            <PriorityChip
-              $chosen={priorityChosen}
-              $tone={priority}
-              accessibilityLabel={copy.capture.priority[priority]}
-              onPress={cyclePriority}
-              testID="capture-chip-priority"
-            >
-              <ChipGlyph>
-                <PriorityGlyph
-                  color={priorityColor}
-                  level={priority === 'low' ? 1 : priority === 'medium' ? 2 : 3}
-                  size={16}
-                />
-              </ChipGlyph>
-              <PriorityText $tone={priority}>
-                {copy.capture.priority[priority]}
-              </PriorityText>
-            </PriorityChip>
+              {showPriority ? (
+                <Animated.View
+                  entering={disclosureEnter()}
+                  exiting={fadeExit()}
+                >
+                  <PriorityChip
+                    $chosen={priorityChosen}
+                    $tone={priority}
+                    accessibilityLabel={copy.capture.priority[priority]}
+                    onPress={cyclePriority}
+                    testID="capture-chip-priority"
+                  >
+                    <ChipGlyph>
+                      <PriorityGlyph
+                        color={priorityColor}
+                        level={
+                          priority === 'low' ? 1 : priority === 'medium' ? 2 : 3
+                        }
+                        size={16}
+                      />
+                    </ChipGlyph>
+                    <PriorityText $tone={priority}>
+                      {copy.capture.priority[priority]}
+                    </PriorityText>
+                  </PriorityChip>
+                </Animated.View>
+              ) : null}
 
-            <ListChip
-              $open={panel === 'list'}
-              accessibilityLabel={listLabel}
-              accessibilityState={{ expanded: panel === 'list' }}
-              onPress={() => openPanel('list')}
-              testID="capture-chip-list"
-            >
-              <ChipGlyph>
-                {chosenList == null || newListName != null ? (
-                  <TagGlyph color={theme.colors.muted} />
-                ) : (
-                  <ProjectGlyph
-                    color={projectTone(theme, chosenList.color)}
-                    icon={chosenList.icon}
-                  />
-                )}
-              </ChipGlyph>
-              <ChipText $color={chosenList == null ? 'muted' : 'text'}>
-                {listLabel}
-              </ChipText>
-            </ListChip>
+              {showList ? (
+                <Animated.View
+                  entering={disclosureEnter()}
+                  exiting={fadeExit()}
+                >
+                  <ListChip
+                    $open={panel === 'list'}
+                    accessibilityLabel={listLabel}
+                    accessibilityState={{ expanded: panel === 'list' }}
+                    onPress={() => openPanel('list')}
+                    testID="capture-chip-list"
+                  >
+                    <ChipGlyph>
+                      {chosenList == null || newListName != null ? (
+                        <TagGlyph color={theme.colors.muted} />
+                      ) : (
+                        <ProjectGlyph
+                          color={projectTone(theme, chosenList.color)}
+                          icon={chosenList.icon}
+                        />
+                      )}
+                    </ChipGlyph>
+                    <ChipText $color={chosenList == null ? 'muted' : 'text'}>
+                      {listLabel}
+                    </ChipText>
+                  </ListChip>
+                </Animated.View>
+              ) : null}
 
-            {estimateMinutes == null ? null : (
-              <ListChip $open={false} accessibilityLabel={estimateLabel}>
-                <ChipText $color="muted">{estimateLabel}</ChipText>
-              </ListChip>
+              {estimateMinutes == null ? null : (
+                <Animated.View
+                  entering={disclosureEnter()}
+                  exiting={fadeExit()}
+                >
+                  <ListChip $open={false} accessibilityLabel={estimateLabel}>
+                    <ChipText $color="muted">{estimateLabel}</ChipText>
+                  </ListChip>
+                </Animated.View>
+              )}
+            </Chips>
+          ) : null}
+
+          <Controls>
+            <MoreToggle
+              accessibilityLabel={
+                expanded ? copy.capture.lessOptions : copy.capture.moreOptions
+              }
+              accessibilityRole="button"
+              accessibilityState={{ expanded }}
+              onPress={toggleExpanded}
+              scaleTo={0.96}
+              testID="capture-more"
+            >
+              <ChevronGlyph color={theme.colors.mutedStrong} up={expanded} />
+              <MoreToggleText>
+                {expanded ? copy.capture.lessOptions : copy.capture.moreOptions}
+              </MoreToggleText>
+            </MoreToggle>
+
+            {isEditing ? null : (
+              <SyntaxToggle
+                $open={panel === 'syntax'}
+                accessibilityLabel={copy.capture.syntaxTitle}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: panel === 'syntax' }}
+                onPress={() =>
+                  setPanel(current =>
+                    current === 'syntax' ? 'none' : 'syntax',
+                  )
+                }
+                scaleTo={0.92}
+                testID="capture-syntax"
+              >
+                <SyntaxToggleText $open={panel === 'syntax'}>
+                  ?
+                </SyntaxToggleText>
+              </SyntaxToggle>
             )}
-          </Chips>
+          </Controls>
 
           {panel === 'date' ? (
             <CalendarPanel
@@ -404,52 +502,62 @@ export function QuickCaptureSheet({
             </NewListComposer>
           ) : null}
 
-          {panel === 'none' ? (
-            <>
-              <Hint>
-                {isEditing ? copy.capture.editHint : copy.capture.hint}
-              </Hint>
-              {isEditing ? null : <Syntax>{copy.capture.syntax}</Syntax>}
-            </>
+          {panel === 'syntax' ? (
+            <SyntaxPanel entering={disclosureEnter()} exiting={fadeExit()}>
+              <SyntaxTitle>{copy.capture.syntaxTitle}</SyntaxTitle>
+              {copy.capture.examples.map(example => (
+                <SyntaxLine key={example}>{example}</SyntaxLine>
+              ))}
+              <SyntaxHelp>{copy.capture.syntaxHelp}</SyntaxHelp>
+            </SyntaxPanel>
           ) : null}
 
-          <SheetActionsRow>
-            <SheetCancelButton label={copy.capture.cancel} onPress={onCancel} />
+          {panel === 'none' && (expanded || isEditing) ? (
+            <Hint>{isEditing ? copy.capture.editHint : copy.capture.hint}</Hint>
+          ) : null}
 
-            {isEditing && onDelete != null ? (
-              <Delete
-                accessibilityLabel={copy.today.remove}
-                hitSlop={8}
-                onPress={onDelete}
-                scaleTo={0.88}
-                testID="capture-delete"
-              >
-                <TrashGlyph color={theme.colors.danger} size={18} />
-              </Delete>
-            ) : null}
+          <ActionsShift layout={sectionLayout()}>
+            <SheetActionsRow>
+              <SheetCancelButton
+                label={copy.capture.cancel}
+                onPress={onCancel}
+              />
 
-            {isEditing && onFocus != null ? (
-              <FocusAction
-                accessibilityLabel={copy.focus.action}
-                accessibilityRole="button"
-                hitSlop={8}
-                onPress={onFocus}
-                scaleTo={0.94}
-                testID="sheet-focus"
-              >
-                <PlayGlyph color={theme.colors.accentInk} size={14} />
-                <FocusActionLabel>{copy.focus.action}</FocusActionLabel>
-              </FocusAction>
-            ) : null}
+              {isEditing && onDelete != null ? (
+                <Delete
+                  accessibilityLabel={copy.today.remove}
+                  hitSlop={8}
+                  onPress={onDelete}
+                  scaleTo={0.88}
+                  testID="capture-delete"
+                >
+                  <TrashGlyph color={theme.colors.danger} size={18} />
+                </Delete>
+              ) : null}
 
-            <SheetActionsSpacer />
-            <SheetPrimaryButton
-              disabled={!canSave}
-              label={copy.capture.save}
-              onPress={save}
-              testID="capture-save"
-            />
-          </SheetActionsRow>
+              {isEditing && onFocus != null ? (
+                <FocusAction
+                  accessibilityLabel={copy.focus.action}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={onFocus}
+                  scaleTo={0.94}
+                  testID="sheet-focus"
+                >
+                  <PlayGlyph color={theme.colors.accentInk} size={14} />
+                  <FocusActionLabel>{copy.focus.action}</FocusActionLabel>
+                </FocusAction>
+              ) : null}
+
+              <SheetActionsSpacer />
+              <SheetPrimaryButton
+                disabled={!canSave}
+                label={copy.capture.save}
+                onPress={save}
+                testID="capture-save"
+              />
+            </SheetActionsRow>
+          </ActionsShift>
         </Sheet>
       </Lift>
     </Overlay>
@@ -542,7 +650,7 @@ const Field = styled.TextInput.attrs(({ theme }) => ({
   min-height: 52px;
 `;
 
-const Chips = styled.View`
+const Chips = styled(Animated.View)`
   flex-direction: row;
   flex-wrap: wrap;
   gap: ${({ theme }) => theme.spacing.small - 2}px;
@@ -638,11 +746,81 @@ const Hint = styled.Text`
   margin-top: ${({ theme }) => theme.spacing.small + 4}px;
 `;
 
-const Syntax = styled.Text`
+/* The two ways out of the smallest layer, on the same line: the chips on the
+   left, the writing shortcuts on the right. No box of its own — the sheet is
+   already the container. */
+const Controls = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: ${({ theme }) => theme.spacing.small + 4}px;
+`;
+
+const MoreToggle = styled(PressableScale)`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.tiny + 2}px;
+  min-height: 48px;
+  padding: 0px ${({ theme }) => theme.spacing.small}px;
+`;
+
+const MoreToggleText = styled.Text.attrs(buttonTextAttrs)`
+  ${({ theme }) => buttonTextMetrics(theme.type.caption)}
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.mutedStrong};
+`;
+
+/** Help is a question, so it looks like one: a quiet round target, lit the same
+ * way an open chip is. */
+const SyntaxToggle = styled(PressableScale)<{ $open: boolean }>`
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  border: 1px solid
+    ${({ theme, $open }) =>
+      $open ? theme.colors.accentInk : theme.colors.border};
+  background-color: ${({ theme, $open }) =>
+    $open ? theme.colors.cardElevated : 'transparent'};
+`;
+
+const SyntaxToggleText = styled.Text.attrs(buttonTextAttrs)<{
+  $open: boolean;
+}>`
+  ${({ theme }) => buttonTextMetrics(theme.type.caption)}
+  font-weight: 800;
+  color: ${({ theme, $open }) =>
+    $open ? theme.colors.accentInk : theme.colors.muted};
+`;
+
+/** Takes the slot the calendar and the list panel use, so the sheet never
+ * grows two things at once. */
+const SyntaxPanel = styled(Animated.View)`
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+  gap: ${({ theme }) => theme.spacing.tiny}px;
+`;
+
+const SyntaxTitle = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 700;
+`;
+
+const SyntaxLine = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+`;
+
+const SyntaxHelp = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
   margin-top: ${({ theme }) => theme.spacing.tiny}px;
 `;
+
+/* Only carries the layout transition: the actions must slide, never jump, when
+   a layer opens above them. */
+const ActionsShift = styled(Animated.View)``;
 
 const NewListComposer = styled.View`
   margin-top: ${({ theme }) => theme.spacing.medium}px;
