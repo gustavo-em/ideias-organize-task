@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { BackHandler, Keyboard } from 'react-native';
 import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInDown,
-  SlideOutDown,
   useAnimatedKeyboard,
   useAnimatedStyle,
 } from 'react-native-reanimated';
@@ -38,7 +34,12 @@ import {
   SheetCancelButton,
   SheetPrimaryButton,
 } from './SheetActions';
-import { SLIDE } from '../animation/motion';
+import {
+  scrimEnter,
+  scrimExit,
+  sheetExit,
+  sheetSlideEnter,
+} from '../../../../app/animation/motion';
 
 /** What an existing task looks like when the same sheet is used to change it. */
 export interface SheetSubject {
@@ -231,7 +232,7 @@ export function QuickCaptureSheet({
 
   return (
     <Overlay>
-      <Scrim entering={FadeIn.duration(160)} exiting={FadeOut.duration(140)}>
+      <Scrim entering={scrimEnter()} exiting={scrimExit()}>
         <ScrimTouch
           accessibilityLabel={copy.capture.cancel}
           accessibilityRole="button"
@@ -240,8 +241,8 @@ export function QuickCaptureSheet({
       </Scrim>
       <Lift style={lift}>
         <Sheet
-          entering={SlideInDown.duration(SLIDE.duration).easing(SLIDE.easing)}
-          exiting={SlideOutDown.duration(200)}
+          entering={sheetSlideEnter()}
+          exiting={sheetExit()}
           onLayout={traceOpen}
         >
           <Grabber />

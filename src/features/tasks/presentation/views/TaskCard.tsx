@@ -1,16 +1,12 @@
 import { useState } from 'react';
 import { type TextLayoutEvent } from 'react-native';
-import Animated, {
-  FadeInDown,
-  LinearTransition,
-  SlideOutLeft,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import { useRenderCount } from '../../../../app/perf/sheetPerf';
 import { isCompleted, type Task } from '../../domain/Task';
 import type { ListColor, ListMember, ProjectIcon } from '../../domain/TaskList';
-import { STAGGER_MS } from '../animation/motion';
+import { rowEnter, rowExit, rowLayout } from '../../../../app/animation/motion';
 import type { TaskCopy } from '../localization/taskCopy';
 import { describeTask, taskFacts } from '../models/taskMeta';
 import { ChevronGlyph, TrashGlyph } from './FieldGlyphs';
@@ -100,11 +96,7 @@ export function TaskCard({
   }
 
   return (
-    <Shell
-      entering={FadeInDown.delay(index * STAGGER_MS).duration(280)}
-      exiting={SlideOutLeft.duration(240)}
-      layout={LinearTransition.springify().damping(20).stiffness(200)}
-    >
+    <Shell entering={rowEnter(index)} exiting={rowExit()} layout={rowLayout()}>
       <Card $done={done}>
         <TopLine>
           <TaskCheckbox

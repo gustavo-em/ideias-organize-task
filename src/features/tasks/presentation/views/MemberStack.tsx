@@ -1,4 +1,6 @@
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { fadeEnter } from '../../../../app/animation/motion';
 import styled from 'styled-components/native';
 
 import type { ListMember } from '../../domain/TaskList';
@@ -27,7 +29,7 @@ export function MemberStack({
   const overflow = members.length - shown.length;
 
   return (
-    <Stack accessibilityLabel={sharedWithLabel} entering={FadeIn.duration(180)}>
+    <Stack accessibilityLabel={sharedWithLabel} entering={fadeEnter()}>
       {shown.map((member, index) => (
         <MemberChip
           key={member.personId}

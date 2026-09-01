@@ -1,8 +1,8 @@
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
 import type { DayRecord } from '../../domain/Progress';
-import { STAGGER_MS } from '../animation/motion';
+import { rowEnter } from '../../../../app/animation/motion';
 
 interface WeekBarsProps {
   week: readonly DayRecord[];
@@ -28,7 +28,7 @@ export function WeekBars({ week, weekdays, height = 96 }: WeekBarsProps) {
                 component that animates in and also sets its own opacity is
                 exactly what Reanimated warns about, once per bar. */}
             <Grow
-              entering={FadeInDown.delay(index * STAGGER_MS).duration(320)}
+              entering={rowEnter(index)}
               style={{
                 height: `${Math.max(4, (day.weight / peak) * 100)}%`,
               }}

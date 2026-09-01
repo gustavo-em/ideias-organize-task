@@ -114,7 +114,7 @@ e reporta o erro por `onListenerError`.
 - **View-model** guarda estado, roda efeito, chama caso de uso e publica evento.
 - **Screen** amarra os dois.
 
-O movimento é declarado uma vez em `presentation/animation/motion.ts` e reusado.
+O movimento é declarado uma vez em `src/app/animation/motion.ts` e reusado.
 Toda curva traz `ReduceMotion.System`, então um aparelho configurado para menos
 movimento é atendido sem que nenhuma tela precise verificar isso.
 

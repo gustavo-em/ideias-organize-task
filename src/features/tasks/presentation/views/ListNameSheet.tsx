@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BackHandler, Modal } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInDown,
-  SlideOutDown,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import {
@@ -15,6 +10,12 @@ import {
   type ProjectIcon,
   type TaskList,
 } from '../../domain/TaskList';
+import {
+  scrimEnter,
+  scrimExit,
+  sheetEnter,
+  sheetExit,
+} from '../../../../app/animation/motion';
 import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
 import type { TaskCopy } from '../localization/taskCopy';
 import { projectTone } from '../models/projectAppearance';
@@ -98,7 +99,7 @@ export function ProjectEditorSheet({
       visible
     >
       <Overlay>
-        <Scrim entering={FadeIn.duration(160)} exiting={FadeOut.duration(140)}>
+        <Scrim entering={scrimEnter()} exiting={scrimExit()}>
           <ScrimTouch
             accessibilityLabel={copy.capture.cancel}
             accessibilityRole="button"
@@ -106,8 +107,8 @@ export function ProjectEditorSheet({
           />
         </Scrim>
         <Sheet
-          entering={SlideInDown.springify().damping(20).stiffness(200)}
-          exiting={SlideOutDown.duration(180)}
+          entering={sheetEnter()}
+          exiting={sheetExit()}
           onLayout={traceOpen}
         >
           <Grabber />

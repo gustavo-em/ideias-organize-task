@@ -66,7 +66,7 @@ não deve ser editado à mão.
 ## Movimento
 
 Vocabulário único em
-`src/features/tasks/presentation/animation/motion.ts`. Nenhuma tela inventa
+`src/app/animation/motion.ts`. Nenhuma tela inventa
 duração própria.
 
 | Evento           | O que acontece                                                 | Curva                                                                                    |

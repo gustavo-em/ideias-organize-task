@@ -6,14 +6,15 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInDown,
-  SlideOutDown,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
+import {
+  scrimEnter,
+  scrimExit,
+  sheetEnter,
+  sheetExit,
+} from '../../../../app/animation/motion';
 import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
 import { MemberChip } from '../../../tasks/presentation/views/MemberChip';
 import {
@@ -165,7 +166,7 @@ export function ProfileSheet({
       visible
     >
       <Overlay>
-        <Scrim entering={FadeIn.duration(160)} exiting={FadeOut.duration(200)}>
+        <Scrim entering={scrimEnter()} exiting={scrimExit()}>
           <ScrimTouch
             accessibilityLabel={copy.profile.cancel}
             accessibilityRole="button"
@@ -175,8 +176,8 @@ export function ProfileSheet({
         </Scrim>
         <Lift behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <Sheet
-            entering={SlideInDown.springify().damping(20).stiffness(200)}
-            exiting={SlideOutDown.duration(180)}
+            entering={sheetEnter()}
+            exiting={sheetExit()}
             onLayout={traceOpen}
           >
             <Grabber />

@@ -1,7 +1,8 @@
 import { StyleSheet } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import { contentEnter } from '../../../../app/animation/motion';
 import type { TaskCopy } from '../localization/taskCopy';
 import type { TasksViewModel } from '../view-models/useTasksViewModel';
 import { CountUpText } from '../views/CountUpText';
@@ -32,14 +33,14 @@ export function ProgressScreen({ copy, viewModel }: ProgressScreenProps) {
         title={copy.progress.streakTitle(viewModel.streakDays)}
       />
 
-      <Section entering={FadeInDown.duration(300)}>
+      <Section entering={contentEnter(0)}>
         <SectionLabel>{copy.progress.week}</SectionLabel>
         <WeekBars week={viewModel.week} weekdays={copy.progress.weekdays} />
         <Note>{copy.progress.weightHint}</Note>
       </Section>
 
       <Cards>
-        <Card entering={FadeInDown.delay(60).duration(300)}>
+        <Card entering={contentEnter(1)}>
           <CardValue>{copy.progress.level(level.level)}</CardValue>
           <CardLabel>
             {copy.progress.levelPoints(level.intoLevel, level.levelSpan)}
@@ -57,7 +58,7 @@ export function ProgressScreen({ copy, viewModel }: ProgressScreenProps) {
           </Track>
         </Card>
 
-        <Card entering={FadeInDown.delay(120).duration(300)}>
+        <Card entering={contentEnter(2)}>
           <CountUpText
             accessibilityLabel={`${viewModel.trioCount} ${copy.progress.trios}`}
             style={[styles.count, { color: theme.colors.text }]}

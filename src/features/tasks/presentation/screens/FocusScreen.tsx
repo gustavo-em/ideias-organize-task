@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import Animated, {
-  Easing,
-  FadeIn,
   interpolateColor,
-  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -17,7 +14,16 @@ import {
 } from '../../../../app/theme/buttonText';
 import { isOpen, type Task } from '../../domain/Task';
 import { clampFocusMinutes, focusMinutesFor } from '../../domain/FocusSession';
-import { FADE, GROUND } from '../animation/motion';
+import {
+  BREATH,
+  BREATH_SCALE,
+  BUMP,
+  BUMP_SCALE,
+  contentFadeEnter,
+  FADE,
+  fadeEnter,
+  GROUND,
+} from '../../../../app/animation/motion';
 import type { TaskCopy } from '../localization/taskCopy';
 import type { FocusViewModel } from '../view-models/useFocusViewModel';
 import type { TasksViewModel } from '../view-models/useTasksViewModel';
@@ -101,15 +107,7 @@ export function FocusScreen({
   const pulse = useSharedValue(1);
   useEffect(() => {
     if (focus.isRunning) {
-      pulse.value = withRepeat(
-        withTiming(1.02, {
-          duration: 1500,
-          easing: Easing.inOut(Easing.quad),
-          reduceMotion: ReduceMotion.System,
-        }),
-        -1,
-        true,
-      );
+      pulse.value = withRepeat(withTiming(BREATH_SCALE, BREATH), -1, true);
     } else {
       pulse.value = withTiming(1, FADE);
     }
@@ -123,12 +121,8 @@ export function FocusScreen({
   // moving rather than being silently swapped out underneath the finger.
   const bump = useSharedValue(1);
   useEffect(() => {
-    bump.value = 1.05;
-    bump.value = withTiming(1, {
-      duration: 180,
-      easing: Easing.out(Easing.quad),
-      reduceMotion: ReduceMotion.System,
-    });
+    bump.value = BUMP_SCALE;
+    bump.value = withTiming(1, BUMP);
   }, [focus.label, bump]);
 
   const bumpStyle = useAnimatedStyle(() => ({
@@ -157,7 +151,7 @@ export function FocusScreen({
   return (
     <Ground style={groundStyle}>
       {focus.session == null ? (
-        <Idle entering={FadeIn.duration(240)}>
+        <Idle entering={contentFadeEnter()}>
           {/* Anchored at the top like every other screen. Centred, it read as
               a dialog that had lost its way. */}
           <ScreenHeader
@@ -195,7 +189,7 @@ export function FocusScreen({
                 </ChoiceHead>
 
                 {expanded ? (
-                  <Expanded entering={FadeIn.duration(180)}>
+                  <Expanded entering={fadeEnter()}>
                     <ExpandedLabel>{copy.focus.chooseDuration}</ExpandedLabel>
                     <DurationPicker
                       copy={copy}
@@ -233,7 +227,7 @@ export function FocusScreen({
           })}
         </Idle>
       ) : (
-        <Session entering={FadeIn.duration(240)} testID="focus-session">
+        <Session entering={contentFadeEnter()} testID="focus-session">
           <RingStage
             style={pulseStyle}
             testID={

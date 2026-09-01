@@ -6,7 +6,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
-import { CHECK_SPRING } from '../animation/motion';
+import { CHECK_SPRING } from '../../../../app/animation/motion';
 import { PressableScale } from './PressableScale';
 
 interface TabGlyphProps {

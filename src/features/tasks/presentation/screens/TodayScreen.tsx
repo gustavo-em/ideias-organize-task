@@ -8,11 +8,7 @@ import {
   type ComponentRef,
 } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
-import Animated, {
-  FadeIn,
-  LinearTransition,
-  ReduceMotion,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import { markSheetPress, useRenderCount } from '../../../../app/perf/sheetPerf';
@@ -31,7 +27,11 @@ import {
   reconcileCollapsedSectionIds,
   sectionDisclosurePolicy,
 } from '../models/sectionDisclosure';
-import { DISCLOSURE } from '../animation/motion';
+import {
+  contentEnter,
+  fadeEnter,
+  sectionLayout,
+} from '../../../../app/animation/motion';
 import type { TasksViewModel } from '../view-models/useTasksViewModel';
 import { AgoraCard } from '../views/AgoraCard';
 import { CaughtUpCard, EmptyStateCard } from '../views/CaughtUpCard';
@@ -219,7 +219,7 @@ export function TodayScreen({
         />
 
         {filtersOpen ? (
-          <Grouping entering={FadeIn.duration(180)}>
+          <Grouping entering={fadeEnter()}>
             <GroupingLabel>{copy.today.groupBy}</GroupingLabel>
             <GroupingRow>
               <GroupingButton
@@ -321,7 +321,7 @@ export function TodayScreen({
           />
         ) : null}
 
-        {restSections.map(section => {
+        {restSections.map((section, sectionIndex) => {
           const policy = sectionDisclosurePolicy(
             grouping,
             section.id,
@@ -332,8 +332,9 @@ export function TodayScreen({
 
           return (
             <Section
+              entering={contentEnter(sectionIndex)}
               key={section.id}
-              layout={sectionLayout}
+              layout={sectionTransition}
               onLayout={
                 section === todayRest
                   ? event => {
@@ -515,9 +516,7 @@ const HomeTaskRow = memo(function HomeTaskRowView({
 
 const styles = StyleSheet.create({ scroll: { paddingBottom: 168 } });
 
-const sectionLayout = LinearTransition.duration(DISCLOSURE.duration)
-  .easing(DISCLOSURE.easing)
-  .reduceMotion(ReduceMotion.System);
+const sectionTransition = sectionLayout();
 
 const Screen = styled.View`
   flex: 1;

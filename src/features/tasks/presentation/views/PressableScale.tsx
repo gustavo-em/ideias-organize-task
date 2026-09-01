@@ -7,7 +7,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
-import { PRESS_SPRING } from '../animation/motion';
+import { PRESS_SPRING } from '../../../../app/animation/motion';
 
 const styles = StyleSheet.create({ disabled: { opacity: 0.45 } });
 

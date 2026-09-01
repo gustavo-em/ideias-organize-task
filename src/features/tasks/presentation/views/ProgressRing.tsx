@@ -7,7 +7,7 @@ import Animated, {
 import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from 'styled-components/native';
 
-import { FADE } from '../animation/motion';
+import { FADE } from '../../../../app/animation/motion';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 

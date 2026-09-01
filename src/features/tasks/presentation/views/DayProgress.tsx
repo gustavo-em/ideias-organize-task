@@ -7,7 +7,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
-import { CHECK_SPRING, STAGGER_MS } from '../animation/motion';
+import { CHECK_SPRING, STAGGER_MS } from '../../../../app/animation/motion';
 
 interface DayProgressProps {
   done: number;

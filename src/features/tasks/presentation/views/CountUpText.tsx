@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { COUNT } from '../animation/motion';
+import { COUNT } from '../../../../app/animation/motion';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 

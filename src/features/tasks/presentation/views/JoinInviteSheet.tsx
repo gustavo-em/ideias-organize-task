@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { BackHandler, Keyboard, Modal } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInDown,
-  SlideOutDown,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
+import {
+  scrimEnter,
+  scrimExit,
+  sheetEnter,
+  sheetExit,
+} from '../../../../app/animation/motion';
 import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
 import type { ShareErrorKind } from '../../domain/ShareError';
 import type { TaskCopy } from '../localization/taskCopy';
@@ -76,7 +77,7 @@ export function JoinInviteSheet({
       visible
     >
       <Overlay>
-        <Scrim entering={FadeIn.duration(160)} exiting={FadeOut.duration(140)}>
+        <Scrim entering={scrimEnter()} exiting={scrimExit()}>
           <ScrimTouch
             accessibilityLabel={copy.capture.cancel}
             accessibilityRole="button"
@@ -84,8 +85,8 @@ export function JoinInviteSheet({
           />
         </Scrim>
         <Sheet
-          entering={SlideInDown.springify().damping(20).stiffness(200)}
-          exiting={SlideOutDown.duration(180)}
+          entering={sheetEnter()}
+          exiting={sheetExit()}
           onLayout={traceOpen}
         >
           <Grabber />

@@ -1,4 +1,6 @@
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { contentEnter } from '../../../../app/animation/motion';
 import styled, { useTheme } from 'styled-components/native';
 
 import type { TaskCopy } from '../localization/taskCopy';
@@ -25,7 +27,7 @@ export function CaughtUpCard({
   const theme = useTheme();
 
   return (
-    <Card entering={FadeIn.duration(220)}>
+    <Card entering={contentEnter(0)}>
       <IconWrap>
         <CheckGlyph color={theme.colors.success} size={22} />
       </IconWrap>
@@ -61,7 +63,7 @@ export function EmptyStateCard({ copy, onCapture }: EmptyStateCardProps) {
   const theme = useTheme();
 
   return (
-    <Card entering={FadeIn.duration(220)}>
+    <Card entering={contentEnter(0)}>
       <IconWrap $tone="accent">
         <ProjectGlyph color={theme.colors.accentInk} icon="inbox" size={22} />
       </IconWrap>

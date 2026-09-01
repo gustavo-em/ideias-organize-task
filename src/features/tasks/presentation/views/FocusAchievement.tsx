@@ -1,13 +1,16 @@
 import { useEffect } from 'react';
 import Animated, {
-  Easing,
-  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
+
+import {
+  ACHIEVEMENT_CONFETTI,
+  ACHIEVEMENT_CONFETTI_STAGGER_MS,
+} from '../../../../app/animation/motion';
 
 /** Enough pieces to read as a small burst without competing with the trio
  * celebration's bigger moment. */
@@ -55,17 +58,10 @@ function Piece({ index, color }: PieceProps) {
   const angle = (index / PIECES) * Math.PI * 2;
   const distance = 70 + (index % 3) * 18;
   const spin = index % 2 === 0 ? 1 : -1;
-  const delay = (index % 4) * 30;
+  const delay = (index % 4) * ACHIEVEMENT_CONFETTI_STAGGER_MS;
 
   useEffect(() => {
-    progress.value = withDelay(
-      delay,
-      withTiming(1, {
-        duration: 620,
-        easing: Easing.out(Easing.cubic),
-        reduceMotion: ReduceMotion.System,
-      }),
-    );
+    progress.value = withDelay(delay, withTiming(1, ACHIEVEMENT_CONFETTI));
   }, [delay, progress]);
 
   const style = useAnimatedStyle(() => ({
