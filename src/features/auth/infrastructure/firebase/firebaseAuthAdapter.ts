@@ -61,6 +61,7 @@ function toDomainUser(user: User | null): AuthUser | null {
     uid: user.uid,
     email: user.email,
     displayName: user.displayName,
+    photoURL: user.photoURL,
     isAnonymous: user.isAnonymous,
   };
 }

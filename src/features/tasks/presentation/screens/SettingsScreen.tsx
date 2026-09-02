@@ -27,7 +27,11 @@ interface SettingsScreenProps {
   language: AppLanguage;
   /** Who the account is, in the only two things anyone else sees. Null while
    * the profile has not been read yet. */
-  profile: { displayName: string; handle: string | null } | null;
+  profile: {
+    displayName: string;
+    handle: string | null;
+    photoURL?: string | null;
+  } | null;
   /** The uid, so the chip's tone matches the one shown in shared projects. */
   personId: string | null;
   /** True right after a save, for the confirmation line. */
@@ -107,7 +111,8 @@ export function SettingsScreen({
               <MemberChip
                 name={profile?.displayName ?? copy.tabs.you}
                 personId={personId}
-                size="large"
+                photoURL={profile?.photoURL ?? null}
+                size="xlarge"
               />
               <IdentityText>
                 <AccountName numberOfLines={1} ellipsizeMode="tail">

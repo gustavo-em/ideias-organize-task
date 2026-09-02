@@ -87,6 +87,13 @@ export function fromFirestoreFields(
   return result;
 }
 
+/** The session's own token, the way every call out of this app authenticates.
+ * Exported so the avatar upload speaks to Storage with the same session,
+ * without a second copy of this rule anywhere. */
+export async function firebaseIdToken(forceRefresh = false): Promise<string> {
+  return idToken(forceRefresh);
+}
+
 async function idToken(forceRefresh = false): Promise<string> {
   const user = getAuth(getApp()).currentUser;
   if (user == null) throw new ShareOperationError('forbidden');

@@ -35,6 +35,25 @@ function toProfileError(error: unknown): ProfileOperationError {
   return new ProfileOperationError('network');
 }
 
+/** The photo the provider already knows about, written into the profile so
+ * every other member reads it from the same place as the name. Returns null
+ * when the account has no provider photo, or when the write did not land —
+ * a photo is never worth failing a profile read over. */
+async function adoptProviderPhoto(uid: string): Promise<string | null> {
+  const user = getAuth(getApp()).currentUser;
+  const fromProvider = user?.uid === uid ? user?.photoURL ?? null : null;
+  if (fromProvider == null || fromProvider.length === 0) return null;
+
+  try {
+    await firestoreProfileAdapter.savePhotoURL(uid, fromProvider);
+  } catch {
+    // Showing the provider's photo does not depend on it being stored: the
+    // next read tries again.
+  }
+
+  return fromProvider;
+}
+
 export const firestoreProfileAdapter: ProfilePort = {
   async load(uid) {
     try {
@@ -48,23 +67,51 @@ export const firestoreProfileAdapter: ProfilePort = {
 
       if (displayName.length === 0 || handle.length === 0) return null;
 
-      return { uid, displayName, handle };
+      const stored =
+        typeof fields.photoURL === 'string' && fields.photoURL.length > 0
+          ? fields.photoURL
+          : null;
+      // A Google account arrives with a photo already: it becomes the profile
+      // photo without anybody being asked. Only ever when the field is empty,
+      // so a photo the person uploaded is never overwritten by the provider.
+      const photoURL =
+        stored ?? (await adoptProviderPhoto(uid).catch(() => null));
+
+      return { uid, displayName, handle, photoURL };
     } catch (error) {
       throw toProfileError(error);
     }
   },
 
-  async save({ uid, displayName, handle, previousHandle }) {
+  async savePhotoURL(uid, photoURL) {
+    try {
+      await firestoreCommit([
+        {
+          kind: 'update',
+          path: `${USERS}/${uid}`,
+          fields: { photoURL, updatedAtMs: Date.now() },
+          updateMask: ['photoURL', 'updatedAtMs'],
+        },
+      ]);
+    } catch (error) {
+      throw toProfileError(error);
+    }
+  },
+
+  async save({ uid, displayName, handle, previousHandle, photoURL }) {
     const name = displayName.trim();
     const wanted = normalizeHandle(handle);
     // A caller that does not know the current handle (the profile failed to
     // load, say) would otherwise leave the old reservation locked to this uid
     // forever, so the stored one is read before deciding what to release.
+    const known =
+      previousHandle != null && photoURL !== undefined
+        ? null
+        : await firestoreProfileAdapter.load(uid).catch(() => null);
     const previous =
       previousHandle != null
         ? normalizeHandle(previousHandle)
-        : (await firestoreProfileAdapter.load(uid).catch(() => null))?.handle ??
-          null;
+        : known?.handle ?? null;
     const writes: FirestoreWrite[] = [];
 
     if (previous !== wanted) {
@@ -85,11 +132,26 @@ export const firestoreProfileAdapter: ProfilePort = {
       }
     }
 
+    // The photo travels only when the caller knows it: an update mask without
+    // `photoURL` leaves whatever is stored exactly as it is.
+    const photoFields =
+      photoURL === undefined ? {} : { photoURL: photoURL ?? null };
+
     writes.push({
       kind: 'update',
       path: `${USERS}/${uid}`,
-      fields: { displayName: name, handle: wanted, updatedAtMs: Date.now() },
-      updateMask: ['displayName', 'handle', 'updatedAtMs'],
+      fields: {
+        displayName: name,
+        handle: wanted,
+        updatedAtMs: Date.now(),
+        ...photoFields,
+      },
+      updateMask: [
+        'displayName',
+        'handle',
+        'updatedAtMs',
+        ...(photoURL === undefined ? [] : ['photoURL']),
+      ],
     });
 
     try {
@@ -110,6 +172,13 @@ export const firestoreProfileAdapter: ProfilePort = {
       }
     }
 
-    return { uid, displayName: name, handle: wanted };
+    return {
+      uid,
+      displayName: name,
+      handle: wanted,
+      // A save that said nothing about the photo left the stored one alone:
+      // what comes back says the same thing the document does.
+      photoURL: photoURL === undefined ? known?.photoURL ?? null : photoURL,
+    };
   },
 };

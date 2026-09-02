@@ -24,7 +24,20 @@ export function createInMemoryProfileGateway(): ProfilePort & {
       return profiles.get(uid) ?? null;
     },
 
-    async save({ uid, displayName, handle, previousHandle }: SaveProfileInput) {
+    async savePhotoURL(uid, photoURL) {
+      const stored = profiles.get(uid);
+      if (stored == null) return;
+
+      profiles.set(uid, { ...stored, photoURL });
+    },
+
+    async save({
+      uid,
+      displayName,
+      handle,
+      previousHandle,
+      photoURL,
+    }: SaveProfileInput) {
       const owner = usernames.get(handle);
       if (owner != null && owner !== uid) {
         throw new ProfileOperationError('handle-taken');
@@ -37,7 +50,15 @@ export function createInMemoryProfileGateway(): ProfilePort & {
         }
       }
 
-      const profile: UserProfile = { uid, displayName, handle };
+      const profile: UserProfile = {
+        uid,
+        displayName,
+        handle,
+        photoURL:
+          photoURL === undefined
+            ? profiles.get(uid)?.photoURL ?? null
+            : photoURL,
+      };
       profiles.set(uid, profile);
 
       return profile;

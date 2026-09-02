@@ -115,6 +115,13 @@ jest.mock('@react-native-firebase/messaging', () => ({
   setBackgroundMessageHandler: jest.fn(),
 }));
 
+// The gallery is a native screen: the suite only ever needs the shape of the
+// answer, and each test that cares sets its own result.
+jest.mock('react-native-image-picker', () => ({
+  __esModule: true,
+  launchImageLibrary: jest.fn(async () => ({ didCancel: true })),
+}));
+
 beforeEach(async () => {
   await require('@react-native-async-storage/async-storage').default.clear();
 });

@@ -118,6 +118,8 @@ export interface TasksDependencies {
     personId: string;
     name: string;
     handle: string | null;
+    /** The avatar the other members see, published with the name. */
+    photoURL: string | null;
   } | null;
   /** How many tasks the day commits to, from the person's own settings. */
   dayCapacity?: number;
@@ -308,7 +310,9 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
       );
       if (
         mine == null ||
-        (mine.name === identity.name && mine.handle === identity.handle)
+        (mine.name === identity.name &&
+          mine.handle === identity.handle &&
+          (mine.photoURL ?? null) === identity.photoURL)
       ) {
         continue;
       }
@@ -317,6 +321,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
         ...mine,
         name: identity.name,
         handle: identity.handle,
+        photoURL: identity.photoURL,
       };
 
       // The copy on this device is fixed straight away, so the members list
@@ -508,6 +513,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
         personId: identity.personId,
         name: identity.name,
         handle: identity.handle,
+        photoURL: identity.photoURL,
         role: 'owner' as const,
         joined: true,
         joinedAtMs: clock.now(),
@@ -908,6 +914,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
         personId: identity.personId,
         name: identity.name,
         handle: identity.handle,
+        photoURL: identity.photoURL,
         role: 'viewer' as const,
         joined: true,
         joinedAtMs: clock.now(),

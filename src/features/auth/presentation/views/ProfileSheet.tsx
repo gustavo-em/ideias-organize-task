@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
-import { BackHandler, useWindowDimensions } from 'react-native';
+import {
+  ActivityIndicator,
+  BackHandler,
+  useWindowDimensions,
+} from 'react-native';
 import Animated, {
   useAnimatedKeyboard,
   useAnimatedStyle,
@@ -19,6 +23,7 @@ import {
   SheetCancelButton,
   SheetPrimaryButton,
 } from '../../../tasks/presentation/views/SheetActions';
+import type { AvatarErrorKind } from '../../domain/AvatarError';
 import type { ProfileErrorKind } from '../../domain/ProfileError';
 import {
   DISPLAY_NAME_MAX_LENGTH,
@@ -41,6 +46,15 @@ interface ProfileSheetProps {
   saving: boolean;
   /** Set when the last attempt came back from the server refused. */
   errorKind: ProfileErrorKind | null;
+  /** True while the chosen photo is on its way to the bucket. */
+  avatarBusy: boolean;
+  /** Why the last photo attempt did not land, in the app's own terms. */
+  avatarErrorKind: AvatarErrorKind | null;
+  /** Opens the gallery. The photo is saved on its own, without Salvar. */
+  onChangeAvatar: () => void;
+  /** Drops the uploaded photo, falling back to the provider's or the
+   * initials. */
+  onRemoveAvatar: () => void;
   onCancel: () => void;
   /** Resolves true when the profile was saved. */
   onSubmit: (displayName: string, handle: string) => Promise<boolean>;
@@ -61,6 +75,15 @@ function messageFor(copy: AuthCopy, issue: LocalIssue): string {
   }
 }
 
+function photoMessageFor(copy: AuthCopy, kind: AvatarErrorKind): string {
+  if (kind === 'storage-unavailable') {
+    return copy.profile.errors.photoStorageUnavailable;
+  }
+  if (kind === 'forbidden') return copy.profile.errors.photoForbidden;
+
+  return copy.profile.errors.photoNetwork;
+}
+
 function serverMessageFor(copy: AuthCopy, kind: ProfileErrorKind): string {
   if (kind === 'handle-taken') return copy.profile.errors.handleTaken;
   if (kind === 'refused') return copy.profile.errors.refused;
@@ -78,6 +101,10 @@ export function ProfileSheet({
   fallbackName,
   saving,
   errorKind,
+  avatarBusy,
+  avatarErrorKind,
+  onChangeAvatar,
+  onRemoveAvatar,
   onCancel,
   onSubmit,
 }: ProfileSheetProps) {
@@ -203,7 +230,31 @@ export function ProfileSheet({
             <Hint>{copy.profile.subtitle}</Hint>
 
             <Preview>
-              <MemberChip name={previewName} personId={personId} size="large" />
+              <AvatarButton
+                accessibilityHint={copy.profile.changePhoto}
+                accessibilityLabel={copy.profile.photoAction}
+                accessibilityRole="button"
+                accessibilityState={{ busy: avatarBusy }}
+                disabled={avatarBusy}
+                onPress={onChangeAvatar}
+                testID="profile-photo"
+              >
+                <MemberChip
+                  name={previewName}
+                  personId={personId}
+                  photoURL={profile?.photoURL ?? null}
+                  size="xlarge"
+                />
+                {avatarBusy ? (
+                  <AvatarBusy>
+                    <ActivityIndicator size="small" />
+                  </AvatarBusy>
+                ) : (
+                  <AvatarBadge>
+                    <AvatarBadgeGlyph>+</AvatarBadgeGlyph>
+                  </AvatarBadge>
+                )}
+              </AvatarButton>
               <PreviewText>
                 <PreviewName numberOfLines={1} ellipsizeMode="tail">
                   {previewName}
@@ -213,8 +264,45 @@ export function ProfileSheet({
                     handle.length > 0 ? handle : copy.profile.handlePlaceholder
                   }`}
                 </PreviewHandle>
+                <PhotoActions>
+                  <PhotoAction
+                    accessibilityLabel={copy.profile.changePhoto}
+                    accessibilityRole="button"
+                    disabled={avatarBusy}
+                    onPress={onChangeAvatar}
+                    testID="profile-photo-change"
+                  >
+                    <PhotoActionLabel $disabled={avatarBusy}>
+                      {avatarBusy
+                        ? copy.profile.photoUploading
+                        : copy.profile.changePhoto}
+                    </PhotoActionLabel>
+                  </PhotoAction>
+                  {profile?.photoURL == null ? null : (
+                    <PhotoAction
+                      accessibilityLabel={copy.profile.removePhoto}
+                      accessibilityRole="button"
+                      disabled={avatarBusy}
+                      onPress={onRemoveAvatar}
+                      testID="profile-photo-remove"
+                    >
+                      <PhotoActionLabel $disabled={avatarBusy}>
+                        {copy.profile.removePhoto}
+                      </PhotoActionLabel>
+                    </PhotoAction>
+                  )}
+                </PhotoActions>
               </PreviewText>
             </Preview>
+
+            {avatarErrorKind == null ? null : (
+              <ErrorText
+                accessibilityLiveRegion="polite"
+                testID="profile-photo-error"
+              >
+                {photoMessageFor(copy, avatarErrorKind)}
+              </ErrorText>
+            )}
 
             <FieldLabel>{copy.profile.displayNameLabel}</FieldLabel>
             <Field
@@ -371,8 +459,67 @@ const Preview = styled.View`
   border-bottom-color: ${({ theme }) => theme.colors.borderSubtle};
 `;
 
+const AvatarButton = styled.Pressable`
+  width: 64px;
+  height: 64px;
+`;
+
+/** Small enough to stay out of the photo's way, big enough to read as an
+ * invitation to change it. */
+const AvatarBadge = styled.View`
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 20px;
+  height: 20px;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  background-color: ${({ theme }) => theme.colors.card};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  align-items: center;
+  justify-content: center;
+`;
+
+const AvatarBadgeGlyph = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 800;
+  line-height: ${({ theme }) => theme.type.caption + 2}px;
+`;
+
+const AvatarBusy = styled.View`
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+  align-items: center;
+  justify-content: center;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  background-color: ${({ theme }) => theme.colors.scrim};
+`;
+
 const PreviewText = styled.View`
   flex: 1;
+`;
+
+const PhotoActions = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.medium}px;
+`;
+
+const PhotoAction = styled.Pressable`
+  min-height: 44px;
+  justify-content: center;
+`;
+
+/** `accentInk`, not `accent`: the yellow itself is a fill, and as a label on
+ * the sheet's own paper it does not hold contrast in the light theme. */
+const PhotoActionLabel = styled.Text<{ $disabled: boolean }>`
+  color: ${({ theme, $disabled }) =>
+    $disabled ? theme.colors.muted : theme.colors.accentInk};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
 `;
 
 const PreviewName = styled.Text`

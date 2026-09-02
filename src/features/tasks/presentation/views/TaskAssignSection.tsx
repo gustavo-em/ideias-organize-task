@@ -98,6 +98,7 @@ export function TaskAssignSection({
                 }
                 name={name}
                 personId={member.personId}
+                photoURL={member.photoURL ?? null}
                 pending={!member.joined}
                 size="large"
               />

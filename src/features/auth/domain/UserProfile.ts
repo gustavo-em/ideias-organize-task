@@ -8,6 +8,10 @@ export interface UserProfile {
   displayName: string;
   /** Lowercase, 3-20 chars, letters, digits and `_`. Unique app-wide. */
   handle: string;
+  /** The avatar shown wherever initials are shown. Adopted from the provider
+   * on a Google account that already has one, or uploaded from the gallery.
+   * Null means initials, which is always the fallback. */
+  photoURL: string | null;
 }
 
 export const HANDLE_MIN_LENGTH = 3;

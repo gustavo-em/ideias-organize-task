@@ -78,11 +78,16 @@ function memberFromRecord(value: unknown): ListMember | null {
   if (personId == null || name == null) return null;
 
   const joinedAtMs = sanitizeJoinedAtMs(candidate.joinedAtMs);
+  const photoURL =
+    typeof candidate.photoURL === 'string' && candidate.photoURL.length > 0
+      ? candidate.photoURL
+      : null;
 
   return {
     personId,
     name,
     handle,
+    photoURL,
     role: listRoles.includes(candidate.role as ListRole)
       ? (candidate.role as ListRole)
       : 'viewer',
@@ -163,7 +168,10 @@ async function hydrateMembers(
   // no extra read at all.
   if (stale.length === 0) return [...members];
 
-  const found = new Map<string, { name: string; handle: string | null }>();
+  const found = new Map<
+    string,
+    { name: string; handle: string | null; photoURL: string | null }
+  >();
   await Promise.all(
     stale.map(async member => {
       try {
@@ -181,10 +189,16 @@ async function hydrateMembers(
             ? fields.handle.toLowerCase()
             : null;
 
+        const photoURL =
+          typeof fields.photoURL === 'string' && fields.photoURL.length > 0
+            ? fields.photoURL
+            : member.photoURL ?? null;
+
         if (name.length > 0 || handle != null) {
           found.set(member.personId, {
             name: name.length > 0 ? name : member.name,
             handle,
+            photoURL,
           });
         }
       } catch {
@@ -199,7 +213,12 @@ async function hydrateMembers(
 
     return profile == null
       ? member
-      : { ...member, name: profile.name, handle: profile.handle };
+      : {
+          ...member,
+          name: profile.name,
+          handle: profile.handle,
+          photoURL: profile.photoURL,
+        };
   });
 }
 
@@ -291,6 +310,14 @@ export const firestoreShareGateway: ShareGateway = {
 
       const storedName = fields.name;
       const storedHandle = fields.handle;
+      const storedPhoto = fields.photoURL;
+      const photoURL = member.photoURL ?? null;
+      const samePhoto =
+        photoURL == null
+          ? storedPhoto == null || 'nullValue' in storedPhoto
+          : storedPhoto != null &&
+            'stringValue' in storedPhoto &&
+            storedPhoto.stringValue === photoURL;
       const sameName =
         storedName != null &&
         'stringValue' in storedName &&
@@ -302,7 +329,7 @@ export const firestoreShareGateway: ShareGateway = {
             'stringValue' in storedHandle &&
             storedHandle.stringValue === member.handle;
 
-      if (sameName && sameHandle) return entry;
+      if (sameName && sameHandle && samePhoto) return entry;
 
       changed = true;
       return {
@@ -314,6 +341,10 @@ export const firestoreShareGateway: ShareGateway = {
               member.handle == null
                 ? { nullValue: null }
                 : { stringValue: member.handle },
+            photoURL:
+              photoURL == null
+                ? { nullValue: null }
+                : { stringValue: photoURL },
           },
         },
       } as FirestoreValue;

@@ -64,6 +64,10 @@ export interface AuthCopy {
     handleLabel: string;
     handlePlaceholder: string;
     handleHint: string;
+    changePhoto: string;
+    removePhoto: string;
+    photoAction: string;
+    photoUploading: string;
     cancel: string;
     submit: string;
     saved: string;
@@ -76,6 +80,9 @@ export interface AuthCopy {
       refused: string;
       network: string;
       forbidden: string;
+      photoStorageUnavailable: string;
+      photoForbidden: string;
+      photoNetwork: string;
     };
   };
 }
@@ -162,6 +169,10 @@ const pt: AuthCopy = {
     handleLabel: 'Nome de usuário',
     handlePlaceholder: 'seu_nome',
     handleHint: '3–20 caracteres: letras minúsculas, números e _',
+    changePhoto: 'Trocar foto',
+    removePhoto: 'Remover foto',
+    photoAction: 'Alterar foto de perfil',
+    photoUploading: 'Enviando a foto',
     cancel: 'Cancelar',
     submit: 'Salvar',
     saved: 'Perfil atualizado',
@@ -177,6 +188,11 @@ const pt: AuthCopy = {
         'O servidor recusou a alteração agora. Tente de novo em instantes.',
       network: 'Não deu para salvar agora. Tente de novo.',
       forbidden: 'Entre de novo na conta para salvar o perfil.',
+      photoStorageUnavailable:
+        'Não foi possível salvar a foto agora. Sua foto do Google e as iniciais continuam valendo.',
+      photoForbidden:
+        'Não foi possível salvar a foto agora. Entre de novo na conta e tente outra vez.',
+      photoNetwork: 'Não deu para enviar a foto agora. Tente de novo.',
     },
   },
 };
@@ -260,6 +276,10 @@ const en: AuthCopy = {
     handleLabel: 'Username',
     handlePlaceholder: 'your_name',
     handleHint: '3–20 characters: lowercase letters, numbers and _',
+    changePhoto: 'Change photo',
+    removePhoto: 'Remove photo',
+    photoAction: 'Change profile photo',
+    photoUploading: 'Uploading the photo',
     cancel: 'Cancel',
     submit: 'Save',
     saved: 'Profile updated',
@@ -273,6 +293,11 @@ const en: AuthCopy = {
       refused: 'The server turned this change down. Try again in a moment.',
       network: "Couldn't save right now. Try again.",
       forbidden: 'Sign in again to save the profile.',
+      photoStorageUnavailable:
+        "Couldn't save the photo right now. Your Google photo and initials still work.",
+      photoForbidden:
+        "Couldn't save the photo right now. Sign in again and try once more.",
+      photoNetwork: "Couldn't upload the photo right now. Try again.",
     },
   },
 };

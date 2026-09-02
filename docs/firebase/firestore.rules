@@ -28,8 +28,14 @@ service cloud.firestore {
       allow create, update: if request.auth != null &&
         request.auth.uid == uid &&
         request.resource.data.keys().hasOnly(
-          ['displayName', 'handle', 'updatedAtMs']
+          ['displayName', 'handle', 'updatedAtMs', 'photoURL']
         ) &&
+        // A foto é opcional: string com a URL do avatar ou null quando a
+        // pessoa removeu a própria foto. Nunca sai deste documento, que só
+        // quem está autenticado consegue ler por id.
+        (!('photoURL' in request.resource.data.keys()) ||
+          request.resource.data.photoURL == null ||
+          request.resource.data.photoURL is string) &&
         request.resource.data.handle is string &&
         request.resource.data.handle.matches('^[a-z0-9_]{3,20}$');
       allow delete: if request.auth != null && request.auth.uid == uid;

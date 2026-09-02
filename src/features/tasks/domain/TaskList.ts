@@ -30,6 +30,9 @@ export interface ListMember {
   /** The unique handle the person chose, shown next to the name. Null for a
    * member recorded before handles existed. */
   handle: string | null;
+  /** The person's avatar, published by their own device the same way the name
+   * is. Null means the initials, which every chip falls back to. */
+  photoURL?: string | null;
   role: ListRole;
   /** Invite accepted or still pending. */
   joined: boolean;
