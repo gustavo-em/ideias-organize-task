@@ -11,6 +11,7 @@ import type { TaskCopy } from '../localization/taskCopy';
 import { describeTask, taskFacts } from '../models/taskMeta';
 import { ChevronGlyph, TrashGlyph } from './FieldGlyphs';
 import { MemberChip } from './MemberChip';
+import { MemberStack } from './MemberStack';
 import { PressableScale } from './PressableScale';
 import { TaskCheckbox } from './TaskCheckbox';
 import { TaskFacts } from './TaskFacts';
@@ -36,10 +37,18 @@ interface TaskCardProps {
   /** Who closed it, in a shared project. Takes the action slot's place once
    * the task is done — nobody owns an open task, but someone finished it. */
   completedByMember?: ListMember | null;
+  /** Who took this task, in a shared project. Empty renders nothing at all —
+   * no ficha, no reserved space. */
+  assignees?: readonly ListMember[];
 }
 
 /** Longer than this and the title is cut, with the rest one tap away. */
 const COLLAPSED_LINES = 2;
+
+/** Past this many people on one task, the rest reads as `+N`. */
+const ASSIGNEE_CAP = 3;
+
+const EMPTY_ASSIGNEES: readonly ListMember[] = [];
 
 /**
  * One task, in two lines.
@@ -67,6 +76,7 @@ export function TaskCard({
   compact = false,
   disabled = false,
   completedByMember = null,
+  assignees = EMPTY_ASSIGNEES,
 }: TaskCardProps) {
   const theme = useTheme();
   useRenderCount('TaskCard');
@@ -199,30 +209,39 @@ export function TaskCard({
               listColor={listColor}
               listIcon={listIcon}
             />
-            {completedByMember != null ? (
-              <MemberChip
-                accessibilityLabel={copy.lists.completedBy(
-                  completedByMember.name,
-                )}
-                name={completedByMember.name}
-                personId={completedByMember.personId}
-                size="medium"
+            <EndSlot>
+              {/* Who took it: the stack speaks for itself and stays silent
+                  about the chips inside. Nobody assigned renders nothing. */}
+              <MemberStack
+                cap={ASSIGNEE_CAP}
+                members={assignees}
+                sharedWithLabel={copy.lists.assignedTo(assignees.length)}
               />
-            ) : action == null ? null : (
-              <Action
-                $done={action.disabled === true}
-                accessibilityLabel={action.label}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: action.disabled === true }}
-                disabled={action.disabled}
-                hitSlop={12}
-                onPress={action.onPress}
-              >
-                <ActionText $done={action.disabled === true}>
-                  {action.label}
-                </ActionText>
-              </Action>
-            )}
+              {completedByMember != null ? (
+                <MemberChip
+                  accessibilityLabel={copy.lists.completedBy(
+                    completedByMember.name,
+                  )}
+                  name={completedByMember.name}
+                  personId={completedByMember.personId}
+                  size="medium"
+                />
+              ) : action == null ? null : (
+                <Action
+                  $done={action.disabled === true}
+                  accessibilityLabel={action.label}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: action.disabled === true }}
+                  disabled={action.disabled}
+                  hitSlop={12}
+                  onPress={action.onPress}
+                >
+                  <ActionText $done={action.disabled === true}>
+                    {action.label}
+                  </ActionText>
+                </Action>
+              )}
+            </EndSlot>
           </BottomLine>
         )}
       </Card>
@@ -318,6 +337,14 @@ const InlineExpandButton = styled(PressableScale)`
 `;
 
 /** Lines up under the title rather than under the checkbox. */
+/* The right-hand end of the bottom line: who took the task, then the single
+   action — or who closed it. Empty of both, it takes no width. */
+const EndSlot = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+`;
+
 const BottomLine = styled.View`
   flex-direction: row;
   align-items: center;

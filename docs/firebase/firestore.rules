@@ -124,13 +124,33 @@ service cloud.firestore {
           request.resource.data.editorIds == resource.data.editorIds;
       }
 
+      // Quem ficou com cada tarefa, num mapa de topo `assignments` indexado
+      // pelo uid: uid -> lista de ids de tarefa. É a única forma que a regra
+      // consegue policiar — dentro de `tasks` (array de mapas) ela não sabe
+      // responder "esta pessoa só mexeu em si mesma?", e todo editor pode
+      // escrever `tasks`. Mesmo padrão do documento do dia (`members.<uid>`).
+      //
+      // Dono: livre, qualquer chave. Qualquer outro membro: só a própria.
+      function isOwnerAssignmentUpdate() {
+        return isOwner() && onlyChanges(['assignments']);
+      }
+
+      function isSelfAssignmentUpdate() {
+        return isMember() &&
+          onlyChanges(['assignments']) &&
+          request.resource.data.assignments.diff(
+            resource.data.get('assignments', {})
+          ).affectedKeys().hasOnly([request.auth.uid]);
+      }
+
       allow get: if isMember();
       allow list: if false; // nunca por consulta — só pelo token do link.
       allow create: if request.auth != null &&
         request.auth.uid in request.resource.data.memberIds &&
         request.auth.uid == request.resource.data.ownerId;
       allow update: if isContentUpdate() || isMembershipUpdate() ||
-        isJoining() || isMemberIdentityUpdate();
+        isJoining() || isMemberIdentityUpdate() ||
+        isOwnerAssignmentUpdate() || isSelfAssignmentUpdate();
       allow delete: if isOwner();
 
       // Fase 2 — "Hoje, no combinado".

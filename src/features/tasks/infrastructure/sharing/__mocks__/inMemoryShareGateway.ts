@@ -3,6 +3,10 @@ import { ShareOperationError } from '../../../domain/ShareError';
 import type { SharedMemberDay } from '../../../domain/SharedMemberDay';
 import type { ListShare, TaskList } from '../../../domain/TaskList';
 import type { Task } from '../../../domain/Task';
+import {
+  withAssignments,
+  type AssignmentMap,
+} from '../../../domain/TaskAssignment';
 
 /**
  * A `ShareGateway` that keeps everything in memory, for tests and stories.
@@ -11,6 +15,7 @@ import type { Task } from '../../../domain/Task';
 export function createInMemoryShareGateway(): ShareGateway {
   const projects = new Map<string, { list: TaskList; tasks: Task[] }>();
   const days = new Map<string, Map<string, SharedMemberDay>>();
+  const assignments = new Map<string, AssignmentMap>();
   let sequence = 0;
 
   return {
@@ -60,11 +65,27 @@ export function createInMemoryShareGateway(): ShareGateway {
       };
     },
 
+    async setAssignment(share, personId, taskIds) {
+      const project = projects.get(share.token);
+      if (project == null) return;
+
+      assignments.set(share.token, {
+        ...(assignments.get(share.token) ?? {}),
+        [personId]: [...taskIds],
+      });
+    },
+
     async pull(share) {
       const project = projects.get(share.token);
       return project == null
         ? null
-        : { list: project.list, tasks: project.tasks };
+        : {
+            list: project.list,
+            tasks: withAssignments(
+              project.tasks,
+              assignments.get(share.token) ?? {},
+            ),
+          };
     },
 
     async push(share, list, tasks) {

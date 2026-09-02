@@ -4,6 +4,10 @@ import { getAuth } from '@react-native-firebase/auth';
 import type { ShareGateway } from '../../application/ports/ShareGateway';
 import { sanitizeMemberDays } from '../../domain/SharedMemberDay';
 import { sanitizeTasks, type Task } from '../../domain/Task';
+import {
+  sanitizeAssignments,
+  withAssignments,
+} from '../../domain/TaskAssignment';
 import { ShareOperationError } from '../../domain/ShareError';
 import {
   isAddressLikeName,
@@ -132,7 +136,15 @@ function documentToProject(
     share,
   };
 
-  return { list, tasks: sanitizeTasks(fields.tasks) };
+  // Assignment lives in its own top-level map, keyed by uid, and is folded
+  // back onto each task here: the `tasks` array never carries it, so the
+  // content path (open to every editor) cannot move somebody else in or out.
+  const tasks = withAssignments(
+    sanitizeTasks(fields.tasks),
+    sanitizeAssignments(fields.assignments),
+  );
+
+  return { list, tasks };
 }
 
 /** One document per account, holding the name and handle that person chose.
@@ -235,6 +247,18 @@ export const firestoreShareGateway: ShareGateway = {
         memberIds: members.map(member => member.personId),
         editorIds: editorIdsOf(members),
       },
+    });
+
+    // Whoever left takes their assignments with them. It is a separate write
+    // because membership and assignment are two different rules, and each one
+    // allows only its own field.
+    await firestoreDocument(`${COLLECTION}/${share.token}`, {
+      method: 'PATCH',
+      updateMask: [`assignments.${personId}`],
+      fields: { assignments: { [personId]: [] } },
+    }).catch(() => {
+      // The person is already out of the project; a stale entry in the map
+      // simply resolves to nobody on the next pull.
     });
   },
 
@@ -345,6 +369,17 @@ export const firestoreShareGateway: ShareGateway = {
         tasks: tasks.map(taskToRecord),
         updatedAtMs: Date.now(),
       },
+    });
+  },
+
+  async setAssignment(share, personId, taskIds) {
+    // One field path, one write: `assignments.<uid>`. The rule lets the owner
+    // write any key and everybody else only their own, so the mask is also
+    // what makes a member's write legal.
+    await firestoreDocument(`${COLLECTION}/${share.token}`, {
+      method: 'PATCH',
+      updateMask: [`assignments.${personId}`],
+      fields: { assignments: { [personId]: [...taskIds] } },
     });
   },
 

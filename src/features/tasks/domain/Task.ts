@@ -25,6 +25,11 @@ export interface Task {
   /** uid of whoever closed it, for a shared project's task list. Null for an
    * open task, or for one closed before the project was shared. */
   completedBy?: string | null;
+  /** uids of whoever took this task in a shared project. Empty is normal: an
+   * open task belongs to nobody until someone says otherwise. Never written
+   * inside the project's `tasks` array — it is derived from the document's
+   * `assignments` map, which is what the security rule can police. */
+  assignedIds?: readonly string[];
   /** The steps inside it, at most one level deep. Empty for a task nobody
    * broke down, and empty for anything written before this existed. */
   subtasks: readonly Subtask[];
@@ -148,6 +153,39 @@ function sanitizeTitle(value: unknown): string | null {
   return title.length === 0 ? null : title;
 }
 
+/** Who a task is assigned to, read as untrusted input: anything that is not a
+ * list of ids is simply nobody. */
+export function sanitizeAssignedIds(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) return [];
+
+  const ids: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string' || entry.length === 0) continue;
+    if (!ids.includes(entry)) ids.push(entry);
+  }
+
+  return ids;
+}
+
+export function isAssigned(task: Task, personId: string): boolean {
+  return (task.assignedIds ?? []).includes(personId);
+}
+
+export function withAssignee(task: Task, personId: string): Task {
+  return isAssigned(task, personId)
+    ? task
+    : { ...task, assignedIds: [...(task.assignedIds ?? []), personId] };
+}
+
+export function withoutAssignee(task: Task, personId: string): Task {
+  return isAssigned(task, personId)
+    ? {
+        ...task,
+        assignedIds: (task.assignedIds ?? []).filter(id => id !== personId),
+      }
+    : task;
+}
+
 function sanitizeTimestamp(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -193,6 +231,7 @@ export function sanitizeTasks(value: unknown): Task[] {
         typeof candidate.completedBy === 'string'
           ? candidate.completedBy
           : null,
+      assignedIds: sanitizeAssignedIds(candidate.assignedIds),
       // Absent on everything written before subtasks existed, which is not a
       // reason to drop the task: it simply has no steps.
       subtasks: sanitizeSubtasks(candidate.subtasks),
