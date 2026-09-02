@@ -3,7 +3,19 @@
 
 Single source of truth: assets/brand/aluza-symbol-primary.svg and
 assets/brand/aluza-logo-primary.svg. The symbol is never redrawn, stretched or
-recoloured here; it is only scaled uniformly and padded.
+recoloured here; it is only smoothed out of its tracing grid, scaled uniformly
+and padded.
+
+Why the smoothing stage exists: the kit SVGs were auto-traced from raster
+artwork, so every contour is a polygon whose vertices sit on a 4 unit grid of
+the 872 unit drawing. That staircase is geometry, not rasterisation, and it is
+what shows up as a jagged edge on the launcher icon and on the splash. The
+`smooth` stage removes the staircase and nothing else: the resulting curve is
+asserted to stay within `MAX_DEVIATION` units of the traced polygon, to keep
+its area within `MAX_AREA_DRIFT`, and to keep the exact kit proportion.
+
+No raster is ever an input here, and no bitmap is ever rescaled: every PNG is
+rasterised from the vector geometry at its exact target size.
 
 Outputs:
   src/app/components/AluzaArtwork.generated.ts   paths, view boxes, lengths
@@ -21,6 +33,7 @@ import math
 import os
 import re
 import struct
+import subprocess
 import zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -47,8 +60,32 @@ ADAPTIVE_SIZE = 46.0
 ADAPTIVE_CANVAS = 108.0
 LAUNCH_CANVAS = 96.0
 
+# --- Smoothing budget, in units of the kit drawing (~872 units wide) --------
+# The trace grid is 4 units, so a step deviates about 2 units from the line it
+# approximates. Anything past 4 units would be a redrawing, not a cleanup.
+# 1.8 is the coarsest simplification that still keeps every contour inside the
+# deviation budget below; anything looser starts cutting real detail out of the
+# thin sun strokes.
+RDP_EPSILON = 1.8
+CORNER_DEGREES = 40.0
+PERP_LIMIT = 2.0
+MAX_DEVIATION = 4.0
+MAX_AREA_DRIFT = 0.01
+MAX_RATIO_DRIFT = 0.005
+
+
+# ---------------------------------------------------------------------------
+# Geometry model
+#
+# A subpath is (start_point, [segment...]) where a segment is either
+#   ('L', end) or ('C', control1, control2, end)
+# and the subpath is always closed back onto its start point.
+# ---------------------------------------------------------------------------
+
 
 def read_paths(name: str) -> list[tuple[str, str]]:
+    if not name.endswith('.svg'):
+        raise SystemExit(f'{name} is not a vector source')
     source = open(os.path.join(ROOT, 'assets/brand', name), encoding='utf8').read()
     found = re.findall(r'<path d="([^"]+)"[^>]*fill="([^"]+)"', source)
     if not found:
@@ -56,49 +93,72 @@ def read_paths(name: str) -> list[tuple[str, str]]:
     return [(d.strip(), fill.upper()) for d, fill in found]
 
 
-def subpaths(d: str) -> list[str]:
-    return ['M' + part.strip() for part in d.split('M') if part.strip()]
+def polygons_of(d: str) -> list[list[tuple[float, float]]]:
+    """The kit paths are traced polygons: M/L/Z only, absolute."""
+    if re.search(r'[cCqQsStTaAhHvVmlz]', d.replace('M', '').replace('L', '').replace('Z', '')):
+        raise SystemExit('kit path uses commands this generator does not model')
+    out: list[list[tuple[float, float]]] = []
+    for part in d.split('M'):
+        part = part.strip()
+        if not part:
+            continue
+        numbers = [float(value) for value in re.findall(r'-?\d+(?:\.\d+)?', part)]
+        points = list(zip(numbers[0::2], numbers[1::2]))
+        while len(points) > 1 and points[0] == points[-1]:
+            points.pop()
+        if len(points) >= 3:
+            out.append(points)
+    return out
 
 
-def points_of(sub: str) -> list[tuple[float, float]]:
-    numbers = [float(value) for value in re.findall(r'-?\d+(?:\.\d+)?', sub)]
-    return list(zip(numbers[0::2], numbers[1::2]))
+def subpath_points(sub) -> list[tuple[float, float]]:
+    """Every point of a subpath, control points included."""
+    start, segments = sub
+    points = [start]
+    for segment in segments:
+        points.extend(segment[1:])
+    return points
 
 
-def bbox(subs: list[str]) -> tuple[float, float, float, float]:
+def bbox(subs) -> tuple[float, float, float, float]:
     xs: list[float] = []
     ys: list[float] = []
     for sub in subs:
-        for x, y in points_of(sub):
+        for x, y in flatten_subpath(sub, 0.05):
             xs.append(x)
             ys.append(y)
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def outline_length(subs: list[str]) -> float:
-    total = 0.0
-    for sub in subs:
-        pts = points_of(sub)
-        for index in range(len(pts)):
-            ax, ay = pts[index]
-            bx, by = pts[(index + 1) % len(pts)]
-            total += math.hypot(bx - ax, by - ay)
-    return total
+def transform(subs, scale: float, dx: float, dy: float):
+    def move(point):
+        return (point[0] * scale + dx, point[1] * scale + dy)
+
+    out = []
+    for start, segments in subs:
+        out.append((move(start), [(seg[0],) + tuple(move(p) for p in seg[1:])
+                                  for seg in segments]))
+    return out
 
 
-def transform(subs: list[str], scale: float, dx: float, dy: float) -> str:
-    out: list[str] = []
-    for sub in subs:
-        pts = points_of(sub)
-        parts = [f'M{pts[0][0] * scale + dx:.2f},{pts[0][1] * scale + dy:.2f}']
-        for x, y in pts[1:]:
-            parts.append(f'L{x * scale + dx:.2f},{y * scale + dy:.2f}')
-        parts.append('Z')
-        out.append(' '.join(parts))
-    return ' '.join(out)
+def path_data(subs) -> str:
+    parts: list[str] = []
+    for start, segments in subs:
+        chunk = [f'M{start[0]:.2f},{start[1]:.2f}']
+        for segment in segments:
+            if segment[0] == 'L':
+                chunk.append(f'L{segment[1][0]:.2f},{segment[1][1]:.2f}')
+            else:
+                (c1x, c1y), (c2x, c2y), (ex, ey) = segment[1:]
+                chunk.append(
+                    f'C{c1x:.2f},{c1y:.2f} {c2x:.2f},{c2y:.2f} {ex:.2f},{ey:.2f}'
+                )
+        chunk.append('Z')
+        parts.append(' '.join(chunk))
+    return ' '.join(parts)
 
 
-def normalise(subs: list[str], box, size: float, share: float) -> str:
+def normalise(subs, box, size: float, share: float):
     """Uniform scale into `size`, keeping the kit proportion, then centre."""
     min_x, min_y, max_x, max_y = box
     width = max_x - min_x
@@ -109,74 +169,392 @@ def normalise(subs: list[str], box, size: float, share: float) -> str:
     return transform(subs, scale, dx, dy)
 
 
-# --------------------------------------------------------------------------
-# Rasteriser: even-odd polygon fill, 4x supersampled, written as PNG.
-# --------------------------------------------------------------------------
-
-SAMPLES = 4
+# ---------------------------------------------------------------------------
+# Curve maths
+# ---------------------------------------------------------------------------
 
 
-def rasterise(polygons, size, background, circle_mask):
-    big = size * SAMPLES
-    canvas = [[background[0], background[1], background[2], background[3] if len(background) > 3 else 255]
-              for _ in range(big * big)]
-    if circle_mask:
-        radius = big / 2
-        for y in range(big):
-            for x in range(big):
-                if math.hypot(x + 0.5 - radius, y + 0.5 - radius) > radius:
-                    canvas[y * big + x] = [0, 0, 0, 0]
+def cubic_at(p0, c1, c2, p3, t: float) -> tuple[float, float]:
+    u = 1 - t
+    a, b, c, d = u * u * u, 3 * u * u * t, 3 * u * t * t, t * t * t
+    return (a * p0[0] + b * c1[0] + c * c2[0] + d * p3[0],
+            a * p0[1] + b * c1[1] + c * c2[1] + d * p3[1])
 
-    for subs, colour in polygons:
-        rgb = (int(colour[1:3], 16), int(colour[3:5], 16), int(colour[5:7], 16))
-        edges = []
-        for sub in subs:
-            pts = points_of(sub)
-            for index in range(len(pts)):
-                ax, ay = pts[index]
-                bx, by = pts[(index + 1) % len(pts)]
-                if ay != by:
-                    edges.append((ax * SAMPLES, ay * SAMPLES, bx * SAMPLES, by * SAMPLES))
-        for y in range(big):
-            sample_y = y + 0.5
-            crossings = []
-            for ax, ay, bx, by in edges:
-                if (ay <= sample_y < by) or (by <= sample_y < ay):
-                    crossings.append(ax + (sample_y - ay) * (bx - ax) / (by - ay))
-            if not crossings:
+
+def cubic_steps(p0, c1, c2, p3, tolerance: float) -> int:
+    hull = (math.dist(p0, c1) + math.dist(c1, c2) + math.dist(c2, p3))
+    if hull <= 0:
+        return 1
+    return max(2, min(64, int(math.ceil(math.sqrt(hull / max(tolerance, 1e-6))))))
+
+
+def flatten_subpath(sub, tolerance: float) -> list[tuple[float, float]]:
+    start, segments = sub
+    points = [start]
+    current = start
+    for segment in segments:
+        if segment[0] == 'L':
+            points.append(segment[1])
+            current = segment[1]
+        else:
+            c1, c2, end = segment[1:]
+            steps = cubic_steps(current, c1, c2, end, tolerance)
+            for index in range(1, steps + 1):
+                points.append(cubic_at(current, c1, c2, end, index / steps))
+            current = end
+    while len(points) > 1 and points[0] == points[-1]:
+        points.pop()
+    return points
+
+
+def polygon_area(points: list[tuple[float, float]]) -> float:
+    total = 0.0
+    for index in range(len(points)):
+        ax, ay = points[index]
+        bx, by = points[(index + 1) % len(points)]
+        total += ax * by - bx * ay
+    return abs(total) / 2
+
+
+def polygon_length(points: list[tuple[float, float]]) -> float:
+    total = 0.0
+    for index in range(len(points)):
+        total += math.dist(points[index], points[(index + 1) % len(points)])
+    return total
+
+
+def point_to_segment(point, a, b) -> float:
+    ax, ay = a
+    bx, by = b
+    dx, dy = bx - ax, by - ay
+    span = dx * dx + dy * dy
+    if span == 0:
+        return math.dist(point, a)
+    t = max(0.0, min(1.0, ((point[0] - ax) * dx + (point[1] - ay) * dy) / span))
+    return math.dist(point, (ax + t * dx, ay + t * dy))
+
+
+def max_gap(points, reference) -> float:
+    """Worst distance from every point to the reference closed polyline.
+
+    Both inputs are dense, so a nearest-vertex search plus its two neighbouring
+    segments is exact enough for a tolerance check of a few units.
+    """
+    worst = 0.0
+    count = len(reference)
+    for point in points:
+        nearest = min(range(count), key=lambda i: math.dist(point, reference[i]))
+        best = min(
+            point_to_segment(point, reference[(nearest - 1) % count], reference[nearest]),
+            point_to_segment(point, reference[nearest], reference[(nearest + 1) % count]),
+        )
+        worst = max(worst, best)
+    return worst
+
+
+# ---------------------------------------------------------------------------
+# Smoothing: take the tracing staircase out, keep the drawing
+# ---------------------------------------------------------------------------
+
+
+def rdp(points: list[tuple[float, float]], epsilon: float) -> list[tuple[float, float]]:
+    if len(points) < 3:
+        return list(points)
+    keep = [False] * len(points)
+    keep[0] = keep[-1] = True
+    stack = [(0, len(points) - 1)]
+    while stack:
+        first, last = stack.pop()
+        worst = 0.0
+        index = -1
+        for i in range(first + 1, last):
+            distance = point_to_segment(points[i], points[first], points[last])
+            if distance > worst:
+                worst = distance
+                index = i
+        if index != -1 and worst > epsilon:
+            keep[index] = True
+            stack.append((first, index))
+            stack.append((index, last))
+    return [point for point, kept in zip(points, keep) if kept]
+
+
+def simplify_closed(points, epsilon: float) -> list[tuple[float, float]]:
+    """RDP on a closed ring, anchored on its farthest point from the centre so
+    the result does not depend on where the trace happened to start."""
+    cx = sum(x for x, _ in points) / len(points)
+    cy = sum(y for _, y in points) / len(points)
+    anchor = max(range(len(points)), key=lambda i: math.dist(points[i], (cx, cy)))
+    rotated = points[anchor:] + points[:anchor]
+    reduced = rdp(rotated + [rotated[0]], epsilon)
+    while len(reduced) > 1 and reduced[0] == reduced[-1]:
+        reduced.pop()
+    return reduced
+
+
+def is_corner(previous, point, following, threshold_cos: float) -> bool:
+    ax, ay = point[0] - previous[0], point[1] - previous[1]
+    bx, by = following[0] - point[0], following[1] - point[1]
+    la = math.hypot(ax, ay)
+    lb = math.hypot(bx, by)
+    if la == 0 or lb == 0:
+        return True
+    # `cosine` compares the two directions: 1 means the outline keeps going
+    # straight, and it falls as the outline turns.
+    cosine = (ax * bx + ay * by) / (la * lb)
+    return cosine < threshold_cos
+
+
+def smooth_polygon(points: list[tuple[float, float]]):
+    """A traced ring becomes a curve: corners stay corners, the staircase in
+    between becomes one Catmull-Rom span per edge."""
+    ring = simplify_closed(points, RDP_EPSILON)
+    count = len(ring)
+    if count < 3:
+        return (ring[0], [('L', ring[i]) for i in range(1, count)])
+
+    threshold_cos = math.cos(math.radians(CORNER_DEGREES))
+    corner = [
+        is_corner(ring[(i - 1) % count], ring[i], ring[(i + 1) % count], threshold_cos)
+        for i in range(count)
+    ]
+
+    segments = []
+    for i in range(count):
+        p0 = ring[(i - 1) % count]
+        p1 = ring[i]
+        p2 = ring[(i + 1) % count]
+        p3 = ring[(i + 2) % count]
+        if corner[i] and corner[(i + 1) % count]:
+            segments.append(('L', p2))
+            continue
+        span = math.dist(p1, p2)
+        if corner[i]:
+            t1 = (0.0, 0.0)
+        else:
+            t1 = ((p2[0] - p0[0]) / 6, (p2[1] - p0[1]) / 6)
+        if corner[(i + 1) % count]:
+            t2 = (0.0, 0.0)
+        else:
+            t2 = ((p3[0] - p1[0]) / 6, (p3[1] - p1[1]) / 6)
+        # Handles are kept short, and their sideways part shorter still: that
+        # is what keeps the curve inside the traced silhouette instead of
+        # bowing a long edge out of it.
+        limit = span / 3 if span > 0 else 0.0
+        chord = ((p2[0] - p1[0]) / span, (p2[1] - p1[1]) / span) if span else (0.0, 0.0)
+        t1 = clamp_handle(flatten_handle(t1, chord), limit)
+        t2 = clamp_handle(flatten_handle(t2, chord), limit)
+        c1 = (p1[0] + t1[0], p1[1] + t1[1])
+        c2 = (p2[0] - t2[0], p2[1] - t2[1])
+        segments.append(('C', c1, c2, p2))
+    return (ring[0], segments)
+
+
+def flatten_handle(handle, chord):
+    """Keep the handle's sideways reach inside `PERP_LIMIT`: a cubic sits at
+    most three quarters of that away from its chord, so the curve can never
+    wander off the traced edge."""
+    if chord == (0.0, 0.0):
+        return handle
+    along = handle[0] * chord[0] + handle[1] * chord[1]
+    px = handle[0] - along * chord[0]
+    py = handle[1] - along * chord[1]
+    length = math.hypot(px, py)
+    if length > PERP_LIMIT:
+        factor = PERP_LIMIT / length
+        px, py = px * factor, py * factor
+    return (along * chord[0] + px, along * chord[1] + py)
+
+
+def clamp_handle(handle, limit: float):
+    length = math.hypot(handle[0], handle[1])
+    if length <= limit or length == 0:
+        return handle
+    factor = limit / length
+    return (handle[0] * factor, handle[1] * factor)
+
+
+def tighten(sub, traced):
+    """Any single curve that strays off the traced outline goes back to being
+    a straight edge. Smoothing is allowed to remove the tracing grid, never to
+    invent a shape the kit does not have."""
+    start, segments = sub
+    current = start
+    fixed = []
+    for segment in segments:
+        if segment[0] == 'L':
+            fixed.append(segment)
+            current = segment[1]
+            continue
+        c1, c2, end = segment[1:]
+        samples = [cubic_at(current, c1, c2, end, index / 8) for index in range(1, 8)]
+        if max_gap(samples, traced) > MAX_DEVIATION:
+            fixed.append(('L', end))
+        else:
+            fixed.append(segment)
+        current = end
+    return (start, fixed)
+
+
+def smooth(polygons, label: str):
+    """Smooth every ring of a path and assert the drawing survived."""
+    subs = []
+    worst_deviation = 0.0
+    traced_area = 0.0
+    smooth_area = 0.0
+    for points in polygons:
+        sub = tighten(smooth_polygon(points), points)
+        dense = flatten_subpath(sub, 0.05)
+        deviation = max(max_gap(dense, points), max_gap(points, dense))
+        worst_deviation = max(worst_deviation, deviation)
+        traced_area += polygon_area(points)
+        smooth_area += polygon_area(dense)
+        subs.append(sub)
+
+    if worst_deviation > MAX_DEVIATION:
+        raise SystemExit(
+            f'{label}: smoothing moved the outline {worst_deviation:.2f} units, '
+            f'past the {MAX_DEVIATION} unit budget'
+        )
+    drift = abs(smooth_area - traced_area) / traced_area
+    if drift > MAX_AREA_DRIFT:
+        raise SystemExit(
+            f'{label}: smoothing changed the filled area by {drift * 100:.2f}%, '
+            f'past {MAX_AREA_DRIFT * 100:.0f}%'
+        )
+    print(f'{label}: {len(subs)} contours, deviation {worst_deviation:.2f} units, '
+          f'area drift {drift * 100:.2f}%')
+    return subs, worst_deviation
+
+
+# ---------------------------------------------------------------------------
+# Rasteriser: scanline with an active edge table, 16 sub-scanlines per pixel
+# and exact fractional horizontal coverage. Nothing is ever resampled from a
+# bitmap: the geometry is rasterised straight at the target size.
+# ---------------------------------------------------------------------------
+
+SUB_ROWS = 16
+FLATTEN_TOLERANCE = 0.25
+
+
+def coverage_of(subs, size: int) -> list[float]:
+    """Even-odd coverage of a path, one float per pixel, 0..1."""
+    edges_by_row: dict[int, list[tuple[float, float, float, float]]] = {}
+    for sub in subs:
+        points = flatten_subpath(sub, FLATTEN_TOLERANCE)
+        count = len(points)
+        for index in range(count):
+            ax, ay = points[index]
+            bx, by = points[(index + 1) % count]
+            if ay == by:
                 continue
-            crossings.sort()
-            for index in range(0, len(crossings) - 1, 2):
-                start = max(0, int(math.ceil(crossings[index] - 0.5)))
-                end = min(big - 1, int(math.floor(crossings[index + 1] - 0.5)))
-                row = y * big
-                for x in range(start, end + 1):
-                    pixel = canvas[row + x]
-                    pixel[0], pixel[1], pixel[2], pixel[3] = rgb[0], rgb[1], rgb[2], 255
+            top = min(ay, by)
+            bottom = max(ay, by)
+            first = max(0, int(math.floor(top * SUB_ROWS)))
+            last = min(size * SUB_ROWS - 1, int(math.ceil(bottom * SUB_ROWS)))
+            for row in range(first, last + 1):
+                edges_by_row.setdefault(row, []).append((ax, ay, bx, by))
+
+    coverage = [0.0] * (size * size)
+    share = 1.0 / SUB_ROWS
+    for row, edges in edges_by_row.items():
+        sample_y = (row + 0.5) / SUB_ROWS
+        crossings = []
+        for ax, ay, bx, by in edges:
+            if (ay <= sample_y < by) or (by <= sample_y < ay):
+                crossings.append(ax + (sample_y - ay) * (bx - ax) / (by - ay))
+        if len(crossings) < 2:
+            continue
+        crossings.sort()
+        base = (row // SUB_ROWS) * size
+        for index in range(0, len(crossings) - 1, 2):
+            add_span(coverage, base, size, crossings[index],
+                     crossings[index + 1], share)
+    return [min(1.0, value) for value in coverage]
+
+
+def add_span(coverage, base: int, size: int, x0: float, x1: float, share: float) -> None:
+    x0 = max(0.0, x0)
+    x1 = min(float(size), x1)
+    if x1 <= x0:
+        return
+    first = int(math.floor(x0))
+    last = int(math.ceil(x1)) - 1
+    for x in range(first, min(last, size - 1) + 1):
+        left = max(x0, float(x))
+        right = min(x1, float(x + 1))
+        if right > left:
+            coverage[base + x] += (right - left) * share
+
+
+def circle_coverage(size: int) -> list[float]:
+    coverage = [0.0] * (size * size)
+    share = 1.0 / SUB_ROWS
+    radius = size / 2
+    for row in range(size * SUB_ROWS):
+        sample_y = (row + 0.5) / SUB_ROWS
+        dy = sample_y - radius
+        if abs(dy) >= radius:
+            continue
+        half = math.sqrt(radius * radius - dy * dy)
+        base = (row // SUB_ROWS) * size
+        add_span(coverage, base, size, radius - half, radius + half, share)
+    return [min(1.0, value) for value in coverage]
+
+
+def rasterise(layers, size: int, background, circle_mask: bool) -> bytes:
+    """`layers` is [(subpaths, '#RRGGBB')], painted in order."""
+    mask = circle_coverage(size) if circle_mask else None
+    base_rgb = background[:3]
+    base_alpha = [1.0] * (size * size) if mask is None else mask
+
+    red = [base_rgb[0] / 255 * a for a in base_alpha]
+    green = [base_rgb[1] / 255 * a for a in base_alpha]
+    blue = [base_rgb[2] / 255 * a for a in base_alpha]
+    alpha = list(base_alpha)
+
+    for subs, colour in layers:
+        rgb = (int(colour[1:3], 16) / 255, int(colour[3:5], 16) / 255,
+               int(colour[5:7], 16) / 255)
+        cover = coverage_of(subs, size)
+        for index, a in enumerate(cover):
+            if a <= 0:
+                continue
+            if mask is not None:
+                a *= mask[index]
+                if a <= 0:
+                    continue
+            keep = 1 - a
+            red[index] = rgb[0] * a + red[index] * keep
+            green[index] = rgb[1] * a + green[index] * keep
+            blue[index] = rgb[2] * a + blue[index] * keep
+            alpha[index] = a + alpha[index] * keep
 
     out = bytearray()
-    factor = SAMPLES * SAMPLES
     for y in range(size):
         out.append(0)
+        row = y * size
         for x in range(size):
-            r = g = b = a = 0
-            for sy in range(SAMPLES):
-                row = (y * SAMPLES + sy) * big + x * SAMPLES
-                for sx in range(SAMPLES):
-                    pixel = canvas[row + sx]
-                    alpha = pixel[3]
-                    r += pixel[0] * alpha
-                    g += pixel[1] * alpha
-                    b += pixel[2] * alpha
-                    a += alpha
-            if a == 0:
+            index = row + x
+            a = alpha[index]
+            if a <= 0:
                 out += bytes((0, 0, 0, 0))
-            else:
-                out += bytes((round(r / a), round(g / a), round(b / a), round(a / factor)))
+                continue
+            out += bytes((
+                round(min(1.0, red[index] / a) * 255),
+                round(min(1.0, green[index] / a) * 255),
+                round(min(1.0, blue[index] / a) * 255),
+                round(a * 255),
+            ))
     return bytes(out)
 
 
 def write_png(path: str, size: int, raw: bytes) -> None:
+    expected = size * (size * 4 + 1)
+    if len(raw) != expected:
+        raise SystemExit(f'{path}: {len(raw)} bytes for a {size}x{size} image, '
+                         f'expected {expected}')
+
     def chunk(tag: bytes, payload: bytes) -> bytes:
         return (struct.pack('>I', len(payload)) + tag + payload
                 + struct.pack('>I', zlib.crc32(tag + payload) & 0xFFFFFFFF))
@@ -186,6 +564,11 @@ def write_png(path: str, size: int, raw: bytes) -> None:
             + chunk(b'IDAT', zlib.compress(raw, 9)) + chunk(b'IEND', b''))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     open(path, 'wb').write(data)
+
+    written = open(path, 'rb').read(24)
+    width, height = struct.unpack('>II', written[16:24])
+    if (width, height) != (size, size):
+        raise SystemExit(f'{path}: wrote {width}x{height}, expected {size}x{size}')
 
 
 def vector(canvas: float, dp: float, entries) -> str:
@@ -209,20 +592,48 @@ def vector(canvas: float, dp: float, entries) -> str:
     )
 
 
+def squared(box):
+    """The kit symbol is drawn square. Padding the tight box back to a square
+    keeps it that way at every size: blank is added, the drawing is not."""
+    min_x, min_y, max_x, max_y = box
+    width = max_x - min_x
+    height = max_y - min_y
+    side = max(width, height)
+    return (min_x - (side - width) / 2, min_y - (side - height) / 2,
+            min_x - (side - width) / 2 + side, min_y - (side - height) / 2 + side)
+
+
+def ratio_of(box) -> float:
+    return (box[2] - box[0]) / (box[3] - box[1])
+
+
 def main() -> None:
     symbol = read_paths('aluza-symbol-primary.svg')
     logo = read_paths('aluza-logo-primary.svg')
 
-    symbol_ink = subpaths(next(d for d, fill in symbol if fill == DARK))
-    symbol_sun = subpaths(next(d for d, fill in symbol if fill == YELLOW))
-    logo_ink = subpaths(next(d for d, fill in logo if fill == DARK))
+    traced_ink = polygons_of(next(d for d, fill in symbol if fill == DARK))
+    traced_sun = polygons_of(next(d for d, fill in symbol if fill == YELLOW))
+    traced_logo_ink = polygons_of(next(d for d, fill in logo if fill == DARK))
 
-    known = set(symbol_ink)
-    wordmark = [sub for sub in logo_ink if sub not in known]
-    if len(wordmark) != len(logo_ink) - len(symbol_ink):
+    known = {tuple(ring) for ring in traced_ink}
+    traced_wordmark = [ring for ring in traced_logo_ink if tuple(ring) not in known]
+    if len(traced_wordmark) != len(traced_logo_ink) - len(traced_ink):
         raise SystemExit('the logo no longer contains the symbol verbatim')
 
-    symbol_box = bbox(symbol_ink + symbol_sun)
+    symbol_ink, _ = smooth(traced_ink, 'symbol ink')
+    symbol_sun, _ = smooth(traced_sun, 'symbol sun')
+    wordmark, _ = smooth(traced_wordmark, 'wordmark')
+
+    symbol_box = squared(bbox(symbol_ink + symbol_sun))
+    traced_box = bbox([(ring[0], [('L', point) for point in ring[1:]])
+                       for ring in traced_ink + traced_sun])
+    ratio_drift = abs(ratio_of(symbol_box) - ratio_of(traced_box)) / ratio_of(traced_box)
+    if ratio_drift > MAX_RATIO_DRIFT:
+        raise SystemExit(f'symbol proportion moved {ratio_drift * 100:.2f}%, '
+                         f'past {MAX_RATIO_DRIFT * 100:.1f}%')
+    print(f'symbol ratio {ratio_of(symbol_box):.4f} vs kit {ratio_of(traced_box):.4f} '
+          f'({ratio_drift * 100:.2f}% drift)')
+
     wordmark_box = bbox(wordmark)
     sun_box = bbox(symbol_sun)
 
@@ -232,7 +643,28 @@ def main() -> None:
     symbol_ink_view = transform(symbol_ink, 1, -sx, -sy)
     symbol_sun_view = transform(symbol_sun, 1, -sx, -sy)
     wordmark_view = transform(wordmark, 1, -wx, -wy)
-    length = outline_length(symbol_ink)
+    length = sum(polygon_length(flatten_subpath(sub, 0.05)) for sub in symbol_ink_view)
+
+    # The splash lights the sun up one stroke at a time, clockwise from the
+    # highest one, so the order is decided here and never in the component.
+    centre_x = (ex - sx) / 2
+    centre_y = (ey - sy) / 2
+
+    def sun_order(sub) -> float:
+        box = bbox([sub])
+        cx = (box[0] + box[2]) / 2
+        cy = (box[1] + box[3]) / 2
+        return math.atan2(cx - centre_x, centre_y - cy) % (2 * math.pi)
+
+    sun_strokes = sorted(symbol_sun_view, key=sun_order)
+    sun_centres = []
+    for sub in sun_strokes:
+        box = bbox([sub])
+        sun_centres.append(((box[0] + box[2]) / 2, (box[1] + box[3]) / 2))
+
+    stroke_paths = ',\n'.join(f"  '{path_data([sub])}'" for sub in sun_strokes)
+    stroke_centres = ',\n'.join(f'  {{ x: {cx:.2f}, y: {cy:.2f} }}'
+                                for cx, cy in sun_centres)
 
     artwork = f'''// Generated by scripts/generate-aluza-brand.py. Do not edit.
 // Source: assets/brand/aluza-symbol-primary.svg, assets/brand/aluza-logo-primary.svg
@@ -251,7 +683,7 @@ export const ALUZA_SYMBOL_SIZE = {{
   height: {ey - sy:g},
 }} as const;
 
-/** Length of the symbol contour, for the stroke-dash draw on the splash. */
+/** Length of the symbol contour. */
 export const ALUZA_SYMBOL_OUTLINE_LENGTH = {length:.0f};
 
 /** Centre of the yellow detail inside the symbol view box. */
@@ -261,32 +693,50 @@ export const ALUZA_SUN_CENTER = {{
 }} as const;
 
 export const ALUZA_SYMBOL_INK_PATH =
-  '{symbol_ink_view}';
+  '{path_data(symbol_ink_view)}';
 
 export const ALUZA_SYMBOL_SUN_PATH =
-  '{symbol_sun_view}';
+  '{path_data(symbol_sun_view)}';
+
+/** The sun, stroke by stroke, ordered clockwise from the highest one: the
+ * splash lights them in this order. */
+export const ALUZA_SYMBOL_SUN_PATHS = [
+{stroke_paths},
+] as const;
+
+/** Centre of each stroke above, so it can scale from its own middle. */
+export const ALUZA_SUN_CENTERS = [
+{stroke_centres},
+] as const;
 
 export const ALUZA_WORDMARK_VIEWBOX = '0 0 {wex - wx:.2f} {wey - wy:.2f}';
 export const ALUZA_WORDMARK_RATIO = {(wex - wx) / (wey - wy):.4f};
 
 export const ALUZA_WORDMARK_PATH =
-  '{wordmark_view}';
+  '{path_data(wordmark_view)}';
 '''
-    open(os.path.join(ROOT, 'src/app/components/AluzaArtwork.generated.ts'), 'w',
-         encoding='utf8').write(artwork)
+    generated_ts = os.path.join(ROOT, 'src/app/components/AluzaArtwork.generated.ts')
+    open(generated_ts, 'w', encoding='utf8').write(artwork)
+    # The repository checks formatting, and this file is part of it.
+    try:
+        subprocess.run(['npx', 'prettier', '--write', generated_ts], cwd=ROOT,
+                       check=True, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.CalledProcessError):
+        print('prettier not available: format AluzaArtwork.generated.ts by hand')
 
     # --- Android vectors -------------------------------------------------
     drawable = os.path.join(ROOT, 'android/app/src/main/res/drawable')
     adaptive_share = ADAPTIVE_SIZE / ADAPTIVE_CANVAS
     open(os.path.join(drawable, 'ic_launcher_foreground.xml'), 'w', encoding='utf8').write(
         vector(ADAPTIVE_CANVAS, ADAPTIVE_CANVAS, [
-            (normalise(symbol_ink, symbol_box, ADAPTIVE_CANVAS, adaptive_share), DARK),
-            (normalise(symbol_sun, symbol_box, ADAPTIVE_CANVAS, adaptive_share), YELLOW),
+            (path_data(normalise(symbol_ink, symbol_box, ADAPTIVE_CANVAS, adaptive_share)), DARK),
+            (path_data(normalise(symbol_sun, symbol_box, ADAPTIVE_CANVAS, adaptive_share)), YELLOW),
         ]))
     open(os.path.join(drawable, 'ic_launcher_monochrome.xml'), 'w', encoding='utf8').write(
         vector(ADAPTIVE_CANVAS, ADAPTIVE_CANVAS, [
-            (normalise(symbol_ink, symbol_box, ADAPTIVE_CANVAS, adaptive_share), DARK),
-            (normalise(symbol_sun, symbol_box, ADAPTIVE_CANVAS, adaptive_share), DARK),
+            (path_data(normalise(symbol_ink, symbol_box, ADAPTIVE_CANVAS, adaptive_share)), DARK),
+            (path_data(normalise(symbol_sun, symbol_box, ADAPTIVE_CANVAS, adaptive_share)), DARK),
         ]))
     # The launch window and the Android 12+ splash, in both appearances: on the
     # dark background the symbol is drawn in white, never in ink on ink.
@@ -295,35 +745,34 @@ export const ALUZA_WORDMARK_PATH =
     for folder, ink in ((drawable, DARK), (drawable_night, WHITE)):
         open(os.path.join(folder, 'launch_mark.xml'), 'w', encoding='utf8').write(
             vector(LAUNCH_CANVAS, LAUNCH_CANVAS, [
-                (normalise(symbol_ink, symbol_box, LAUNCH_CANVAS, 0.86), ink),
-                (normalise(symbol_sun, symbol_box, LAUNCH_CANVAS, 0.86), YELLOW),
+                (path_data(normalise(symbol_ink, symbol_box, LAUNCH_CANVAS, 0.86)), ink),
+                (path_data(normalise(symbol_sun, symbol_box, LAUNCH_CANVAS, 0.86)), YELLOW),
             ]))
         # Android 12+ masks the splash icon to a circle and only the inner two
         # thirds are safe, so the symbol sits smaller inside the canvas.
         open(os.path.join(folder, 'splash_icon.xml'), 'w', encoding='utf8').write(
             vector(ADAPTIVE_CANVAS, ADAPTIVE_CANVAS, [
-                (normalise(symbol_ink, symbol_box, ADAPTIVE_CANVAS, 0.52), ink),
-                (normalise(symbol_sun, symbol_box, ADAPTIVE_CANVAS, 0.52), YELLOW),
+                (path_data(normalise(symbol_ink, symbol_box, ADAPTIVE_CANVAS, 0.52)), ink),
+                (path_data(normalise(symbol_sun, symbol_box, ADAPTIVE_CANVAS, 0.52)), YELLOW),
             ]))
 
     # --- Legacy mipmaps ---------------------------------------------------
-    cream = (int(CREAM[1:3], 16), int(CREAM[3:5], 16), int(CREAM[5:7], 16), 255)
+    cream = (int(CREAM[1:3], 16), int(CREAM[3:5], 16), int(CREAM[5:7], 16))
     for density, size in DENSITIES.items():
         folder = os.path.join(ROOT, 'android/app/src/main/res', f'mipmap-{density}')
         for filename, share, circle in (
             ('ic_launcher.png', LEGACY_SHARE, False),
             ('ic_launcher_round.png', ROUND_SHARE, True),
         ):
-            ink = [normalise(symbol_ink, symbol_box, float(size), share)]
-            sun = [normalise(symbol_sun, symbol_box, float(size), share)]
             raw = rasterise(
-                [(subpaths(ink[0]), DARK), (subpaths(sun[0]), YELLOW)],
+                [
+                    (normalise(symbol_ink, symbol_box, float(size), share), DARK),
+                    (normalise(symbol_sun, symbol_box, float(size), share), YELLOW),
+                ],
                 size, cream, circle,
             )
             write_png(os.path.join(folder, filename), size, raw)
-            print(f'{density}/{filename}')
-
-    print('symbol box', symbol_box, 'outline length', round(length))
+            print(f'{density}/{filename} {size}x{size}')
 
 
 if __name__ == '__main__':

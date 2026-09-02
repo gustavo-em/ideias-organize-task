@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, useWindowDimensions } from 'react-native';
 import Animated, {
-  Easing,
   cancelAnimation,
   runOnJS,
   useAnimatedProps,
@@ -14,7 +13,23 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg';
 import styled, { useTheme } from 'styled-components/native';
 
+import {
+  SPLASH_EXIT,
+  SPLASH_MARK,
+  SPLASH_SETTLE,
+  SPLASH_SETTLE_SCALE,
+  SPLASH_SUN,
+  SPLASH_SUN_DELAY_MS,
+  SPLASH_SUN_SCALE,
+  SPLASH_SUN_STAGGER_MS,
+  SPLASH_WORDMARK,
+  SPLASH_WORDMARK_DELAY_MS,
+} from '../animation/motion';
 import type { AppLanguage } from '../../features/tasks/presentation/localization/taskCopy';
+import {
+  ALUZA_SUN_CENTERS,
+  ALUZA_SYMBOL_SUN_PATHS,
+} from './AluzaArtwork.generated';
 import { MARK_COLORS, MARK_GEOMETRY, MARK_PATHS } from './AppMark';
 import { AppWordmark } from './AppWordmark';
 
@@ -26,23 +41,30 @@ interface AppSplashProps {
   onFinished: () => void;
 }
 
+/** Every stroke of the sun, with the delay that lights it. */
+const SUN_STROKES = ALUZA_SYMBOL_SUN_PATHS.map((d, index) => ({
+  d,
+  center: ALUZA_SUN_CENTERS[index],
+  delay: index * SPLASH_SUN_STAGGER_MS,
+}));
+
 export const SPLASH_TIMING = {
-  /** The symbol contour drawing itself. */
-  draw: 640,
-  /** The ink filling in behind the finished contour. */
-  fill: 240,
-  fillDelay: 460,
-  /** The yellow detail lighting up. */
-  spark: 260,
-  sparkDelay: 520,
-  /** The wordmark arriving under the symbol. */
-  wordmark: 200,
-  wordmarkDelay: 620,
+  /** The symbol arriving. */
+  mark: SPLASH_MARK.duration,
+  /** The symbol settling into its size, behind the arrival. */
+  settle: SPLASH_SETTLE.duration,
+  /** The first stroke of the sun, and the gap between the ones after it. */
+  sunDelay: SPLASH_SUN_DELAY_MS,
+  sun: SPLASH_SUN.duration,
+  sunStagger: SPLASH_SUN_STAGGER_MS,
+  /** The wordmark arriving under the symbol, once the sun is lit. */
+  wordmarkDelay: SPLASH_WORDMARK_DELAY_MS,
+  wordmark: SPLASH_WORDMARK.duration,
   /** Floor so the brand is legible even on a fast cold start. */
-  minVisible: 900,
-  fade: 140,
+  minVisible: 1250,
+  fade: SPLASH_EXIT.duration,
   /** Shorter exit for when the app was ready before the floor above. */
-  compact: 100,
+  compact: 120,
   reducedFade: 80,
   slowState: 1500,
 } as const;
@@ -52,11 +74,6 @@ const SLOW_COPY: Record<AppLanguage, string> = {
   'en-US': 'Opening Aluza…',
 };
 
-const OUTLINE_LENGTH = MARK_GEOMETRY.outlineLength;
-const SYMBOL_CANVAS = MARK_GEOMETRY.size.width;
-/** Contour weight in view-box units: thin enough not to thicken the mark. */
-const OUTLINE_WIDTH = Math.round(SYMBOL_CANVAS * 0.012);
-
 /** The single, post-native cold-start transition. */
 export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
   const theme = useTheme();
@@ -65,58 +82,37 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
   const isDark = theme.mode === 'dark';
   const paper = isDark ? MARK_COLORS.ink : MARK_COLORS.cream;
   const ink = isDark ? MARK_COLORS.white : MARK_COLORS.ink;
-  const draw = useSharedValue(reduceMotion ? 1 : 0);
-  const fill = useSharedValue(reduceMotion ? 1 : 0);
-  const spark = useSharedValue(reduceMotion ? 1 : 0);
+  const mark = useSharedValue(reduceMotion ? 1 : 0);
+  const settle = useSharedValue(reduceMotion ? 1 : 0);
   const wordmark = useSharedValue(reduceMotion ? 1 : 0);
   const cover = useSharedValue(1);
   const startedAt = useRef(Date.now());
   const exitStarted = useRef(false);
+  const exitTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showSlowState, setShowSlowState] = useState(false);
   const markSize = width >= 700 ? 112 : width < 330 ? 72 : 96;
 
   useEffect(() => {
     if (reduceMotion) {
-      draw.value = 1;
-      fill.value = 1;
-      spark.value = 1;
+      mark.value = 1;
+      settle.value = 1;
       wordmark.value = 1;
       return;
     }
 
-    draw.value = withTiming(1, {
-      duration: SPLASH_TIMING.draw,
-      easing: Easing.bezier(0.22, 1, 0.36, 1),
-    });
-    fill.value = withDelay(
-      SPLASH_TIMING.fillDelay,
-      withTiming(1, {
-        duration: SPLASH_TIMING.fill,
-        easing: Easing.out(Easing.quad),
-      }),
-    );
-    spark.value = withDelay(
-      SPLASH_TIMING.sparkDelay,
-      withTiming(1, {
-        duration: SPLASH_TIMING.spark,
-        easing: Easing.out(Easing.back(1.4)),
-      }),
-    );
+    mark.value = withTiming(1, SPLASH_MARK);
+    settle.value = withTiming(1, SPLASH_SETTLE);
     wordmark.value = withDelay(
       SPLASH_TIMING.wordmarkDelay,
-      withTiming(1, {
-        duration: SPLASH_TIMING.wordmark,
-        easing: Easing.out(Easing.quad),
-      }),
+      withTiming(1, SPLASH_WORDMARK),
     );
 
     return () => {
-      cancelAnimation(draw);
-      cancelAnimation(fill);
-      cancelAnimation(spark);
+      cancelAnimation(mark);
+      cancelAnimation(settle);
       cancelAnimation(wordmark);
     };
-  }, [draw, fill, reduceMotion, spark, wordmark]);
+  }, [mark, reduceMotion, settle, wordmark]);
 
   useEffect(() => {
     if (isReady) {
@@ -131,15 +127,20 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
     return () => clearTimeout(timeout);
   }, [isReady]);
 
+  // Kept in a ref so a re-render of the app above never restarts, and never
+  // cancels, the exit that is already on its way out.
+  const finish = useRef(onFinished);
+  finish.current = onFinished;
+
   useEffect(() => {
     if (!isReady || exitStarted.current) return;
 
     // The animation never delays the app: it runs while the app loads, and the
     // exit only waits for the floor that keeps the mark legible.
     const elapsed = Date.now() - startedAt.current;
-    const wait = reduceMotion
-      ? 0
-      : Math.max(0, SPLASH_TIMING.minVisible - elapsed);
+    // The floor holds for everyone: asking for less movement asks for a still
+    // mark, not for the brand to flash by.
+    const wait = Math.max(0, SPLASH_TIMING.minVisible - elapsed);
     // Ready before the floor: the opening already spent its budget waiting, so
     // the fade is compressed instead of paid in full.
     const readyAfterFloor = elapsed >= SPLASH_TIMING.minVisible;
@@ -151,39 +152,42 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
 
     exitStarted.current = true;
 
+    const done = () => finish.current();
     const timeout = setTimeout(() => {
       cover.value = withTiming(
         0,
-        {
-          duration: exitDuration,
-          easing: Easing.inOut(Easing.quad),
-        },
+        { duration: exitDuration, easing: SPLASH_EXIT.easing },
         finished => {
-          if (finished) runOnJS(onFinished)();
+          if (finished) runOnJS(done)();
         },
       );
     }, wait);
+    exitTimeout.current = timeout;
 
-    return () => clearTimeout(timeout);
-  }, [cover, isReady, onFinished, reduceMotion]);
+    // No cleanup clearing this timeout: once the exit is committed it has to
+    // land, or the cover would stay on screen forever.
+  }, [cover, isReady, reduceMotion]);
+
+  useEffect(
+    () => () => {
+      if (exitTimeout.current) clearTimeout(exitTimeout.current);
+    },
+    [],
+  );
 
   const coverStyle = useAnimatedStyle(() => ({ opacity: cover.value }));
+  const markStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: SPLASH_SETTLE_SCALE - (SPLASH_SETTLE_SCALE - 1) * settle.value,
+      },
+    ],
+  }));
   const wordmarkStyle = useAnimatedStyle(() => ({
     opacity: wordmark.value,
     transform: [{ translateY: reduceMotion ? 0 : (1 - wordmark.value) * 4 }],
   }));
-  const outlineProps = useAnimatedProps(() => ({
-    strokeDashoffset: OUTLINE_LENGTH * (1 - draw.value),
-  }));
-  const inkProps = useAnimatedProps(() => ({ fillOpacity: fill.value }));
-  const sparkProps = useAnimatedProps(() => {
-    const scale = 0.6 + spark.value * 0.4;
-    const { x, y } = MARK_GEOMETRY.sunCenter;
-    return {
-      opacity: spark.value,
-      transform: `translate(${x} ${y}) scale(${scale}) translate(${-x} ${-y})`,
-    };
-  });
+  const inkProps = useAnimatedProps(() => ({ fillOpacity: mark.value }));
   const busyLabel = useMemo(() => SLOW_COPY[language], [language]);
 
   return (
@@ -196,30 +200,30 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
       testID="app-splash"
     >
       <BrandGroup>
-        <Svg height={markSize} viewBox={MARK_GEOMETRY.viewBox} width={markSize}>
-          <AnimatedPath
-            animatedProps={inkProps}
-            d={MARK_PATHS.ink}
-            fill={ink}
-            fillRule="evenodd"
-          />
-          <AnimatedPath
-            animatedProps={outlineProps}
-            d={MARK_PATHS.ink}
-            fill="none"
-            stroke={ink}
-            strokeDasharray={OUTLINE_LENGTH}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={OUTLINE_WIDTH}
-          />
-          <AnimatedPath
-            animatedProps={sparkProps}
-            d={MARK_PATHS.sun}
-            fill={MARK_COLORS.sun}
-            fillRule="evenodd"
-          />
-        </Svg>
+        <MarkFrame $size={markSize} style={markStyle}>
+          <Svg
+            height={markSize}
+            viewBox={MARK_GEOMETRY.viewBox}
+            width={markSize}
+          >
+            <AnimatedPath
+              animatedProps={inkProps}
+              d={MARK_PATHS.ink}
+              fill={ink}
+              fillRule="evenodd"
+            />
+          </Svg>
+          {SUN_STROKES.map(stroke => (
+            <SunStroke
+              center={stroke.center}
+              d={stroke.d}
+              delay={stroke.delay}
+              key={stroke.d}
+              reduceMotion={reduceMotion}
+              size={markSize}
+            />
+          ))}
+        </MarkFrame>
 
         <WordmarkFrame style={wordmarkStyle}>
           <AppWordmark color={ink} height={26} />
@@ -241,6 +245,62 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
   );
 }
 
+interface SunStrokeProps {
+  center: { readonly x: number; readonly y: number };
+  d: string;
+  delay: number;
+  reduceMotion: boolean;
+  /** Side of the rendered symbol, in points. */
+  size: number;
+}
+
+/** One stroke of the sun, lighting up from its own centre.
+ *
+ * The stroke is drawn in its own layer over the symbol and scaled with a React
+ * Native transform rather than an SVG one: a transform on an SVG node is put
+ * together on the JS side, so the lighting could arrive as opacity only. */
+function SunStroke({ center, d, delay, reduceMotion, size }: SunStrokeProps) {
+  const light = useSharedValue(reduceMotion ? 1 : 0);
+  const canvas = MARK_GEOMETRY.size.width;
+  const offsetX = (center.x / canvas - 0.5) * size;
+  const offsetY = (center.y / canvas - 0.5) * size;
+
+  useEffect(() => {
+    if (reduceMotion) {
+      light.value = 1;
+      return;
+    }
+
+    light.value = withDelay(
+      SPLASH_TIMING.sunDelay + delay,
+      withTiming(1, SPLASH_SUN),
+    );
+
+    return () => cancelAnimation(light);
+  }, [delay, light, reduceMotion]);
+
+  // The two translations put the stroke's own centre under the scale, so it
+  // lights up in place instead of sliding out of the symbol.
+  const style = useAnimatedStyle(() => ({
+    opacity: light.value,
+    transform: [
+      { translateX: offsetX },
+      { translateY: offsetY },
+      { scale: SPLASH_SUN_SCALE + light.value * (1 - SPLASH_SUN_SCALE) },
+      { translateX: -offsetX },
+      { translateY: -offsetY },
+    ],
+  }));
+
+  return (
+    <StrokeLayer $size={size} style={style}>
+      <Svg height={size} viewBox={MARK_GEOMETRY.viewBox} width={size}>
+        <Path d={d} fill={MARK_COLORS.sun} fillRule="evenodd" />
+      </Svg>
+    </StrokeLayer>
+  );
+}
+
 /** The kit's cream, the same colour the native launch window paints, so the
  * opening never flashes or changes brand between the two. */
 const Cover = styled(Animated.View)<{ $paper: string }>`
@@ -257,6 +317,22 @@ const Cover = styled(Animated.View)<{ $paper: string }>`
 
 const BrandGroup = styled.View`
   align-items: center;
+`;
+
+const MarkFrame = styled(Animated.View)<{ $size: number }>`
+  width: ${({ $size }) => $size}px;
+  height: ${({ $size }) => $size}px;
+  align-items: center;
+  justify-content: center;
+`;
+
+/** A stroke of the sun sits exactly over the symbol, in its own layer. */
+const StrokeLayer = styled(Animated.View)<{ $size: number }>`
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: ${({ $size }) => $size}px;
+  height: ${({ $size }) => $size}px;
 `;
 
 const WordmarkFrame = styled(Animated.View)`

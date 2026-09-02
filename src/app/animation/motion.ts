@@ -153,6 +153,57 @@ export const DIALOG_ENTER_SPRING = {
   reduceMotion: ReduceMotion.System,
 } as const;
 
+/** The opening. The symbol arrives, the sun lights up stroke by stroke, the
+ * wordmark follows: the whole sequence is stated here so the splash never
+ * invents a duration of its own. */
+export const SPLASH_MARK = {
+  duration: 320,
+  easing: Easing.out(Easing.cubic),
+  reduceMotion: ReduceMotion.System,
+} as const;
+
+/** The symbol settling from a hair too big into its final size. */
+export const SPLASH_SETTLE = {
+  duration: 520,
+  easing: Easing.out(Easing.cubic),
+  reduceMotion: ReduceMotion.System,
+} as const;
+
+export const SPLASH_SETTLE_SCALE = 1.02;
+
+/** One stroke of the sun lighting up. Never a bounce: it turns on. */
+export const SPLASH_SUN = {
+  duration: 220,
+  easing: Easing.out(Easing.cubic),
+  reduceMotion: ReduceMotion.System,
+} as const;
+
+/** When the first stroke lights, measured from the opening. */
+export const SPLASH_SUN_DELAY_MS = 360;
+
+/** The gap between two strokes, so the sun reads as lighting rather than
+ * appearing. */
+export const SPLASH_SUN_STAGGER_MS = 80;
+
+/** How small a stroke starts, measured from its own centre. */
+export const SPLASH_SUN_SCALE = 0.86;
+
+/** The wordmark answers the symbol only after the sun is lit. */
+export const SPLASH_WORDMARK_DELAY_MS = 820;
+
+export const SPLASH_WORDMARK = {
+  duration: 260,
+  easing: Easing.out(Easing.quad),
+  reduceMotion: ReduceMotion.System,
+} as const;
+
+/** The cover leaving. Shorter than the opening, like every exit here. */
+export const SPLASH_EXIT = {
+  duration: 180,
+  easing: Easing.out(Easing.quad),
+  reduceMotion: ReduceMotion.System,
+} as const;
+
 /** The focus ring breathing while a session runs. One half of a slow cycle,
  * so it is not an entrance and does not sit in the entrance band. */
 export const BREATH = {
