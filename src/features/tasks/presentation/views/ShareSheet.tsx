@@ -327,6 +327,7 @@ export function ShareSheet({
                       name={displayName}
                       personId={member.personId}
                       pending={!member.joined}
+                      photoURL={member.photoURL ?? null}
                       size="large"
                     />
                     <MemberInfo>
@@ -421,6 +422,7 @@ export function ShareSheet({
                           }
                           name={displayName}
                           personId={entry.member.personId}
+                          photoURL={entry.member.photoURL ?? null}
                         />
                         <HistoryName numberOfLines={1} ellipsizeMode="tail">
                           {displayName}

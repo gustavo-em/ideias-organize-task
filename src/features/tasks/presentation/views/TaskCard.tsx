@@ -224,6 +224,7 @@ export function TaskCard({
                   )}
                   name={completedByMember.name}
                   personId={completedByMember.personId}
+                  photoURL={completedByMember.photoURL ?? null}
                   size="medium"
                 />
               ) : action == null ? null : (

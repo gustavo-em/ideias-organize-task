@@ -36,6 +36,7 @@ export function MemberStack({
           name={member.name}
           personId={member.personId}
           pending={!member.joined}
+          photoURL={member.photoURL ?? null}
           size="medium"
           stacked={index > 0}
         />

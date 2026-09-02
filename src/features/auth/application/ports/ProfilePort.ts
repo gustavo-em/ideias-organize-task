@@ -8,6 +8,9 @@ export interface SaveProfileInput {
    * needs is released in the same write that takes the new one. Null on the
    * very first save. */
   previousHandle: string | null;
+  /** The avatar this account already has, carried through so saving a name
+   * never blanks the photo. Undefined leaves whatever is stored alone. */
+  photoURL?: string | null;
 }
 
 /**
@@ -20,4 +23,7 @@ export interface ProfilePort {
   /** Rejects with `ProfileOperationError('handle-taken')` when the handle
    * already belongs to somebody else. */
   save(input: SaveProfileInput): Promise<UserProfile>;
+  /** The avatar alone: saved the moment a photo is chosen, never waiting on
+   * the name and handle the person may still be typing. Null clears it. */
+  savePhotoURL(uid: string, photoURL: string | null): Promise<void>;
 }

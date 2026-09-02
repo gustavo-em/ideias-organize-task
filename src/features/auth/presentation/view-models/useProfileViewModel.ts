@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import type { AvatarPort } from '../../application/ports/AvatarPort';
 import type { ProfilePort } from '../../application/ports/ProfilePort';
+import {
+  AvatarOperationError,
+  type AvatarErrorKind,
+} from '../../domain/AvatarError';
 import {
   ProfileOperationError,
   type ProfileErrorKind,
@@ -13,6 +18,7 @@ import {
 } from '../../domain/UserProfile';
 
 export type ProfileStatus = 'idle' | 'saving' | 'saved';
+export type AvatarStatus = 'idle' | 'working';
 
 export interface ProfileViewModel {
   /** What the sheet starts from: the stored profile, or the suggestion made
@@ -23,11 +29,33 @@ export interface ProfileViewModel {
   reserved: boolean;
   /** The profile as other people may see it: the handle is present only once
    * it is actually this account's. */
-  visibleProfile: { displayName: string; handle: string | null } | null;
+  visibleProfile: {
+    displayName: string;
+    handle: string | null;
+    photoURL: string | null;
+  } | null;
   status: ProfileStatus;
   errorKind: ProfileErrorKind | null;
   save: (displayName: string, handle: string) => Promise<boolean>;
   dismissSaved: () => void;
+  /** The avatar side of the sheet: choosing a photo saves it on its own, with
+   * no relation to the Salvar button of the name and handle. */
+  avatarStatus: AvatarStatus;
+  avatarErrorKind: AvatarErrorKind | null;
+  changeAvatar: () => Promise<void>;
+  removeAvatar: () => Promise<void>;
+}
+
+/** Whatever went wrong with a photo, in the terms the sheet speaks: the
+ * bucket's own answers pass through, and a profile that refused the field is
+ * a refusal too — never a promise that retrying fixes it. */
+function avatarKindOf(error: unknown): AvatarErrorKind {
+  if (error instanceof AvatarOperationError) return error.kind;
+  if (error instanceof ProfileOperationError) {
+    return error.kind === 'forbidden' ? 'forbidden' : 'network';
+  }
+
+  return 'network';
 }
 
 function errorKindOf(error: unknown): ProfileErrorKind {
@@ -43,10 +71,13 @@ function errorKindOf(error: unknown): ProfileErrorKind {
  */
 export function useProfileViewModel({
   profilePort,
+  avatarPort,
   user,
   fallbackName,
 }: {
   profilePort: ProfilePort;
+  /** Gallery and bucket. Left out, the sheet simply has no photo actions. */
+  avatarPort?: AvatarPort;
   user: AuthUser | null;
   /** Used only when an account reaches here with no name at all. */
   fallbackName: string;
@@ -55,6 +86,9 @@ export function useProfileViewModel({
   const [reserved, setReserved] = useState(false);
   const [status, setStatus] = useState<ProfileStatus>('idle');
   const [errorKind, setErrorKind] = useState<ProfileErrorKind | null>(null);
+  const [avatarStatus, setAvatarStatus] = useState<AvatarStatus>('idle');
+  const [avatarErrorKind, setAvatarErrorKind] =
+    useState<AvatarErrorKind | null>(null);
   const bootstrappedFor = useRef<string | null>(null);
 
   // The session's own two values, not the object holding them: a new object
@@ -62,6 +96,9 @@ export function useProfileViewModel({
   // already in flight.
   const uid = user?.uid ?? null;
   const providerName = user?.displayName ?? null;
+  // A Google account already carries a photo: it is on screen from the first
+  // frame, and the stored one replaces it as soon as the profile is read.
+  const providerPhotoURL = user?.photoURL ?? null;
 
   useEffect(() => {
     if (uid == null) {
@@ -83,6 +120,7 @@ export function useProfileViewModel({
       uid,
       displayName: name,
       handle: suggestHandle(name, uid),
+      photoURL: providerPhotoURL,
     };
 
     // Nobody ever meets an empty profile screen: the suggestion is on screen
@@ -109,6 +147,7 @@ export function useProfileViewModel({
             displayName: name,
             handle: wanted,
             previousHandle: null,
+            photoURL: providerPhotoURL,
           });
           if (!cancelled) {
             setProfile(created);
@@ -122,6 +161,7 @@ export function useProfileViewModel({
             displayName: name,
             handle: nextHandleCandidate(wanted, uid),
             previousHandle: null,
+            photoURL: providerPhotoURL,
           });
           if (!cancelled) {
             setProfile(retried);
@@ -142,7 +182,7 @@ export function useProfileViewModel({
     return () => {
       cancelled = true;
     };
-  }, [fallbackName, profilePort, providerName, uid]);
+  }, [fallbackName, profilePort, providerName, providerPhotoURL, uid]);
 
   const save = useCallback(
     async (displayName: string, handle: string): Promise<boolean> => {
@@ -159,6 +199,9 @@ export function useProfileViewModel({
           // asking to release it would try to delete somebody else's
           // reservation and take the whole save down with it.
           previousHandle: reserved ? profile?.handle ?? null : null,
+          // Carried through, never rewritten here: saving a name must not
+          // blank a photo the person already has.
+          photoURL: profile?.photoURL ?? providerPhotoURL,
         });
         setProfile(saved);
         setReserved(true);
@@ -170,8 +213,55 @@ export function useProfileViewModel({
         return false;
       }
     },
-    [profile, profilePort, reserved, user],
+    [profile, profilePort, providerPhotoURL, reserved, user],
   );
+
+  // The photo is its own little transaction: gallery, bucket, then the field
+  // in the profile. A refusal anywhere leaves the avatar exactly as it was.
+  const changeAvatar = useCallback(async () => {
+    if (avatarPort == null || uid == null) return;
+
+    setAvatarStatus('working');
+    setAvatarErrorKind(null);
+    try {
+      const uploaded = await avatarPort.pickAndUpload(uid);
+      if (uploaded == null) return;
+
+      // The photo only counts once the profile took it: a field that did not
+      // land would show an avatar this session and nothing at all in the
+      // next one, with nobody else ever seeing it.
+      await profilePort.savePhotoURL(uid, uploaded);
+      setProfile(current =>
+        current == null ? current : { ...current, photoURL: uploaded },
+      );
+    } catch (error) {
+      setAvatarErrorKind(avatarKindOf(error));
+    } finally {
+      setAvatarStatus('idle');
+    }
+  }, [avatarPort, profilePort, uid]);
+
+  const removeAvatar = useCallback(async () => {
+    if (avatarPort == null || uid == null) return;
+
+    setAvatarStatus('working');
+    setAvatarErrorKind(null);
+    try {
+      await avatarPort.remove(uid);
+      await profilePort.savePhotoURL(uid, null);
+      // With the uploaded photo gone, a Google account falls back to the
+      // photo the provider has; anything else falls back to the initials.
+      setProfile(current =>
+        current == null
+          ? current
+          : { ...current, photoURL: providerPhotoURL ?? null },
+      );
+    } catch (error) {
+      setAvatarErrorKind(avatarKindOf(error));
+    } finally {
+      setAvatarStatus('idle');
+    }
+  }, [avatarPort, profilePort, providerPhotoURL, uid]);
 
   const dismissSaved = useCallback(() => {
     setStatus(current => (current === 'saved' ? 'idle' : current));
@@ -187,6 +277,7 @@ export function useProfileViewModel({
         : {
             displayName: profile.displayName,
             handle: reserved ? profile.handle : null,
+            photoURL: profile.photoURL,
           },
     [profile, reserved],
   );
@@ -199,5 +290,9 @@ export function useProfileViewModel({
     errorKind,
     save,
     dismissSaved,
+    avatarStatus,
+    avatarErrorKind,
+    changeAvatar,
+    removeAvatar,
   };
 }

@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing } from 'react-native';
 import styled, { useTheme } from 'styled-components/native';
 
 import {
@@ -7,12 +9,13 @@ import {
 } from '../../domain/TaskList';
 import { projectTone } from '../models/projectAppearance';
 
-type ChipSize = 'small' | 'medium' | 'large';
+type ChipSize = 'small' | 'medium' | 'large' | 'xlarge';
 
 const DIAMETER: Record<ChipSize, number> = {
   small: 24, // only a dot of colour, no letter
   medium: 28, // the stack on a project row, and a task's finisher
   large: 30, // the member list inside the sheet
+  xlarge: 64, // the person's own photo, in the profile sheet and in Você
 };
 
 interface MemberChipProps {
@@ -31,6 +34,10 @@ interface MemberChipProps {
   /** Overrides the letters derived from the name. Set where the row is not a
    * name — the logged-in person reads as "Você", and the ficha as VC. */
   initials?: string;
+  /** The person's photo. Drawn over the initials, which stay underneath as
+   * the ground: a photo that is still loading, or that fails to load, leaves
+   * the letters exactly where they were. Ignored while `pending`. */
+  photoURL?: string | null;
   /** Set only where this one chip carries its own meaning — a task's
    * finisher, say. Left unset, the chip stays silent for a screen reader,
    * which is right inside a `MemberStack` that already announced itself. */
@@ -58,9 +65,20 @@ export function MemberChip({
   pending = false,
   inverted = false,
   initials,
+  photoURL,
   accessibilityLabel,
 }: MemberChipProps) {
   const theme = useTheme();
+  const photo = pending ? null : photoURL ?? null;
+  const [broken, setBroken] = useState(false);
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  // A different photo starts over: the letters show again until the new one
+  // has actually arrived.
+  useEffect(() => {
+    setBroken(false);
+    opacity.setValue(0);
+  }, [opacity, photo]);
   const tone = projectTone(theme, toneFor(personId));
   const diameter = DIAMETER[size];
   const onSun = toneFor(personId) === 'sun';
@@ -89,8 +107,28 @@ export function MemberChip({
       }
     >
       {size !== 'small' ? (
-        <Letter $color={letter}>{initials ?? memberInitials(name)}</Letter>
+        <Letter $color={letter} $size={size}>
+          {initials ?? memberInitials(name)}
+        </Letter>
       ) : null}
+      {photo == null || broken ? null : (
+        <Photo
+          accessibilityIgnoresInvertColors
+          onError={() => setBroken(true)}
+          onLoad={() => {
+            Animated.timing(opacity, {
+              toValue: 1,
+              duration: 150,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: true,
+            }).start();
+          }}
+          resizeMode="cover"
+          source={{ uri: photo }}
+          style={{ opacity }}
+          testID="member-chip-photo"
+        />
+      )}
     </Chip>
   );
 }
@@ -107,6 +145,7 @@ const Chip = styled.View<{
   border-radius: ${({ theme }) => theme.radii.pill}px;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   background-color: ${({ $tone }) => $tone};
   border-width: ${({ $stacked, $pending }) => ($stacked || $pending ? 2 : 0)}px;
   border-style: ${({ $pending }) => ($pending ? 'dashed' : 'solid')};
@@ -121,8 +160,18 @@ const Chip = styled.View<{
   margin-left: ${({ $stacked }) => ($stacked ? -9 : 0)}px;
 `;
 
-const Letter = styled.Text<{ $color: string }>`
+const Letter = styled.Text<{ $color: string; $size: ChipSize }>`
   color: ${({ $color }) => $color};
-  font-size: ${({ theme }) => theme.type.caption}px;
+  font-size: ${({ theme, $size }) =>
+    $size === 'xlarge' ? theme.type.heading : theme.type.caption}px;
   font-weight: 800;
+`;
+
+/** The photo sits over the letters, inside the ring the chip already draws. */
+const Photo = styled(Animated.Image)`
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
 `;

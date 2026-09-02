@@ -72,6 +72,7 @@ describe('handle reservation', () => {
       uid: 'uid-1',
       displayName: 'Gustavo',
       handle: 'gu',
+      photoURL: null,
     });
   });
 
@@ -158,18 +159,20 @@ describe('identity shown to other people', () => {
         'Gu do provedor',
         'Você',
       ),
-    ).toEqual({ name: 'Gustavo Rosa', handle: 'gu_rosa' });
+    ).toEqual({ name: 'Gustavo Rosa', handle: 'gu_rosa', photoURL: null });
 
     // Before the profile is read, the name the provider already knows stands
     // in — never the tab label, which other people would read as a stranger.
     expect(deriveMemberIdentity(null, 'Gustavo Rosa', 'Você')).toEqual({
       name: 'Gustavo Rosa',
       handle: null,
+      photoURL: null,
     });
 
     expect(deriveMemberIdentity(null, null, 'Você')).toEqual({
       name: 'Você',
       handle: null,
+      photoURL: null,
     });
   });
 
@@ -195,6 +198,7 @@ describe('profile bootstrap', () => {
           uid: 'uid-1',
           email: null,
           displayName: 'Gustavo Rosa',
+          photoURL: null,
           isAnonymous: false,
         },
         fallbackName: 'Você',
@@ -221,6 +225,7 @@ describe('profile bootstrap', () => {
       uid: 'uid-1',
       displayName: 'Gustavo Rosa',
       handle: 'gustavo_rosa',
+      photoURL: null,
     });
   });
 
@@ -232,6 +237,7 @@ describe('profile bootstrap', () => {
       save: async () => {
         throw new ProfileOperationError('network');
       },
+      savePhotoURL: async () => undefined,
     };
     const viewModel = mount(failing);
 
@@ -241,6 +247,7 @@ describe('profile bootstrap', () => {
       uid: 'uid-1',
       displayName: 'Gustavo Rosa',
       handle: 'gustavo_rosa',
+      photoURL: null,
     });
   });
 
@@ -252,6 +259,7 @@ describe('profile bootstrap', () => {
       save: async () => {
         throw new ProfileOperationError('network');
       },
+      savePhotoURL: async () => undefined,
     };
     const viewModel = mount(failing);
 
@@ -263,6 +271,7 @@ describe('profile bootstrap', () => {
     expect(viewModel().visibleProfile).toEqual({
       displayName: 'Gustavo Rosa',
       handle: null,
+      photoURL: null,
     });
   });
 
@@ -285,6 +294,7 @@ describe('profile bootstrap', () => {
     expect(viewModel().visibleProfile).toEqual({
       displayName: 'Gustavo Rosa',
       handle: 'gu_rosa',
+      photoURL: null,
     });
     // The handle held by the other account was never touched.
     expect(gateway.reservations()['gustavo_rosa']).toBe('uid-2');
@@ -304,6 +314,7 @@ describe('profile bootstrap', () => {
     expect(viewModel().visibleProfile).toEqual({
       displayName: 'Gustavo Rosa',
       handle: 'gustavo_rosa',
+      photoURL: null,
     });
   });
 });

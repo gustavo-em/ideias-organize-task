@@ -185,6 +185,7 @@ export function SharedDayBand({
                     copy.lists.memberSomeone,
                   )}
                   personId={entry.member.personId}
+                  photoURL={entry.member.photoURL ?? null}
                   size="large"
                   stacked={index > 0}
                 />
@@ -220,6 +221,7 @@ export function SharedDayBand({
               name={memberDisplayName(entry.member, copy.lists.memberSomeone)}
               pending={entry.state === 'absent'}
               personId={entry.member.personId}
+              photoURL={entry.member.photoURL ?? null}
               size="large"
             />
             <Who>

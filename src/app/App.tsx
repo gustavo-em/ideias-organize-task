@@ -14,6 +14,7 @@ import { getAuthCopy } from '../features/auth/presentation/localization/authCopy
 import { useAuthViewModel } from '../features/auth/presentation/view-models/useAuthViewModel';
 import { firebaseAuthAdapter } from '../features/auth/infrastructure/firebase/firebaseAuthAdapter';
 import { firestoreProfileAdapter } from '../features/auth/infrastructure/firebase/firestoreProfileAdapter';
+import { imagePickerAvatarAdapter } from '../features/auth/infrastructure/firebase/imagePickerAvatarAdapter';
 import { useProfileViewModel } from '../features/auth/presentation/view-models/useProfileViewModel';
 import { ProfileSheet } from '../features/auth/presentation/views/ProfileSheet';
 import type { AuthViewModel } from '../features/auth/presentation/view-models/useAuthViewModel';
@@ -100,6 +101,7 @@ function AppContent({
 }) {
   const profile = useProfileViewModel({
     profilePort: firestoreProfileAdapter,
+    avatarPort: imagePickerAvatarAdapter,
     user: auth.user,
     fallbackName: app.copy.tabs.you,
   });
@@ -115,6 +117,7 @@ function AppContent({
               profile.visibleProfile,
               auth.user.displayName,
               app.copy.tabs.you,
+              auth.user.photoURL,
             ),
           },
     [auth.user, app.copy, profile.visibleProfile],
@@ -347,9 +350,13 @@ function AppContent({
           errorKind={profile.errorKind}
           fallbackName={app.copy.tabs.you}
           onCancel={() => setIsEditingProfile(false)}
+          onChangeAvatar={profile.changeAvatar}
+          onRemoveAvatar={profile.removeAvatar}
           onSubmit={profile.save}
           personId={auth.user.uid}
           profile={profile.profile}
+          avatarBusy={profile.avatarStatus === 'working'}
+          avatarErrorKind={profile.avatarErrorKind}
           saving={profileStatus === 'saving'}
         />
       ) : null}
