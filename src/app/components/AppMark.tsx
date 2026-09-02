@@ -14,8 +14,8 @@ const MARK_DARK = require('../../../assets/brand/aluza-mark-dark.png');
 // Jest resolves asset modules to a stub, so the real file's proportions get
 // a safe fallback there.
 const markSource = Image.resolveAssetSource(MARK_LIGHT) ?? {
-  width: 275,
-  height: 270,
+  width: 266,
+  height: 214,
 };
 
 export const MARK_COLORS = ALUZA_COLORS;
