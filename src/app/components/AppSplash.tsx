@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Image, useWindowDimensions } from 'react-native';
 import Animated, {
   cancelAnimation,
   runOnJS,
@@ -7,6 +7,7 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withDelay,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
@@ -16,11 +17,14 @@ import {
   SPLASH_MARK,
   SPLASH_SETTLE,
   SPLASH_SETTLE_SCALE,
+  SPLASH_SUN,
+  SPLASH_SUN_DELAY_MS,
+  SPLASH_SUN_SCALE,
   SPLASH_WORDMARK,
   SPLASH_WORDMARK_DELAY_MS,
 } from '../animation/motion';
 import type { AppLanguage } from '../../features/tasks/presentation/localization/taskCopy';
-import { AppMark, MARK_COLORS } from './AppMark';
+import { MARK_ASPECT, MARK_COLORS } from './AppMark';
 import { AppWordmark } from './AppWordmark';
 
 interface AppSplashProps {
@@ -29,11 +33,25 @@ interface AppSplashProps {
   onFinished: () => void;
 }
 
+/** The board artwork in two layers: the letter in ink, and the sun (the
+ * yellow tip of the stroke plus the three rays) that lights up over it. */
+const INK_LIGHT = require('../../../assets/brand/aluza-mark-ink.png');
+const INK_DARK = require('../../../assets/brand/aluza-mark-ink-dark.png');
+const SUN_LAYER = require('../../../assets/brand/aluza-mark-sun.png');
+
+/** Centre of the sun inside the mark's box, as a share of each side —
+ * measured on the artwork itself, so the pop grows out of the sun's own
+ * middle instead of the image's. */
+const SUN_CENTER = { x: 0.603, y: 0.236 } as const;
+
 export const SPLASH_TIMING = {
   /** The symbol arriving. */
   mark: SPLASH_MARK.duration,
   /** The symbol settling into its size, behind the arrival. */
   settle: SPLASH_SETTLE.duration,
+  /** The sun lighting up over the letter. */
+  sunDelay: SPLASH_SUN_DELAY_MS,
+  sun: SPLASH_SUN.duration,
   /** The wordmark arriving under the symbol. */
   wordmarkDelay: SPLASH_WORDMARK_DELAY_MS,
   wordmark: SPLASH_WORDMARK.duration,
@@ -62,6 +80,7 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
   const ink = isDark ? MARK_COLORS.white : MARK_COLORS.ink;
   const mark = useSharedValue(reduceMotion ? 1 : 0);
   const settle = useSharedValue(reduceMotion ? 1 : 0);
+  const sun = useSharedValue(reduceMotion ? 1 : 0);
   const wordmark = useSharedValue(reduceMotion ? 1 : 0);
   const cover = useSharedValue(1);
   const startedAt = useRef(Date.now());
@@ -80,6 +99,14 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
 
     mark.value = withTiming(1, SPLASH_MARK);
     settle.value = withTiming(1, SPLASH_SETTLE);
+    // The sun bursts a hair past its size and settles back: lit, not placed.
+    sun.value = withDelay(
+      SPLASH_TIMING.sunDelay,
+      withSequence(
+        withTiming(1.07, SPLASH_SUN),
+        withTiming(1, { duration: 140, easing: SPLASH_SUN.easing }),
+      ),
+    );
     wordmark.value = withDelay(
       SPLASH_TIMING.wordmarkDelay,
       withTiming(1, SPLASH_WORDMARK),
@@ -88,9 +115,10 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
     return () => {
       cancelAnimation(mark);
       cancelAnimation(settle);
+      cancelAnimation(sun);
       cancelAnimation(wordmark);
     };
-  }, [mark, reduceMotion, settle, wordmark]);
+  }, [mark, reduceMotion, settle, sun, wordmark]);
 
   useEffect(() => {
     if (isReady) {
@@ -162,6 +190,25 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
       },
     ],
   }));
+  const markHeight = markSize * MARK_ASPECT;
+  // The two translations put the sun's own centre under the scale, so it
+  // grows in place over the letter instead of sliding across it.
+  const sunOffsetX = (SUN_CENTER.x - 0.5) * markSize;
+  const sunOffsetY = (SUN_CENTER.y - 0.5) * markHeight;
+  const sunStyle = useAnimatedStyle(() => {
+    const lit = Math.min(sun.value, 1);
+
+    return {
+      opacity: lit,
+      transform: [
+        { translateX: sunOffsetX },
+        { translateY: sunOffsetY },
+        { scale: SPLASH_SUN_SCALE + sun.value * (1 - SPLASH_SUN_SCALE) },
+        { translateX: -sunOffsetX },
+        { translateY: -sunOffsetY },
+      ],
+    };
+  });
   const wordmarkStyle = useAnimatedStyle(() => ({
     opacity: wordmark.value,
     transform: [{ translateY: reduceMotion ? 0 : (1 - wordmark.value) * 4 }],
@@ -179,7 +226,18 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
     >
       <BrandGroup>
         <MarkFrame style={markStyle}>
-          <AppMark size={markSize} variant={isDark ? 'dark' : 'light'} />
+          <Image
+            resizeMode="contain"
+            source={isDark ? INK_DARK : INK_LIGHT}
+            style={{ width: markSize, height: markHeight }}
+          />
+          <SunLayer style={sunStyle}>
+            <Image
+              resizeMode="contain"
+              source={SUN_LAYER}
+              style={{ width: markSize, height: markHeight }}
+            />
+          </SunLayer>
         </MarkFrame>
 
         <WordmarkFrame style={wordmarkStyle}>
@@ -223,6 +281,13 @@ const BrandGroup = styled.View`
 const MarkFrame = styled(Animated.View)`
   align-items: center;
   justify-content: center;
+`;
+
+/** The sun sits exactly over the letter, in its own layer. */
+const SunLayer = styled(Animated.View)`
+  position: absolute;
+  top: 0px;
+  left: 0px;
 `;
 
 const WordmarkFrame = styled(Animated.View)`
