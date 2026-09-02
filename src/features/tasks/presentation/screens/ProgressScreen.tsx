@@ -1,12 +1,17 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import { contentEnter } from '../../../../app/animation/motion';
+import { startOfDay } from '../../domain/Day';
 import type { TaskCopy } from '../localization/taskCopy';
 import type { TasksViewModel } from '../view-models/useTasksViewModel';
+import { BalanceRing } from '../views/BalanceRing';
 import { CountUpText } from '../views/CountUpText';
+import { HairlineRule } from '../views/HairlineRule';
 import { ScreenHeader } from '../views/ScreenHeader';
+import { StatMiniBars } from '../views/StatMiniBars';
+import { StatProportion } from '../views/StatProportion';
 import { WeekBars } from '../views/WeekBars';
 
 interface ProgressScreenProps {
@@ -17,141 +22,318 @@ interface ProgressScreenProps {
 /**
  * What the person has actually been doing.
  *
- * Everything here is measured in weight rather than in count, and the line
- * under the chart says so out loud. It is the promise that slicing a task in
- * half will not move any of these numbers.
+ * Everything here is counted from the tasks on this phone: what is still open,
+ * what has been closed, when it was closed. The level is not the subject any
+ * more — it sits in one quiet line at the bottom, because how far a scoring
+ * curve has advanced is not what anyone came here to find out.
  */
 export function ProgressScreen({ copy, viewModel }: ProgressScreenProps) {
   const theme = useTheme();
-  const { level } = viewModel;
+  const { activeProjects, balance, closedByDay, level, weekdayPattern } =
+    viewModel;
+  const todayMs = startOfDay(viewModel.nowMs);
+  const closedThisWeek = closedByDay.reduce((sum, day) => sum + day.closed, 0);
+  const bestWeekday = weekdayPattern.bestWeekday;
+  const bestWeekdayName =
+    bestWeekday == null ? null : copy.progress.weekdayNames[bestWeekday];
 
   return (
     <Content>
       <ScreenHeader
-        eyebrow={copy.progress.title}
-        subtitle={copy.progress.streakHint}
-        title={copy.progress.streakTitle(viewModel.streakDays)}
+        eyebrow={copy.progress.eyebrow}
+        subtitle={copy.progress.privacyHint}
+        title={copy.progress.boardTitle}
       />
 
-      <Section entering={contentEnter(0)}>
-        <SectionLabel>{copy.progress.week}</SectionLabel>
-        <WeekBars week={viewModel.week} weekdays={copy.progress.weekdays} />
-        <Note>{copy.progress.weightHint}</Note>
-      </Section>
+      <Block entering={contentEnter(0)}>
+        <Heading>
+          <HeadingLabel>{copy.progress.balanceLabel}</HeadingLabel>
+          <HeadingCount>{balance.total}</HeadingCount>
+          <HairlineRule />
+        </Heading>
 
-      <Cards>
-        <Card entering={contentEnter(1)}>
-          <CardValue>{copy.progress.level(level.level)}</CardValue>
-          <CardLabel>
-            {copy.progress.levelPoints(level.intoLevel, level.levelSpan)}
-          </CardLabel>
-          <Track>
-            <Fill
-              style={{
-                width: `${
-                  level.levelSpan === 0
-                    ? 0
-                    : (level.intoLevel / level.levelSpan) * 100
-                }%`,
-              }}
+        <BalanceRow
+          accessibilityLabel={copy.progress.balanceSummary(
+            balance.open,
+            balance.closed,
+          )}
+          accessibilityRole="summary"
+          accessible
+        >
+          <RingHolder importantForAccessibility="no-hide-descendants">
+            <BalanceRing fraction={balance.closedShare} />
+            <RingCentre>
+              <CountUpText
+                style={[styles.ringValue, { color: theme.colors.text }]}
+                suffix="%"
+                testID="balance-share"
+                value={Math.round(balance.closedShare * 100)}
+              />
+            </RingCentre>
+          </RingHolder>
+
+          <Figures importantForAccessibility="no-hide-descendants">
+            <View>
+              <CountUpText
+                style={[styles.figureValue, { color: theme.colors.text }]}
+                testID="balance-open"
+                value={balance.open}
+              />
+              <FigureLabel>{copy.progress.open}</FigureLabel>
+            </View>
+            <View>
+              <CountUpText
+                style={[
+                  styles.figureValue,
+                  { color: theme.colors.mutedStrong },
+                ]}
+                testID="balance-closed"
+                value={balance.closed}
+              />
+              <FigureLabel>{copy.progress.closed}</FigureLabel>
+            </View>
+          </Figures>
+        </BalanceRow>
+      </Block>
+
+      <Block entering={contentEnter(1)}>
+        <Heading>
+          <HeadingLabel>{copy.progress.sevenDays}</HeadingLabel>
+          <HeadingCount>{closedThisWeek}</HeadingCount>
+          <HairlineRule />
+        </Heading>
+
+        <View
+          accessibilityLabel={copy.progress.weekSummary(closedThisWeek)}
+          accessibilityRole="summary"
+          accessible
+        >
+          <View importantForAccessibility="no-hide-descendants">
+            <WeekBars
+              days={closedByDay}
+              todayMs={todayMs}
+              weekdays={copy.progress.weekdays}
             />
-          </Track>
-        </Card>
+            <Note>
+              <CountUpText
+                style={[styles.noteValue, { color: theme.colors.mutedStrong }]}
+                testID="week-closed"
+                value={closedThisWeek}
+              />
+              <NoteLabel>
+                {copy.progress.closedInWeek(closedThisWeek)}
+              </NoteLabel>
+            </Note>
+          </View>
+        </View>
+      </Block>
 
-        <Card entering={contentEnter(2)}>
-          <CountUpText
-            accessibilityLabel={`${viewModel.trioCount} ${copy.progress.trios}`}
-            style={[styles.count, { color: theme.colors.text }]}
-            testID="trio-count"
-            value={viewModel.trioCount}
-          />
-          <CardLabel>{copy.progress.trios}</CardLabel>
-        </Card>
-      </Cards>
+      <Block entering={contentEnter(2)}>
+        <Heading>
+          <HeadingLabel>{copy.progress.patterns}</HeadingLabel>
+          <HairlineRule />
+        </Heading>
+
+        <Patterns>
+          <Pattern
+            accessibilityLabel={
+              bestWeekdayName == null
+                ? `${copy.progress.bestWeekday}: ${copy.progress.noPatternYet}`
+                : copy.progress.bestWeekdaySummary(
+                    bestWeekdayName,
+                    weekdayPattern.bestCount,
+                  )
+            }
+            accessibilityRole="summary"
+            accessible
+          >
+            <View importantForAccessibility="no-hide-descendants">
+              <PatternLabel>{copy.progress.bestWeekday}</PatternLabel>
+              <PatternValue $muted={bestWeekdayName == null}>
+                {bestWeekdayName ?? '—'}
+              </PatternValue>
+              <StatMiniBars
+                best={bestWeekday}
+                labels={copy.progress.weekdays}
+                values={weekdayPattern.byWeekday}
+              />
+              {bestWeekdayName == null ? (
+                <PatternHint>{copy.progress.noPatternYet}</PatternHint>
+              ) : null}
+            </View>
+          </Pattern>
+
+          <Pattern
+            accessibilityLabel={copy.progress.projectsSummary(
+              activeProjects.active,
+              activeProjects.total,
+            )}
+            accessibilityRole="summary"
+            accessible
+          >
+            <View importantForAccessibility="no-hide-descendants">
+              <PatternLabel>{copy.progress.activeProjects}</PatternLabel>
+              <CountUpText
+                style={[styles.patternValue, { color: theme.colors.text }]}
+                testID="active-projects"
+                value={activeProjects.active}
+              />
+              <StatProportion fraction={activeProjects.share} />
+              <PatternHint>
+                {copy.progress.activeProjectsOf(activeProjects.total)}
+              </PatternHint>
+            </View>
+          </Pattern>
+        </Patterns>
+      </Block>
+
+      <Footnote>
+        {copy.progress.footnote(level.level, viewModel.streakDays)}
+      </Footnote>
     </Content>
   );
 }
 
+/* Tabular figures everywhere a number appears: a count that shifts sideways as
+   it counts up reads as a glitch, not as motion. */
 const styles = StyleSheet.create({
-  count: { fontSize: 30, fontWeight: '800', letterSpacing: -1 },
+  ringValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -1,
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
+  },
+  figureValue: {
+    fontSize: 30,
+    fontWeight: '800',
+    letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
+  },
+  patternValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
+  },
+  noteValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
 });
 
-/* The tab owns the scroll; this block only asks for the height it needs, so the
-   seven-day card is never clipped by the settings group under it. */
+/* The tab owns the scroll; this block only asks for the height it needs. */
 const Content = styled.View`
   padding: 0px ${({ theme }) => theme.spacing.large}px
     ${({ theme }) => theme.spacing.large}px;
 `;
 
-const Section = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
-  padding: ${({ theme }) => theme.spacing.medium}px;
-  border-radius: ${({ theme }) => theme.radii.large}px;
-  background-color: ${({ theme }) => theme.colors.card};
-  border: 1px solid ${({ theme }) => theme.colors.borderSubtle};
-  elevation: 2;
-  shadow-color: #1b1710;
-  shadow-opacity: ${({ theme }) => (theme.mode === 'dark' ? 0 : 0.07)};
-  shadow-radius: 14px;
-  shadow-offset: 0px 5px;
+/* No surface of its own: a block is grouped by its heading, its rule and the
+   space around it, never by another box. */
+const Block = styled(Animated.View)`
+  margin-top: ${({ theme }) => theme.spacing.large}px;
 `;
 
-const SectionLabel = styled.Text`
-  color: ${({ theme }) => theme.colors.muted};
-  font-size: ${({ theme }) => theme.type.caption}px;
-  font-weight: 700;
-  letter-spacing: 1.4px;
+const Heading = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  min-height: 24px;
+`;
+
+const HeadingLabel = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  line-height: 17px;
   text-transform: uppercase;
 `;
 
-const Note = styled.Text`
-  color: ${({ theme }) => theme.colors.muted};
-  font-size: ${({ theme }) => theme.type.caption + 1}px;
+const HeadingCount = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 800;
+  font-variant: tabular-nums;
+`;
+
+const BalanceRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.large}px;
   margin-top: ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const Cards = styled.View`
-  flex-direction: row;
-  gap: ${({ theme }) => theme.spacing.small + 2}px;
-  margin-top: ${({ theme }) => theme.spacing.small + 2}px;
+const RingHolder = styled.View`
+  width: 120px;
+  height: 120px;
+  align-items: center;
+  justify-content: center;
 `;
 
-const Card = styled(Animated.View)`
+const RingCentre = styled.View`
+  position: absolute;
+  align-items: center;
+  justify-content: center;
+`;
+
+const Figures = styled.View`
   flex: 1;
-  padding: ${({ theme }) => theme.spacing.medium}px;
-  border-radius: ${({ theme }) => theme.radii.large}px;
-  background-color: ${({ theme }) => theme.colors.card};
-  border: 1px solid ${({ theme }) => theme.colors.borderSubtle};
-  elevation: 2;
-  shadow-color: #1b1710;
-  shadow-opacity: ${({ theme }) => (theme.mode === 'dark' ? 0 : 0.07)};
-  shadow-radius: 14px;
-  shadow-offset: 0px 5px;
+  gap: ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const CardValue = styled.Text`
-  color: ${({ theme }) => theme.colors.text};
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -1px;
-`;
-
-const CardLabel = styled.Text`
+const FigureLabel = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
-  margin-top: 4px;
+  margin-top: 2px;
 `;
 
-const Track = styled.View`
-  height: 4px;
-  border-radius: ${({ theme }) => theme.radii.pill}px;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
-  overflow: hidden;
-  margin-top: ${({ theme }) => theme.spacing.small + 2}px;
+const Note = styled.View`
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const Fill = styled.View`
-  height: 100%;
-  border-radius: ${({ theme }) => theme.radii.pill}px;
-  background-color: ${({ theme }) => theme.colors.accent};
+const NoteLabel = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+`;
+
+const Patterns = styled.View`
+  flex-direction: row;
+  gap: ${({ theme }) => theme.spacing.large}px;
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+`;
+
+const Pattern = styled.View`
+  flex: 1;
+`;
+
+const PatternLabel = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  margin-bottom: 4px;
+`;
+
+const PatternValue = styled.Text<{ $muted: boolean }>`
+  color: ${({ theme, $muted }) =>
+    $muted ? theme.colors.muted : theme.colors.text};
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+`;
+
+const PatternHint = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  margin-top: 6px;
+`;
+
+/* Where the level lives now: one line, caption size, muted. */
+const Footnote = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  margin-top: ${({ theme }) => theme.spacing.large}px;
 `;

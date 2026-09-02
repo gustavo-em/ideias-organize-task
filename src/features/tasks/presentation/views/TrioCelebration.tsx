@@ -41,6 +41,14 @@ export function TrioCelebration({
 }: TrioCelebrationProps) {
   return (
     <Overlay entering={fadeEnter()} exiting={fadeExit()}>
+      {/* The ground behind the card closes the moment. Without it a tap outside
+          — on the tab bar, for instance — landed on a scrim that answered
+          nothing, and the app read as frozen. */}
+      <Scrim
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        onPress={onClose}
+      />
       <Confetti />
       <Card entering={contentEnter(1)}>
         <Title>{copy.celebration.title}</Title>
@@ -138,7 +146,21 @@ const Confetto = styled(Animated.View)`
   border-radius: 3px;
 `;
 
+const Scrim = styled.Pressable`
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+`;
+
+/* The card takes the height of what is written on it, and nothing more: a
+   celebration that stretches to the bottom of the screen swallows the tab bar
+   behind it. */
 const Card = styled(Animated.View)`
+  align-self: center;
+  flex-grow: 0;
+  flex-shrink: 0;
   background-color: ${({ theme }) => theme.colors.card};
   border-radius: ${({ theme }) => theme.radii.extraLarge}px;
   padding: ${({ theme }) => theme.spacing.large + 4}px;
@@ -160,10 +182,18 @@ const Body = styled.Text`
   margin-top: ${({ theme }) => theme.spacing.small + 2}px;
 `;
 
+/* A fixed height, never a share of what is left: the button used to grow with
+   whatever space the overlay had and reached the bottom of the screen. */
 const Close = styled(PressableScale)`
+  align-self: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
   background-color: ${({ theme }) => theme.colors.accent};
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 12px 26px;
+  padding: 0px 26px;
   margin-top: ${({ theme }) => theme.spacing.large}px;
 `;
 
