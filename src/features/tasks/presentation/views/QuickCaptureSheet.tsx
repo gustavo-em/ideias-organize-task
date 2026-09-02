@@ -675,8 +675,8 @@ export function QuickCaptureSheet({
             <TaskAssignSection assignment={assignment} copy={copy} />
           ) : null}
 
-          {panel === 'none' && (expanded || isEditing) ? (
-            <Hint>{isEditing ? copy.capture.editHint : copy.capture.hint}</Hint>
+          {panel === 'none' && expanded && !isEditing ? (
+            <Hint>{copy.capture.hint}</Hint>
           ) : null}
 
           <ActionsShift layout={sectionLayout()}>

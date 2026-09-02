@@ -30,6 +30,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // A row can stretch the pressable past the drawn box; without this the box
+  // pins to the top of whatever height it was given.
+  press: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 interface TaskCheckboxProps {
@@ -118,6 +124,7 @@ export function TaskCheckbox({
       hitSlop={hitSlop}
       onPress={onToggle}
       scaleTo={0.88}
+      style={styles.press}
       testID={testID}
     >
       <Animated.View style={[styles.box, sizeStyle, boxStyle]}>
