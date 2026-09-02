@@ -164,6 +164,14 @@ export const SPLASH_MARK = {
   reduceMotion: ReduceMotion.System,
 } as const;
 
+/** The letter drawing itself: one sweep around the ring, in the direction
+ * the 'a' is written. */
+export const SPLASH_DRAW = {
+  duration: 620,
+  easing: Easing.inOut(Easing.cubic),
+  reduceMotion: ReduceMotion.System,
+} as const;
+
 /** The symbol settling from a hair too big into its final size. */
 export const SPLASH_SETTLE = {
   duration: 520,
@@ -181,7 +189,7 @@ export const SPLASH_SUN = {
 } as const;
 
 /** When the first stroke lights, measured from the opening. */
-export const SPLASH_SUN_DELAY_MS = 360;
+export const SPLASH_SUN_DELAY_MS = 640;
 
 /** The gap between two strokes, so the sun reads as lighting rather than
  * appearing. */
@@ -191,7 +199,7 @@ export const SPLASH_SUN_STAGGER_MS = 80;
 export const SPLASH_SUN_SCALE = 0.86;
 
 /** The wordmark answers the symbol only after the sun is lit. */
-export const SPLASH_WORDMARK_DELAY_MS = 820;
+export const SPLASH_WORDMARK_DELAY_MS = 900;
 
 export const SPLASH_WORDMARK = {
   duration: 260,
