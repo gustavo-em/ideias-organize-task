@@ -81,6 +81,9 @@ export interface TaskCopy {
     item: (title: string) => string;
     /** Read out on a card that has steps, where only "2/5" is drawn. */
     progress: (done: number, total: number) => string;
+    /** Read out while writing a new task, where nothing is ticked yet and only
+     * the number of steps is drawn. */
+    count: (total: number) => string;
     addPlaceholder: string;
     add: string;
     /** Names the step being renamed, so the field is not an unlabelled box. */
@@ -407,6 +410,7 @@ const ptBR: TaskCopy = {
     title: 'Subtarefas',
     item: title => `Subtarefa: ${title}`,
     progress: (done, total) => `${done} de ${total} subtarefas`,
+    count: total => `${total} subtarefas`,
     addPlaceholder: 'Nova subtarefa',
     add: 'Adicionar subtarefa',
     rename: title => `Renomear subtarefa: ${title}`,
@@ -780,6 +784,7 @@ const enUS: TaskCopy = {
     title: 'Subtasks',
     item: title => `Subtask: ${title}`,
     progress: (done, total) => `${done} of ${total} subtasks`,
+    count: total => `${total} subtasks`,
     addPlaceholder: 'New subtask',
     add: 'Add subtask',
     rename: title => `Rename subtask: ${title}`,

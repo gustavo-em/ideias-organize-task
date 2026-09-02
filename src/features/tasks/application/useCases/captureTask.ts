@@ -1,4 +1,5 @@
 import { isCaptureUsable, parseCapture } from '../../domain/QuickCapture';
+import { addSubtask, type Subtask } from '../../domain/Subtask';
 import type { Task, TaskPriority } from '../../domain/Task';
 import type { TaskEvent, UseCaseResult } from '../../domain/TaskEvent';
 import {
@@ -30,6 +31,10 @@ export interface CaptureOverrides {
   /** A list can only be born from an explicit UI action, never from a guessed
    * `#name` in the task text. */
   newListName?: string;
+  /** Steps written in the sheet before the task existed. They are titles, not
+   * subtasks: the identifiers are minted here, with the task itself, so a
+   * draft that was cancelled never leaves anything behind. */
+  subtaskTitles?: readonly string[];
 }
 
 /**
@@ -65,6 +70,14 @@ export function captureTask(
   const lists =
     newList == null ? workspace.lists : [...workspace.lists, newList];
 
+  // The steps written in the same breath as the title. `addSubtask` is what
+  // trims, drops the empty ones and stops at the limit, so a draft cannot get
+  // in through a door the task screen keeps shut.
+  const subtasks = (overrides.subtaskTitles ?? []).reduce<readonly Subtask[]>(
+    (current, title) => addSubtask(current, title, nowMs, createId(nowMs)),
+    [],
+  );
+
   const task: Task = {
     id: createId(nowMs),
     title: draft.title,
@@ -78,8 +91,9 @@ export function captureTask(
     estimatedMinutes: draft.estimatedMinutes,
     createdAtMs: nowMs,
     completedAtMs: null,
-    // Capture stays one field: steps are added later, from the task itself.
-    subtasks: [],
+    // Written with the task or added later, from the task itself. Either way
+    // the task lands complete: one capture, one event.
+    subtasks,
   };
 
   const tasks = [task, ...workspace.tasks];
