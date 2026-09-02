@@ -10,6 +10,7 @@ import {
   listColors,
   listRoles,
   projectIcons,
+  sanitizeJoinedAtMs,
   type ListColor,
   type ListMember,
   type ListRole,
@@ -72,6 +73,8 @@ function memberFromRecord(value: unknown): ListMember | null {
 
   if (personId == null || name == null) return null;
 
+  const joinedAtMs = sanitizeJoinedAtMs(candidate.joinedAtMs);
+
   return {
     personId,
     name,
@@ -80,6 +83,7 @@ function memberFromRecord(value: unknown): ListMember | null {
       ? (candidate.role as ListRole)
       : 'viewer',
     joined: candidate.joined === true,
+    ...(joinedAtMs == null ? {} : { joinedAtMs }),
   };
 }
 
@@ -410,7 +414,17 @@ export const firestoreShareGateway: ShareGateway = {
     );
     const members = alreadyIn
       ? existingMembers
-      : [...existingMembers, { ...member, role: grantedRole, joined: true }];
+      : [
+          ...existingMembers,
+          // The moment the invite was accepted is written once, here, and
+          // never again: an entry that already carries one keeps it.
+          {
+            ...member,
+            role: grantedRole,
+            joined: true,
+            joinedAtMs: member.joinedAtMs ?? Date.now(),
+          },
+        ];
 
     if (!alreadyIn) {
       await firestoreDocument(`${COLLECTION}/${token}`, {

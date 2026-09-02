@@ -312,7 +312,7 @@ export function ListsScreen({
             normalizeListName(name) === normalizeListName(renamingList.name) ||
             viewModel.renameList(renamingList.id, name, appearance)
           }
-          submitLabel={copy.lists.rename}
+          submitLabel={copy.capture.save}
           title={copy.lists.renameList}
         />
       )}
@@ -421,6 +421,7 @@ export function ListsScreen({
         <ShareSheet
           copy={copy}
           errorKind={viewModel.shareErrorKind}
+          language={language}
           list={
             viewModel.lists.find(list => list.id === sharingList.id) ??
             sharingList

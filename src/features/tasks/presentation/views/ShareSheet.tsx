@@ -23,9 +23,10 @@ import {
   sheetEnter,
   sheetExit,
 } from '../../../../app/animation/motion';
-import type { TaskCopy } from '../localization/taskCopy';
+import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
 import { ConfirmDialog } from './ConfirmDialog';
 import { CheckGlyph, LinkGlyph } from './FieldGlyphs';
+import { joinHistory } from '../models/joinHistory';
 import { memberDisplayName } from '../models/memberIdentity';
 import { MemberChip } from './MemberChip';
 import { PressableScale } from './PressableScale';
@@ -40,6 +41,8 @@ type ShareStatus = 'idle' | 'loading' | 'error';
 
 interface ShareSheetProps {
   copy: TaskCopy;
+  /** Which language the dates in the history are written in. */
+  language: AppLanguage;
   list: TaskList;
   personId: string;
   /** How the signed-in account names itself right now. Their own row reads
@@ -70,6 +73,7 @@ interface ShareSheetProps {
  */
 export function ShareSheet({
   copy,
+  language,
   list,
   personId,
   identity,
@@ -104,6 +108,9 @@ export function ShareSheet({
   const isOwner =
     list.share == null ||
     members.find(member => member.personId === personId)?.role === 'owner';
+  // Who came in and when: reading only, the same for everybody in the
+  // project, and nothing at all on a project nobody else is in.
+  const history = joinHistory(members, language);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -369,6 +376,71 @@ export function ShareSheet({
                   </MemberRow>
                 );
               })}
+
+              {history.entries.length === 0 ? null : (
+                <>
+                  <SectionHeader testID="share-join-history">
+                    <SectionLabel>{`${copy.lists.joinHistoryHeader.toUpperCase()} · ${
+                      history.total
+                    }`}</SectionLabel>
+                    <SectionRule />
+                  </SectionHeader>
+                  {history.entries.map((entry, index) => {
+                    const isMe =
+                      entry.member.personId === personId ||
+                      entry.member.personId === identity?.personId;
+                    const displayName = isMe
+                      ? copy.lists.memberYou
+                      : memberDisplayName(
+                          entry.member,
+                          copy.lists.memberSomeone,
+                        );
+
+                    return (
+                      <HistoryRow
+                        // Grouped into one node on purpose: read apart, the
+                        // row would end on a bare dash instead of saying
+                        // there is no date for this person.
+                        accessible
+                        accessibilityLabel={
+                          entry.when == null
+                            ? copy.lists.joinedAtUnknownAccessible(displayName)
+                            : copy.lists.joinedAtAccessible(
+                                displayName,
+                                entry.when,
+                              )
+                        }
+                        accessibilityRole="text"
+                        entering={rowEnter(index)}
+                        key={entry.member.personId}
+                        $last={index === history.entries.length - 1}
+                      >
+                        <MemberChip
+                          initials={
+                            isMe ? copy.lists.memberYouInitials : undefined
+                          }
+                          name={displayName}
+                          personId={entry.member.personId}
+                        />
+                        <HistoryName numberOfLines={1} ellipsizeMode="tail">
+                          {displayName}
+                        </HistoryName>
+                        <HistoryWhen>
+                          {entry.when ?? copy.lists.joinedAtUnknown}
+                        </HistoryWhen>
+                      </HistoryRow>
+                    );
+                  })}
+                  {history.truncated ? (
+                    <Note>
+                      {copy.lists.joinHistoryTruncated(
+                        history.entries.length,
+                        history.total,
+                      )}
+                    </Note>
+                  ) : null}
+                </>
+              )}
             </>
           )}
 
@@ -551,6 +623,44 @@ const SectionLabel = styled.Text`
   letter-spacing: 0.5px;
   text-transform: uppercase;
   margin-top: ${({ theme }) => theme.spacing.medium}px;
+`;
+
+/* The section is held together by its label and the rule that runs out of it:
+   no box, no fill, no radius of its own. */
+const SectionHeader = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const SectionRule = styled.View`
+  flex: 1;
+  height: 1px;
+  background-color: ${({ theme }) => theme.colors.borderSubtle};
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+`;
+
+const HistoryRow = styled(Animated.View)<{ $last: boolean }>`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small + 4}px;
+  min-height: 44px;
+  padding: ${({ theme }) => theme.spacing.small}px 0px;
+  border-bottom-width: ${({ $last }) => ($last ? 0 : 1)}px;
+  border-bottom-color: ${({ theme }) => theme.colors.borderSubtle};
+`;
+
+const HistoryName = styled.Text`
+  flex: 1;
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.body}px;
+  font-weight: 700;
+`;
+
+const HistoryWhen = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-variant: tabular-nums;
 `;
 
 const RoleRow = styled.View`

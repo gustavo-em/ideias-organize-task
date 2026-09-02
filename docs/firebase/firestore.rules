@@ -88,6 +88,14 @@ service cloud.firestore {
           onlyChanges(['members', 'memberIds', 'editorIds', 'invitedAs']);
       }
 
+      // Ao entrar, o mapa do membro passa a levar `joinedAtMs` (quando o
+      // convite foi aceito, em ms locais). O campo viaja dentro de um item de
+      // `members`, que já está em `onlyChanges` aqui e em
+      // `isMemberIdentityUpdate` — nenhum campo de topo novo é escrito, então
+      // a regra não precisa de widening e um app com estas regras ainda não
+      // publicadas continua entrando normalmente. Membro antigo simplesmente
+      // não tem o campo, e a tela mostra "—" em vez de inventar data.
+      //
       // Entrar é a única escrita permitida a quem ainda não é membro, e só
       // pode adicionar o próprio uid — nunca remover ou trocar quem já está,
       // e o único uid que `editorIds` pode ganhar aqui é o de quem está
