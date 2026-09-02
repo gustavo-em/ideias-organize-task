@@ -112,6 +112,9 @@ export interface TasksDependencies {
  * its own, and a minute is close enough to catch it without waking the phone. */
 const CLOCK_TICK_MS = 60000;
 
+/** One frozen array, so a day with no selection never hands out a new prop. */
+const EMPTY_DAY_TASK_IDS: readonly string[] = [];
+
 /**
  * Everything the task screens can do, and everything they can see.
  *
@@ -194,13 +197,18 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     current.current = workspace;
   }, [workspace]);
 
+  /** True when the use case actually changed something. A screen that has a
+   * second half to its action — a date to write, a word to show — needs to know
+   * whether the first half happened at all. */
   const run = useCallback(
     (result: UseCaseResult) => {
-      if (result.events.length === 0) return;
+      if (result.events.length === 0) return false;
 
       current.current = result.workspace;
       setWorkspace(result.workspace);
       result.events.forEach(event => bus.publish(event));
+
+      return true;
     },
     [bus],
   );
@@ -853,6 +861,14 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     lists: workspace.lists,
     tasks: workspace.tasks,
     today,
+    /** Which tasks the day itself holds. A date of today is not the same thing:
+     * a task can be due today and still not be one of the day's chosen few.
+     * Yesterday's selection is nobody's day, so it reads as empty until the
+     * day is planned again. */
+    dayTaskIds:
+      workspace.trio.dayMs === startOfDay(nowMs)
+        ? workspace.trio.taskIds
+        : EMPTY_DAY_TASK_IDS,
     dayCapacity,
     doneToday: trioDoneCount(workspace.trio, workspace.tasks),
     isDayClosed: isTrioComplete(workspace.trio, workspace.tasks),

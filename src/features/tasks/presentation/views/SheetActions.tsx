@@ -139,6 +139,9 @@ const PrimaryButton = styled(PressableScale)<{
   $block: boolean;
 }>`
   ${actionBase}
+  /* The one button that never gives ground: with a delete and a focus control
+     beside it, a shrinking primary was the first thing pushed off the row. */
+  flex-shrink: 0;
   align-self: ${({ $block }) => ($block ? 'stretch' : 'auto')};
   padding: 0px ${({ theme }) => theme.spacing.medium}px;
   border-radius: ${({ theme }) => theme.radii.medium}px;

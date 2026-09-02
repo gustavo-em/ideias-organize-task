@@ -210,11 +210,17 @@ export function TaskCard({
               />
             ) : action == null ? null : (
               <Action
+                $done={action.disabled === true}
                 accessibilityLabel={action.label}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: action.disabled === true }}
                 disabled={action.disabled}
+                hitSlop={12}
                 onPress={action.onPress}
               >
-                <ActionText>{action.label}</ActionText>
+                <ActionText $done={action.disabled === true}>
+                  {action.label}
+                </ActionText>
               </Action>
             )}
           </BottomLine>
@@ -321,15 +327,21 @@ const BottomLine = styled.View`
   margin-left: ${({ theme }) => 26 + theme.spacing.small + 2}px;
 `;
 
-const Action = styled(PressableScale)`
-  border: 1px solid ${({ theme }) => theme.colors.border};
+/* Two states of one slot: an invitation, and the answer to it. The answered
+   one keeps its outline so the row does not jump, and loses the accent — there
+   is nothing left to press. */
+const Action = styled(PressableScale)<{ $done?: boolean }>`
+  border: 1px solid
+    ${({ theme, $done }) =>
+      $done === true ? theme.colors.borderSubtle : theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.pill}px;
   padding: 5px 11px;
   background-color: ${({ theme }) => theme.colors.background};
 `;
 
-const ActionText = styled.Text`
-  color: ${({ theme }) => theme.colors.accentInk};
+const ActionText = styled.Text<{ $done?: boolean }>`
+  color: ${({ theme, $done }) =>
+    $done === true ? theme.colors.muted : theme.colors.accentInk};
   font-size: ${({ theme }) => theme.type.caption}px;
   font-weight: 800;
 `;

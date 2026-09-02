@@ -83,8 +83,17 @@ export function EmptyStateCard({ copy, onCapture }: EmptyStateCardProps) {
 // Calm, neutral ground: the accent yellow stays owned by the floating
 // capture button, so this card never competes with it for attention.
 const Card = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.small}px;
-  padding: ${({ theme }) => theme.spacing.large}px;
+  /* One step of the scale under whatever precedes it — the filter strip, most
+     days. The distance lives here, on the card itself, with no wrapper in
+     between to add a second one. */
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+  /* The card's own ceiling was the empty band people were reading as a gap:
+     between the filter strip and the first word sat a step of margin, a step
+     and a half of padding and a 44pt disc. The padding comes down to the same
+     step as the margin. */
+  padding: ${({ theme }) => theme.spacing.medium}px
+    ${({ theme }) => theme.spacing.large}px
+    ${({ theme }) => theme.spacing.large}px;
   border-radius: ${({ theme }) => theme.radii.large}px;
   background-color: ${({ theme }) => theme.colors.card};
   border: 1px solid ${({ theme }) => theme.colors.borderSubtle};

@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
-import { BackHandler, Keyboard } from 'react-native';
+import { BackHandler, Dimensions, Keyboard } from 'react-native';
 import Animated, {
   useAnimatedKeyboard,
   useAnimatedStyle,
+  useSharedValue,
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
 import type { CaptureOverrides } from '../../application/useCases/captureTask';
-import { daysBetween } from '../../domain/Day';
+import { daysBetween, endOfDay } from '../../domain/Day';
 import { parseCapture } from '../../domain/QuickCapture';
 import type { TaskPriority } from '../../domain/Task';
 import { findListByName, type TaskList } from '../../domain/TaskList';
@@ -115,9 +116,41 @@ export function QuickCaptureSheet({
   // The sheet rides the keyboard on the UI thread. `KeyboardAvoidingView` is
   // not enough here: the app draws edge to edge, so the window never shrinks
   // and the sheet would sit behind the keys.
+  //
+  // The keyboard height is measured from the bottom of the *window*, and this
+  // overlay does not reach it: the screens live above the tab bar, inside a
+  // safe area of their own. That difference — measured here rather than guessed
+  // from an inset — was the strip of page that kept showing between the sheet
+  // and the keys.
   const keyboard = useAnimatedKeyboard();
+  const overlay = useRef<ComponentRef<typeof Overlay>>(null);
+  const distanceToWindowBottom = useSharedValue(0);
+  const restingBottomPadding = theme.spacing.large + 8;
+  const keyboardBottomPadding = theme.spacing.medium;
+  const measureOverlay = () => {
+    overlay.current?.measureInWindow(
+      (_x: number, y: number, _width: number, height: number) => {
+        const windowHeight = Dimensions.get('window').height;
+
+        distanceToWindowBottom.value = Math.max(0, windowHeight - (y + height));
+      },
+    );
+  };
   const lift = useAnimatedStyle(() => ({
-    paddingBottom: keyboard.height.value,
+    transform: [
+      {
+        translateY: -Math.max(
+          keyboard.height.value - distanceToWindowBottom.value,
+          0,
+        ),
+      },
+    ],
+  }));
+  // Standing on the keys, the sheet needs less floor than it does standing on
+  // the gesture bar; at rest the deeper padding comes back.
+  const floor = useAnimatedStyle(() => ({
+    paddingBottom:
+      keyboard.height.value > 0 ? keyboardBottomPadding : restingBottomPadding,
   }));
 
   // Undefined means "not touched", so what the text said still stands. Once a
@@ -144,7 +177,14 @@ export function QuickCaptureSheet({
   const [expanded, setExpanded] = useState(isEditing);
 
   const priority = priorityOverride ?? draft.priority;
-  const dueAtMs = dueOverride === undefined ? draft.dueAtMs : dueOverride;
+  // A task written now is a task for now: a new capture starts on today rather
+  // than with no date at all. What the text says still wins — typing "sexta"
+  // moves it — and the chip stays a way out, to another day or to none.
+  const defaultDueAtMs = isEditing ? null : endOfDay(nowMs);
+  const dueAtMs =
+    dueOverride === undefined ? draft.dueAtMs ?? defaultDueAtMs : dueOverride;
+  const isUsingDefaultDue =
+    dueOverride === undefined && draft.dueAtMs == null && dueAtMs != null;
   const typedList = findListByName(lists, draft.listName);
   const listId =
     listOverride === undefined ? typedList?.id ?? null : listOverride;
@@ -254,7 +294,13 @@ export function QuickCaptureSheet({
       typed,
       {
         ...(priorityOverride == null ? {} : { priority: priorityOverride }),
-        ...(dueOverride === undefined ? {} : { dueAtMs: dueOverride }),
+        ...(dueOverride === undefined
+          ? // Saving without touching the date keeps the day the chip has been
+            // showing all along: today.
+            isUsingDefaultDue
+            ? { dueAtMs }
+            : {}
+          : { dueAtMs: dueOverride }),
         ...(newListName == null && listOverride === undefined
           ? {}
           : newListName == null
@@ -271,7 +317,7 @@ export function QuickCaptureSheet({
   }
 
   return (
-    <Overlay>
+    <Overlay onLayout={measureOverlay} ref={overlay}>
       <Scrim entering={scrimEnter()} exiting={scrimExit()}>
         <ScrimTouch
           accessibilityLabel={copy.capture.cancel}
@@ -284,6 +330,7 @@ export function QuickCaptureSheet({
           entering={sheetSlideEnter()}
           exiting={sheetExit()}
           onLayout={traceOpen}
+          style={floor}
         >
           <Grabber />
           <Field
@@ -544,8 +591,7 @@ export function QuickCaptureSheet({
                   scaleTo={0.94}
                   testID="sheet-focus"
                 >
-                  <PlayGlyph color={theme.colors.accentInk} size={14} />
-                  <FocusActionLabel>{copy.focus.action}</FocusActionLabel>
+                  <PlayGlyph color={theme.colors.accentInk} size={16} />
                 </FocusAction>
               ) : null}
 
@@ -624,9 +670,10 @@ const Sheet = styled(Animated.View)`
   background-color: ${({ theme }) => theme.colors.background};
   border-top-left-radius: ${({ theme }) => theme.radii.extraLarge}px;
   border-top-right-radius: ${({ theme }) => theme.radii.extraLarge}px;
+  /* The floor is animated above: deep at rest, to clear the gesture bar, and
+     shallower on the keys. */
   padding: ${({ theme }) => theme.spacing.medium}px
-    ${({ theme }) => theme.spacing.large}px
-    ${({ theme }) => theme.spacing.large + 8}px;
+    ${({ theme }) => theme.spacing.large}px 0px;
 `;
 
 const Grabber = styled.View`
@@ -650,10 +697,24 @@ const Field = styled.TextInput.attrs(({ theme }) => ({
   min-height: 52px;
 `;
 
-const Chips = styled(Animated.View)`
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: ${({ theme }) => theme.spacing.small - 2}px;
+/* One line, always. Wrapping put a second row under the field in Portuguese
+   and pushed everything below it down; the chips now slide sideways instead. */
+const Chips = styled(Animated.ScrollView).attrs(({ theme }) => ({
+  horizontal: true,
+  showsHorizontalScrollIndicator: false,
+  keyboardShouldPersistTaps: 'handled' as const,
+  contentContainerStyle: {
+    alignItems: 'center' as const,
+    gap: theme.spacing.small - 2,
+    paddingRight: theme.spacing.small,
+  },
+}))`
+  flex-grow: 0;
+  /* A scroller measured by its content made the whole column as wide as the
+     chips inside it, and everything below inherited that width — which is how
+     the help button ended up past the right edge of the phone. */
+  align-self: stretch;
+  width: 100%;
   margin-top: ${({ theme }) => theme.spacing.small + 4}px;
 `;
 
@@ -753,6 +814,10 @@ const Controls = styled.View`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+  /* Bound to the sheet's own width, so the control on the right lands inside
+     the padding instead of past the screen. */
+  align-self: stretch;
+  width: 100%;
   margin-top: ${({ theme }) => theme.spacing.small + 4}px;
 `;
 
@@ -761,6 +826,7 @@ const MoreToggle = styled(PressableScale)`
   align-items: center;
   gap: ${({ theme }) => theme.spacing.tiny + 2}px;
   min-height: 48px;
+  flex-shrink: 1;
   padding: 0px ${({ theme }) => theme.spacing.small}px;
 `;
 
@@ -775,6 +841,7 @@ const MoreToggleText = styled.Text.attrs(buttonTextAttrs)`
 const SyntaxToggle = styled(PressableScale)<{ $open: boolean }>`
   width: 48px;
   height: 48px;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: ${({ theme }) => theme.radii.pill}px;
@@ -820,7 +887,10 @@ const SyntaxHelp = styled.Text`
 
 /* Only carries the layout transition: the actions must slide, never jump, when
    a layer opens above them. */
-const ActionsShift = styled(Animated.View)``;
+const ActionsShift = styled(Animated.View)`
+  align-self: stretch;
+  width: 100%;
+`;
 
 const NewListComposer = styled.View`
   margin-top: ${({ theme }) => theme.spacing.medium}px;
@@ -876,21 +946,17 @@ const NewListUseText = styled.Text.attrs(buttonTextAttrs)`
 
 /** The one destructive control in the sheet, and the only red in it. */
 /* Quiet next to Save: starting a block is a second way out of the sheet, not
-   the thing the sheet exists for. */
+   the thing the sheet exists for. Carrying its word as well as Cancelar,
+   Excluir and Salvar made the row wider than the phone, and Salvar — the one
+   thing the sheet exists for — was the end that fell off it. The glyph and the
+   spoken label stay; the printed word goes. */
 const FocusAction = styled(PressableScale)`
-  flex-direction: row;
+  width: 48px;
+  height: 48px;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.tiny + 2}px;
-  min-height: 48px;
-  padding: 0px ${({ theme }) => theme.spacing.medium - 2}px;
+  justify-content: center;
   border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-`;
-
-const FocusActionLabel = styled.Text.attrs(buttonTextAttrs)`
-  color: ${({ theme }) => theme.colors.accentInk};
-  ${({ theme }) => buttonTextMetrics(theme.type.label)}
-  font-weight: 700;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
 `;
 
 const Delete = styled(PressableScale)`
