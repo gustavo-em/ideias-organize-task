@@ -11,7 +11,12 @@ import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
 import type { CaptureOverrides } from '../../application/useCases/captureTask';
 import { daysBetween, endOfDay } from '../../domain/Day';
 import { parseCapture } from '../../domain/QuickCapture';
-import type { Subtask } from '../../domain/Subtask';
+import {
+  addSubtask,
+  removeSubtask,
+  renameSubtask,
+  type Subtask,
+} from '../../domain/Subtask';
 import type { TaskPriority } from '../../domain/Task';
 import { findListByName, type TaskList } from '../../domain/TaskList';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
@@ -190,6 +195,16 @@ export function QuickCaptureSheet({
   // list behind. The use case creates both together only on save.
   const [newListName, setNewListName] = useState<string | null>(null);
 
+  // The steps written before the task exists. Provisional in the same way the
+  // new list is: they live here until save, and the identifiers that reach the
+  // workspace are minted by the use case, never these.
+  const [draftSubtasks, setDraftSubtasks] = useState<readonly Subtask[]>([]);
+  const draftSubtaskSeq = useRef(0);
+  // What is still in the composer when Save is pressed. Read here rather than
+  // written from the block's unmount, which happens after the task is already
+  // on its way.
+  const pendingSubtaskText = useRef('');
+
   const [panel, setPanel] = useState<
     'none' | 'date' | 'list' | 'listNew' | 'syntax'
   >('none');
@@ -306,6 +321,9 @@ export function QuickCaptureSheet({
     const next = !expanded;
 
     setExpanded(next);
+    // Closing the layer takes the composer with it, so a step left half-written
+    // in it goes too: what is no longer on screen must not arrive on save.
+    if (!next) pendingSubtaskText.current = '';
     if (!next && panel !== 'syntax') setPanel('none');
   }
 
@@ -316,9 +334,20 @@ export function QuickCaptureSheet({
     // is kept on save and dropped on cancel, exactly like the title above it.
     savedByButton.current = true;
 
+    // A step half-written when Save is pressed was still meant: it goes in as
+    // the last line, exactly as if it had been confirmed.
+    const withPending = addSubtask(
+      draftSubtasks,
+      pendingSubtaskText.current,
+      Date.now(),
+      `draft-${(draftSubtaskSeq.current += 1)}`,
+    );
+    const subtaskTitles = withPending.map(subtask => subtask.title);
+
     onSubmit(
       typed,
       {
+        ...(isEditing || subtaskTitles.length === 0 ? {} : { subtaskTitles }),
         ...(priorityOverride == null ? {} : { priority: priorityOverride }),
         ...(dueOverride === undefined
           ? // Saving without touching the date keeps the day the chip has been
@@ -336,6 +365,8 @@ export function QuickCaptureSheet({
       Date.now() - openedAt.current,
     );
     setTyped('');
+    setDraftSubtasks([]);
+    pendingSubtaskText.current = '';
     // The sheet closes on save. Keeping it open hid the very thing the person
     // was waiting to see — the task landing on the day behind it — and left
     // them unsure whether anything had been saved at all.
@@ -603,6 +634,38 @@ export function QuickCaptureSheet({
               onToggle={onToggleSubtask}
               shouldKeepPending={() => savedByButton.current}
               subtasks={editing.subtasks}
+            />
+          ) : null}
+
+          {/* The same block while the task is still being written. It belongs
+              to the second layer: the sheet opens on one field, and only
+              "Mais opções" brings the steps into view. */}
+          {!isEditing && expanded ? (
+            <SubtaskList
+              copy={copy}
+              mode="draft"
+              onAdd={title =>
+                setDraftSubtasks(current =>
+                  addSubtask(
+                    current,
+                    title,
+                    Date.now(),
+                    `draft-${(draftSubtaskSeq.current += 1)}`,
+                  ),
+                )
+              }
+              onDelete={subtaskId =>
+                setDraftSubtasks(current => removeSubtask(current, subtaskId))
+              }
+              onDraftChange={text => {
+                pendingSubtaskText.current = text;
+              }}
+              onRename={(subtaskId, title) =>
+                setDraftSubtasks(current =>
+                  renameSubtask(current, subtaskId, title),
+                )
+              }
+              subtasks={draftSubtasks}
             />
           ) : null}
 

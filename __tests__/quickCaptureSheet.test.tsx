@@ -176,3 +176,201 @@ describe('QuickCaptureSheet layers', () => {
     expect(has(tree, 'capture-syntax')).toBe(false);
   });
 });
+
+describe('QuickCaptureSheet steps while writing a task', () => {
+  it('keeps layer zero free of steps', () => {
+    const tree = renderSheet();
+
+    expect(has(tree, 'subtask-add-action')).toBe(false);
+    expect(has(tree, 'subtask-add-field')).toBe(false);
+    expect(texts(tree)).not.toContain(copy.subtasks.title);
+  });
+
+  it('offers the steps inside “Mais opções”, on demand', () => {
+    const tree = renderSheet();
+
+    act(() => first(tree, 'capture-more').props.onPress());
+
+    expect(has(tree, 'subtask-add-action')).toBe(true);
+    expect(has(tree, 'subtask-add-field')).toBe(false);
+
+    act(() => first(tree, 'subtask-add-action').props.onPress());
+
+    expect(has(tree, 'subtask-add-field')).toBe(true);
+  });
+
+  it('takes three steps in a row without letting the keyboard go', () => {
+    const tree = renderSheet();
+
+    act(() => first(tree, 'capture-more').props.onPress());
+    act(() => first(tree, 'subtask-add-action').props.onPress());
+
+    ['caixas', 'frete', 'avisar o senhorio'].forEach(title => {
+      const field = first(tree, 'subtask-add-field');
+
+      expect(field.props.blurOnSubmit).toBe(false);
+      act(() => field.props.onChangeText(title));
+      act(() => field.props.onSubmitEditing());
+    });
+
+    expect(first(tree, 'subtask-add-field').props.value).toBe('');
+    expect(texts(tree)).toEqual(expect.arrayContaining(['caixas', 'frete']));
+    // Nothing is ticked yet, so no box is drawn beside a step.
+    expect(has(tree, 'subtask-count')).toBe(false);
+  });
+
+  it('removes a step, and counts them only once the list is long', () => {
+    const tree = renderSheet();
+
+    act(() => first(tree, 'capture-more').props.onPress());
+    act(() => first(tree, 'subtask-add-action').props.onPress());
+
+    ['um', 'dois', 'três', 'quatro'].forEach(title => {
+      const field = first(tree, 'subtask-add-field');
+
+      act(() => field.props.onChangeText(title));
+      act(() => field.props.onSubmitEditing());
+    });
+
+    expect(has(tree, 'subtask-count')).toBe(true);
+    expect(first(tree, 'subtask-count').props.accessibilityLabel).toBe(
+      copy.subtasks.count(4),
+    );
+
+    const remove = tree.root.findAll(
+      node =>
+        typeof node.props?.testID === 'string' &&
+        node.props.testID.startsWith('subtask-delete-') &&
+        typeof node.type !== 'string',
+    )[0];
+
+    act(() => remove.props.onPress());
+
+    expect(texts(tree)).not.toContain('um');
+    expect(has(tree, 'subtask-count')).toBe(false);
+  });
+
+  it('saves the task with the steps, including the one still being typed', () => {
+    const submitted: unknown[] = [];
+    const tree = renderSheet({
+      onSubmit: (typed, overrides) => submitted.push({ typed, overrides }),
+    });
+
+    act(() => first(tree, 'capture-field').props.onChangeText('mudar de casa'));
+    act(() => first(tree, 'capture-more').props.onPress());
+    act(() => first(tree, 'subtask-add-action').props.onPress());
+
+    const field = first(tree, 'subtask-add-field');
+
+    act(() => field.props.onChangeText('caixas'));
+    act(() => field.props.onSubmitEditing());
+    act(() => first(tree, 'subtask-add-field').props.onChangeText('frete'));
+    act(() => first(tree, 'capture-save').props.onPress());
+
+    expect(submitted).toHaveLength(1);
+    expect(
+      (submitted[0] as { overrides: { subtaskTitles?: string[] } }).overrides
+        .subtaskTitles,
+    ).toEqual(['caixas', 'frete']);
+  });
+
+  it('sends no steps when none were written', () => {
+    const submitted: { subtaskTitles?: readonly string[] }[] = [];
+    const tree = renderSheet({
+      onSubmit: (_typed, overrides) => submitted.push(overrides),
+    });
+
+    act(() => first(tree, 'capture-field').props.onChangeText('ligar'));
+    act(() => first(tree, 'capture-save').props.onPress());
+
+    expect(submitted[0].subtaskTitles).toBeUndefined();
+  });
+
+  it('editing keeps its own block, expanded, with the steps it already has', () => {
+    const tree = renderSheet({
+      editing: {
+        id: 'task-1',
+        title: 'mudar de casa',
+        priority: 'medium',
+        dueAtMs: null,
+        listId: null,
+        subtasks: [
+          {
+            id: 'sub-1',
+            title: 'caixas',
+            completedAtMs: null,
+            closedWithParent: false,
+            createdAtMs: NOW,
+          },
+        ],
+      },
+      onAddSubtask: () => {},
+      onRenameSubtask: () => {},
+      onToggleSubtask: () => {},
+      onDeleteSubtask: () => {},
+    });
+
+    // The field is there from the start, and so is the box beside a real step.
+    expect(has(tree, 'subtask-add-field')).toBe(true);
+    expect(has(tree, 'subtask-add-action')).toBe(false);
+    expect(has(tree, 'subtask-checkbox-sub-1')).toBe(true);
+    expect(first(tree, 'subtask-count').props.accessibilityLabel).toBe(
+      copy.subtasks.progress(0, 1),
+    );
+  });
+});
+
+describe('QuickCaptureSheet: the composer is not a step yet', () => {
+  it('confirms a step by tapping, without the keyboard', () => {
+    const tree = renderSheet();
+
+    act(() => first(tree, 'capture-more').props.onPress());
+    act(() => first(tree, 'subtask-add-action').props.onPress());
+
+    expect(first(tree, 'subtask-add-confirm').props.accessibilityState).toEqual(
+      { disabled: true },
+    );
+
+    act(() => first(tree, 'subtask-add-field').props.onChangeText('caixas'));
+    act(() => first(tree, 'subtask-add-confirm').props.onPress());
+
+    expect(first(tree, 'subtask-add-field').props.value).toBe('');
+    expect(texts(tree)).toContain('caixas');
+  });
+
+  it('keeps a title retyped in the draft when the task is saved', () => {
+    const submitted: { subtaskTitles?: readonly string[] }[] = [];
+    const tree = renderSheet({
+      onSubmit: (_typed, overrides) => submitted.push(overrides),
+    });
+
+    act(() => first(tree, 'capture-field').props.onChangeText('mudar de casa'));
+    act(() => first(tree, 'capture-more').props.onPress());
+    act(() => first(tree, 'subtask-add-action').props.onPress());
+    act(() => first(tree, 'subtask-add-field').props.onChangeText('caixas'));
+    act(() => first(tree, 'subtask-add-confirm').props.onPress());
+
+    const line = tree.root.findAll(
+      node =>
+        typeof node.props?.testID === 'string' &&
+        node.props.testID.startsWith('subtask-') &&
+        node.props.testID.startsWith('subtask-delete-') === false &&
+        node.props.accessibilityRole === 'button' &&
+        typeof node.type !== 'string',
+    )[0];
+
+    act(() => line.props.onPress());
+
+    const renameField = tree.root.findAll(
+      node =>
+        typeof node.props?.testID === 'string' &&
+        node.props.testID.startsWith('subtask-rename-') &&
+        typeof node.type !== 'string',
+    )[0];
+
+    act(() => renameField.props.onChangeText('caixas de papelão'));
+    act(() => first(tree, 'capture-save').props.onPress());
+
+    expect(submitted[0].subtaskTitles).toEqual(['caixas de papelão']);
+  });
+});

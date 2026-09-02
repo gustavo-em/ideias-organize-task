@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
+import { AccessibilityInfo } from 'react-native';
 import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
@@ -9,7 +10,7 @@ import {
   type Subtask,
 } from '../../domain/Subtask';
 import type { TaskCopy } from '../localization/taskCopy';
-import { TrashGlyph } from './FieldGlyphs';
+import { PlusGlyph, TrashGlyph } from './FieldGlyphs';
 import { HairlineRule } from './HairlineRule';
 import { PressableScale } from './PressableScale';
 import { TaskCheckbox } from './TaskCheckbox';
@@ -19,12 +20,21 @@ interface SubtaskListProps {
   subtasks: readonly Subtask[];
   onAdd: (title: string) => void;
   onRename: (subtaskId: string, title: string) => void;
-  onToggle: (subtaskId: string) => void;
+  onToggle?: (subtaskId: string) => void;
   onDelete: (subtaskId: string) => void;
   /** Read when the block goes away, to tell the two ways out apart: saving
    * keeps what was half-written, cancelling throws it away with everything
    * else the sheet was holding. */
   shouldKeepPending?: () => boolean;
+  /**
+   * `edit` is the block inside a task that exists. `draft` is the same block
+   * while the task is still being written: nothing can be ticked yet, so no
+   * box is drawn, and the field only appears once it is asked for.
+   */
+  mode?: 'edit' | 'draft';
+  /** What is half-written in the composer, told to the sheet as it is typed,
+   * so saving can keep it instead of dropping it on unmount. */
+  onDraftChange?: (text: string) => void;
 }
 
 /** Drawn small, touched large: the box beside a step never outweighs the box
@@ -48,15 +58,30 @@ export function SubtaskList({
   onToggle,
   onDelete,
   shouldKeepPending,
+  mode = 'edit',
+  onDraftChange,
 }: SubtaskListProps) {
   const theme = useTheme();
   const [draft, setDraft] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const composer = useRef<ComponentRef<typeof AddField>>(null);
+  const isDraft = mode === 'draft';
+  // While writing a task the field is asked for, not offered: the layer opens
+  // on a single line of words, and only whoever wants steps sees a field.
+  const [composerOpen, setComposerOpen] = useState(!isDraft);
   const done = subtasks.filter(isSubtaskDone).length;
   const atLimit = subtasks.length >= MAX_SUBTASKS;
-  const allDone = subtasks.length > 0 && done === subtasks.length;
+  const allDone = !isDraft && subtasks.length > 0 && done === subtasks.length;
+  // Nothing is ticked in a draft, so the fraction would read 0/4 all the way
+  // through. The plain number is only worth drawing once the list is longer
+  // than a glance.
+  const showCount = isDraft ? subtasks.length > 3 : subtasks.length > 0;
+
+  function changeDraft(value: string) {
+    setDraft(value);
+    onDraftChange?.(value);
+  }
 
   function commitDraft() {
     const value = draft.trim();
@@ -64,10 +89,30 @@ export function SubtaskList({
     if (value.length === 0) return;
 
     onAdd(value);
-    setDraft('');
+    changeDraft('');
+    if (isDraft) {
+      // The list is read out, because a new line below the field is not
+      // something a screen reader would otherwise notice.
+      AccessibilityInfo.announceForAccessibility(copy.subtasks.item(value));
+    }
     // The keyboard stays: writing three steps should be three lines, not three
     // taps back into the same field.
     composer.current?.focus();
+  }
+
+  function removeSubtaskAt(subtaskId: string, title: string) {
+    onDelete(subtaskId);
+    if (isDraft) {
+      AccessibilityInfo.announceForAccessibility(copy.subtasks.remove(title));
+    }
+  }
+
+  /** A draft keeps its steps in the sheet above, so a retyped title is applied
+   * as it is written: nothing is left pending to be lost when Save unmounts
+   * the block, and cancelling still throws the whole draft away. */
+  function changeRename(value: string) {
+    setEditingTitle(value);
+    if (isDraft && editingId != null) onRename(editingId, value);
   }
 
   function commitRename() {
@@ -85,10 +130,15 @@ export function SubtaskList({
   // Cancelling is the other half of the same question — it throws away the
   // title and the chips, so it throws away these too, and never writes a step
   // the person just decided against.
+  //
+  // A draft answers the same question earlier: the sheet is told what is in the
+  // field as it is typed, and keeps it itself, so nothing is written from an
+  // unmount that happens after the task was already submitted.
   const pending = useRef({
     draft,
     editingId,
     editingTitle,
+    isDraft,
     onAdd,
     onRename,
     shouldKeepPending,
@@ -98,6 +148,7 @@ export function SubtaskList({
     draft,
     editingId,
     editingTitle,
+    isDraft,
     onAdd,
     onRename,
     shouldKeepPending,
@@ -107,6 +158,7 @@ export function SubtaskList({
     () => () => {
       const last = pending.current;
 
+      if (last.isDraft) return;
       if (last.shouldKeepPending?.() === false) return;
 
       if (last.editingId != null) {
@@ -121,13 +173,18 @@ export function SubtaskList({
     <Section>
       <Heading>
         <HeadingLabel>{copy.subtasks.title}</HeadingLabel>
-        {subtasks.length === 0 ? null : (
+        {showCount ? (
           <HeadingCount
-            accessibilityLabel={copy.subtasks.progress(done, subtasks.length)}
+            accessibilityLabel={
+              isDraft
+                ? copy.subtasks.count(subtasks.length)
+                : copy.subtasks.progress(done, subtasks.length)
+            }
+            testID="subtask-count"
           >
-            {`${done}/${subtasks.length}`}
+            {isDraft ? `${subtasks.length}` : `${done}/${subtasks.length}`}
           </HeadingCount>
-        )}
+        ) : null}
         <HairlineRule />
       </Heading>
 
@@ -143,17 +200,21 @@ export function SubtaskList({
                 key={subtask.id}
                 layout={rowLayout()}
               >
-                <TaskCheckbox
-                  // Says which kind of box it is: the task's own checkbox is
-                  // the same role, and a screen reader would otherwise read
-                  // two indistinguishable checkboxes.
-                  accessibilityLabel={copy.subtasks.item(subtask.title)}
-                  checked={isDone}
-                  hitSlop={BOX_SLOP}
-                  onToggle={() => onToggle(subtask.id)}
-                  size={BOX_SIZE}
-                  testID={`subtask-checkbox-${subtask.id}`}
-                />
+                {/* A step of a task that does not exist yet cannot be done,
+                    so the draft draws no box at all. */}
+                {isDraft || onToggle == null ? null : (
+                  <TaskCheckbox
+                    // Says which kind of box it is: the task's own checkbox is
+                    // the same role, and a screen reader would otherwise read
+                    // two indistinguishable checkboxes.
+                    accessibilityLabel={copy.subtasks.item(subtask.title)}
+                    checked={isDone}
+                    hitSlop={BOX_SLOP}
+                    onToggle={() => onToggle(subtask.id)}
+                    size={BOX_SIZE}
+                    testID={`subtask-checkbox-${subtask.id}`}
+                  />
+                )}
 
                 {editingId === subtask.id ? (
                   <RenameField
@@ -161,7 +222,7 @@ export function SubtaskList({
                     autoFocus
                     blurOnSubmit
                     onBlur={commitRename}
-                    onChangeText={setEditingTitle}
+                    onChangeText={changeRename}
                     onSubmitEditing={commitRename}
                     returnKeyType="done"
                     testID={`subtask-rename-${subtask.id}`}
@@ -170,6 +231,9 @@ export function SubtaskList({
                 ) : (
                   <LineText
                     accessibilityHint={copy.subtasks.rename(subtask.title)}
+                    accessibilityLabel={
+                      isDraft ? copy.subtasks.item(subtask.title) : undefined
+                    }
                     accessibilityRole="button"
                     onPress={() => {
                       setEditingId(subtask.id);
@@ -188,7 +252,7 @@ export function SubtaskList({
                   accessibilityLabel={copy.subtasks.remove(subtask.title)}
                   accessibilityRole="button"
                   hitSlop={6}
-                  onPress={() => onDelete(subtask.id)}
+                  onPress={() => removeSubtaskAt(subtask.id, subtask.title)}
                   scaleTo={0.86}
                   testID={`subtask-delete-${subtask.id}`}
                 >
@@ -204,21 +268,55 @@ export function SubtaskList({
         <Note testID="subtask-limit">
           {copy.subtasks.limitReached(MAX_SUBTASKS)}
         </Note>
-      ) : (
+      ) : composerOpen ? (
         <Composer>
-          <AddField
-            accessibilityLabel={copy.subtasks.add}
-            autoCorrect
-            blurOnSubmit={false}
-            onChangeText={setDraft}
-            onSubmitEditing={commitDraft}
-            placeholder={copy.subtasks.addPlaceholder}
-            ref={composer}
-            returnKeyType="done"
-            testID="subtask-add-field"
-            value={draft}
-          />
+          {/* The field is not a step yet, and has to look like it: it carries
+              its own rule underneath and the one control the lines do not
+              have — a way to confirm that does not depend on the keyboard. */}
+          <ComposerRow>
+            <AddField
+              accessibilityLabel={copy.subtasks.add}
+              autoCorrect
+              autoFocus={isDraft}
+              blurOnSubmit={false}
+              onChangeText={changeDraft}
+              onSubmitEditing={commitDraft}
+              placeholder={copy.subtasks.addPlaceholder}
+              ref={composer}
+              returnKeyType="done"
+              testID="subtask-add-field"
+              value={draft}
+            />
+            <ConfirmButton
+              accessibilityLabel={copy.subtasks.add}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: draft.trim().length === 0 }}
+              hitSlop={6}
+              onPress={commitDraft}
+              scaleTo={0.86}
+              testID="subtask-add-confirm"
+            >
+              <PlusGlyph
+                color={
+                  draft.trim().length === 0
+                    ? theme.colors.muted
+                    : theme.colors.accentInk
+                }
+                size={16}
+              />
+            </ConfirmButton>
+          </ComposerRow>
         </Composer>
+      ) : (
+        <AddAction
+          accessibilityLabel={copy.subtasks.add}
+          accessibilityRole="button"
+          onPress={() => setComposerOpen(true)}
+          scaleTo={0.98}
+          testID="subtask-add-action"
+        >
+          <AddActionText>{copy.subtasks.add}</AddActionText>
+        </AddAction>
       )}
 
       {allDone ? (
@@ -320,13 +418,51 @@ const Composer = styled.View`
   border-left-color: ${({ theme }) => theme.colors.borderSubtle};
 `;
 
+/* A line still being written, not a line already written: one hairline under
+   the text says so, and the confirm sits where the steps carry their trash. No
+   box, no fill — the rule is the whole difference. */
+const ComposerRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  border-bottom-width: 1px;
+  border-bottom-color: ${({ theme }) => theme.colors.borderSubtle};
+`;
+
 const AddField = styled.TextInput.attrs(({ theme }) => ({
   placeholderTextColor: theme.colors.muted,
 }))`
+  flex: 1;
+  min-width: 0px;
   min-height: 48px;
   padding: 0px;
   color: ${({ theme }) => theme.colors.text};
   font-size: ${({ theme }) => theme.type.body}px;
+`;
+
+const ConfirmButton = styled(PressableScale)`
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+`;
+
+/* The way into the field while a task is being written. It stands on the same
+   indent the steps will live on, and carries no fill of its own: the sheet is
+   already the container. */
+const AddAction = styled(PressableScale)`
+  min-height: 48px;
+  justify-content: center;
+  padding-left: 12px;
+  border-left-width: 1px;
+  border-left-color: ${({ theme }) => theme.colors.borderSubtle};
+`;
+
+const AddActionText = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 700;
 `;
 
 const Note = styled.Text`
