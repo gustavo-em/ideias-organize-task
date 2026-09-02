@@ -136,6 +136,13 @@ export function TodayScreen({
     markSheetPress('QuickCaptureSheet');
     setEditing(task);
   }, []);
+  // The snapshot in state is what opened the sheet; the workspace is what the
+  // sheet has to show, or a step added inside it would not appear until the
+  // sheet was closed and opened again.
+  const editingTask =
+    editing == null
+      ? null
+      : viewModel.tasks.find(task => task.id === editing.id) ?? editing;
   const toggleTask = useCallback(
     (taskId: string) => viewModel.toggle(taskId),
     [viewModel],
@@ -457,19 +464,33 @@ export function TodayScreen({
         />
       ) : null}
 
-      {editing == null ? null : (
+      {editing == null || editingTask == null ? null : (
         <QuickCaptureSheet
           copy={copy}
           editing={{
-            title: editing.title,
-            priority: editing.priority,
-            dueAtMs: editing.dueAtMs,
-            listId: editing.listId,
+            id: editingTask.id,
+            title: editingTask.title,
+            priority: editingTask.priority,
+            dueAtMs: editingTask.dueAtMs,
+            listId: editingTask.listId,
+            subtasks: editingTask.subtasks,
           }}
           language={language}
           lists={viewModel.lists}
           nowMs={viewModel.nowMs}
+          onAddSubtask={title =>
+            viewModel.addTaskSubtask(editingTask.id, title)
+          }
           onCancel={() => setEditing(null)}
+          onDeleteSubtask={subtaskId =>
+            viewModel.deleteTaskSubtask(editingTask.id, subtaskId)
+          }
+          onRenameSubtask={(subtaskId, title) =>
+            viewModel.renameTaskSubtask(editingTask.id, subtaskId, title)
+          }
+          onToggleSubtask={subtaskId =>
+            viewModel.toggleTaskSubtask(editingTask.id, subtaskId)
+          }
           onDelete={() => {
             const subject = editing;
             setEditing(null);

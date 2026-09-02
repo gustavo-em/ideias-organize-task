@@ -110,6 +110,43 @@ export function ClockGlyph({ color, size = 13 }: GlyphProps) {
   );
 }
 
+/** Steps inside a task: a tick and two lines, so the count beside it reads as
+ * work broken down rather than as a date or a duration. */
+export function ChecklistGlyph({ color, size = 13 }: GlyphProps) {
+  return (
+    <Svg height={size} viewBox="0 0 16 16" width={size}>
+      <Path
+        d="M1.8 4.6 3.4 6.2 6.4 3.1"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M1.8 11.3 3.4 12.9 6.4 9.8"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M8.6 4.9h5.6"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M8.6 11.6h5.6"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+    </Svg>
+  );
+}
+
 /** Throwing away. The lid is separate so the shape reads at thirteen pixels. */
 export function TrashGlyph({ color, size = 13 }: GlyphProps) {
   return (

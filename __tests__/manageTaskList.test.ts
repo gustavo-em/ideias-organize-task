@@ -67,6 +67,7 @@ describe('manage task lists', () => {
           estimatedMinutes: null,
           createdAtMs: now,
           completedAtMs: null,
+          subtasks: [],
         },
       ],
     };

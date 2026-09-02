@@ -78,6 +78,8 @@ export function captureTask(
     estimatedMinutes: draft.estimatedMinutes,
     createdAtMs: nowMs,
     completedAtMs: null,
+    // Capture stays one field: steps are added later, from the task itself.
+    subtasks: [],
   };
 
   const tasks = [task, ...workspace.tasks];

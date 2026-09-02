@@ -41,6 +41,15 @@ export type TaskEvent =
       before: Task;
     }
   | { type: 'task.deleted'; at: number; task: Task }
+  /** A step inside a task was added, renamed, ticked or removed. Separate from
+   * `task.edited` because nothing about the task itself changed, and nothing
+   * downstream should treat it as work finished: steps carry no points. */
+  | {
+      type: 'task.subtasks.changed';
+      at: number;
+      task: Task;
+      before: Task;
+    }
   | { type: 'trio.assembled'; at: number; taskIds: readonly string[] }
   | { type: 'trio.completed'; at: number; streakDays: number; points: number }
   | { type: 'level.reached'; at: number; level: number }

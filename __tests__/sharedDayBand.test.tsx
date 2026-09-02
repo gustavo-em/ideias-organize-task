@@ -31,6 +31,7 @@ function task(id: string, title: string, completedAtMs: number | null): Task {
     createdAtMs: NOW - 1000,
     completedAtMs,
     completedBy: null,
+    subtasks: [],
   };
 }
 

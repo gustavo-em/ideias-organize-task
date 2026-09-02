@@ -18,6 +18,7 @@ const base: Task = {
   estimatedMinutes: null,
   createdAtMs: now,
   completedAtMs: null,
+  subtasks: [],
 };
 
 describe('what a task says about itself', () => {

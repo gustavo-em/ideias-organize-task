@@ -46,6 +46,15 @@ function taskToRecord(task: Task): Record<string, unknown> {
     createdAtMs: task.createdAtMs,
     completedAtMs: task.completedAtMs,
     completedBy: task.completedBy ?? null,
+    // Steps ride inside the task, on the same document and the same
+    // last-write-wins rule: whoever may edit the content may edit them.
+    subtasks: task.subtasks.map(subtask => ({
+      id: subtask.id,
+      title: subtask.title,
+      completedAtMs: subtask.completedAtMs,
+      closedWithParent: subtask.closedWithParent,
+      createdAtMs: subtask.createdAtMs,
+    })),
   };
 }
 

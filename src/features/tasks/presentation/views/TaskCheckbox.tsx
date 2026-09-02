@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
   interpolateColor,
@@ -46,6 +46,10 @@ interface TaskCheckboxProps {
   tone?: 'default' | 'onAccent';
   /** A `viewer` in a shared project sees the box but cannot tick it. */
   disabled?: boolean;
+  /** Drawn size of the box. A step inside a task takes a smaller one, so the
+   * task's own box stays the bigger of the two; the touch target is grown back
+   * with `hitSlop` rather than with ink. */
+  size?: number;
 }
 
 /**
@@ -63,6 +67,7 @@ export function TaskCheckbox({
   hitSlop,
   tone = 'default',
   disabled = false,
+  size = SIZE,
 }: TaskCheckboxProps) {
   const theme = useTheme();
   const progress = useSharedValue(checked ? 1 : 0);
@@ -78,6 +83,15 @@ export function TaskCheckbox({
   const edge =
     tone === 'onAccent' ? theme.colors.onAccent : theme.colors.border;
 
+  // Only when it differs from the default, so the shared style object stays
+  // the one reference every card and row uses.
+  const sizeStyle = useMemo(
+    () =>
+      size === SIZE
+        ? null
+        : { width: size, height: size, borderRadius: Math.round(size / 2.9) },
+    [size],
+  );
   const boxStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
       progress.value,
@@ -106,8 +120,12 @@ export function TaskCheckbox({
       scaleTo={0.88}
       testID={testID}
     >
-      <Animated.View style={[styles.box, boxStyle]}>
-        <Svg height={14} width={14} viewBox="0 0 16 16">
+      <Animated.View style={[styles.box, sizeStyle, boxStyle]}>
+        <Svg
+          height={Math.round(size * 0.54)}
+          viewBox="0 0 16 16"
+          width={Math.round(size * 0.54)}
+        >
           <AnimatedPath
             animatedProps={pathProps}
             d="M3 8.4 6.3 11.7 13 5"

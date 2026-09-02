@@ -11,6 +11,7 @@ import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
 import type { CaptureOverrides } from '../../application/useCases/captureTask';
 import { daysBetween, endOfDay } from '../../domain/Day';
 import { parseCapture } from '../../domain/QuickCapture';
+import type { Subtask } from '../../domain/Subtask';
 import type { TaskPriority } from '../../domain/Task';
 import { findListByName, type TaskList } from '../../domain/TaskList';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
@@ -37,6 +38,7 @@ import {
   SheetCancelButton,
   SheetPrimaryButton,
 } from './SheetActions';
+import { SubtaskList } from './SubtaskList';
 import {
   disclosureEnter,
   fadeExit,
@@ -49,10 +51,13 @@ import {
 
 /** What an existing task looks like when the same sheet is used to change it. */
 export interface SheetSubject {
+  id: string;
   title: string;
   priority: TaskPriority;
   dueAtMs: number | null;
   listId: string | null;
+  /** The steps inside it. Only editing has them: capture stays one field. */
+  subtasks: readonly Subtask[];
 }
 
 interface QuickCaptureSheetProps {
@@ -73,6 +78,12 @@ interface QuickCaptureSheetProps {
   /** Starts a focus block on the task being edited. Absent while another
    * block is running, so a second one can never be opened by mistake. */
   onFocus?: () => void;
+  /** The steps inside the task being edited. Absent while capturing, which is
+   * what keeps the new-task sheet a single field. */
+  onAddSubtask?: (title: string) => void;
+  onRenameSubtask?: (subtaskId: string, title: string) => void;
+  onToggleSubtask?: (subtaskId: string) => void;
+  onDeleteSubtask?: (subtaskId: string) => void;
   onSubmit: (
     typed: string,
     overrides: CaptureOverrides,
@@ -101,6 +112,10 @@ export function QuickCaptureSheet({
   onFocus,
   onCancel,
   onDelete,
+  onAddSubtask,
+  onRenameSubtask,
+  onToggleSubtask,
+  onDeleteSubtask,
   onSubmit,
 }: QuickCaptureSheetProps) {
   const theme = useTheme();
@@ -109,6 +124,8 @@ export function QuickCaptureSheet({
   // The stopwatch for the whole point of this screen. `nowMs` only ticks once
   // a minute, so the wall clock is what times a thing measured in seconds.
   const openedAt = useRef(Date.now());
+  /** True only once Save has run: every other way out is a cancel. */
+  const savedByButton = useRef(false);
   const [typed, setTyped] = useState(editing?.title ?? '');
   const input = useRef<ComponentRef<typeof Field>>(null);
   const draft = useMemo(() => parseCapture(typed, nowMs), [nowMs, typed]);
@@ -289,6 +306,10 @@ export function QuickCaptureSheet({
 
   function save() {
     if (!canSave) return;
+
+    // Tells the steps block which way out this is: what is half-written in it
+    // is kept on save and dropped on cancel, exactly like the title above it.
+    savedByButton.current = true;
 
     onSubmit(
       typed,
@@ -557,6 +578,27 @@ export function QuickCaptureSheet({
               ))}
               <SyntaxHelp>{copy.capture.syntaxHelp}</SyntaxHelp>
             </SyntaxPanel>
+          ) : null}
+
+          {/* Steps belong to a task that exists, so the block only appears
+              while editing one; the capture sheet stays a single field. It
+              stands below the chips and above the hint, and nothing inside it
+              opens a list of its own. */}
+          {isEditing &&
+          editing != null &&
+          onAddSubtask != null &&
+          onRenameSubtask != null &&
+          onToggleSubtask != null &&
+          onDeleteSubtask != null ? (
+            <SubtaskList
+              copy={copy}
+              onAdd={onAddSubtask}
+              onDelete={onDeleteSubtask}
+              onRename={onRenameSubtask}
+              onToggle={onToggleSubtask}
+              shouldKeepPending={() => savedByButton.current}
+              subtasks={editing.subtasks}
+            />
           ) : null}
 
           {panel === 'none' && (expanded || isEditing) ? (

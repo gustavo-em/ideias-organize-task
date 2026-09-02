@@ -1,4 +1,11 @@
 import { endOfDay, startOfDay } from './Day';
+import {
+  closeOpenSubtasks,
+  countDoneSubtasks,
+  reopenSubtasksClosedWithParent,
+  sanitizeSubtasks,
+  type Subtask,
+} from './Subtask';
 
 export const taskPriorities = ['low', 'medium', 'high'] as const;
 
@@ -18,6 +25,9 @@ export interface Task {
   /** uid of whoever closed it, for a shared project's task list. Null for an
    * open task, or for one closed before the project was shared. */
   completedBy?: string | null;
+  /** The steps inside it, at most one level deep. Empty for a task nobody
+   * broke down, and empty for anything written before this existed. */
+  subtasks: readonly Subtask[];
 }
 
 /**
@@ -60,6 +70,13 @@ export function isDueToday(task: Task, nowMs: number): boolean {
   );
 }
 
+/**
+ * Closing a task closes the steps still open inside it, in the same instant.
+ *
+ * Leaving them open would mean a finished task reporting "2/5", and asking
+ * first would put a dialog in front of the one control the product is about.
+ * Each step closed this way is marked, so reopening can undo exactly this.
+ */
 export function withCompletion(
   task: Task,
   atMs: number,
@@ -67,13 +84,32 @@ export function withCompletion(
 ): Task {
   return isCompleted(task)
     ? task
-    : { ...task, completedAtMs: atMs, completedBy };
+    : {
+        ...task,
+        completedAtMs: atMs,
+        completedBy,
+        subtasks: closeOpenSubtasks(task.subtasks, atMs),
+      };
 }
 
 export function withoutCompletion(task: Task): Task {
   return isCompleted(task)
-    ? { ...task, completedAtMs: null, completedBy: null }
+    ? {
+        ...task,
+        completedAtMs: null,
+        completedBy: null,
+        subtasks: reopenSubtasksClosedWithParent(task.subtasks),
+      }
     : task;
+}
+
+/** How many steps are done out of how many there are. `total` of zero means
+ * the task was never broken down, and nothing should be shown. */
+export function subtaskProgress(task: Task): { done: number; total: number } {
+  return {
+    done: countDoneSubtasks(task.subtasks),
+    total: task.subtasks.length,
+  };
 }
 
 export function replaceTask(
@@ -157,6 +193,9 @@ export function sanitizeTasks(value: unknown): Task[] {
         typeof candidate.completedBy === 'string'
           ? candidate.completedBy
           : null,
+      // Absent on everything written before subtasks existed, which is not a
+      // reason to drop the task: it simply has no steps.
+      subtasks: sanitizeSubtasks(candidate.subtasks),
     });
   }
 

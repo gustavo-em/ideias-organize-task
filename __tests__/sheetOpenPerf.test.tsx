@@ -77,6 +77,7 @@ const tasks: Task[] = lists.flatMap(list =>
     createdAtMs: NOW - 1000,
     completedAtMs: null,
     completedBy: null,
+    subtasks: [],
   })),
 );
 
