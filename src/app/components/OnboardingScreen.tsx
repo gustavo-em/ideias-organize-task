@@ -18,8 +18,12 @@ import styled, { useTheme } from 'styled-components/native';
 
 import type { TaskCopy } from '../../features/tasks/presentation/localization/taskCopy';
 import { PressableScale } from '../../features/tasks/presentation/views/PressableScale';
+import { AppMark } from './AppMark';
 import { DemoPlayer } from './onboarding/DemoPlayer';
-import { onboardingDemos } from './onboarding/onboardingSteps';
+import {
+  ONBOARDING_FRAMES_STALE,
+  onboardingDemos,
+} from './onboarding/onboardingSteps';
 
 interface OnboardingScreenProps {
   copy: TaskCopy;
@@ -134,14 +138,26 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
                   accessibilityRole="image"
                   style={{ height: slideStageHeight }}
                 >
-                  {/* Only the demo being read plays: the other one sits on its
-                    first frame instead of looping off screen. */}
-                  <DemoPlayer
-                    active={index === step}
-                    demo={onboardingDemos[index]}
-                    height={slideStageHeight}
-                    reducedMotion={prefersReducedMotion}
-                  />
+                  {ONBOARDING_FRAMES_STALE ? (
+                    // The frames still carry the previous brand, so the stage
+                    // holds the mark until they are recaptured. Same height,
+                    // so nothing under it moves.
+                    <MarkStage
+                      style={{ height: slideStageHeight }}
+                      testID={`onboarding-demo-${onboardingDemos[index].id}`}
+                    >
+                      <AppMark size={96} />
+                    </MarkStage>
+                  ) : (
+                    /* Only the demo being read plays: the other one sits on its
+                      first frame instead of looping off screen. */
+                    <DemoPlayer
+                      active={index === step}
+                      demo={onboardingDemos[index]}
+                      height={slideStageHeight}
+                      reducedMotion={prefersReducedMotion}
+                    />
+                  )}
                 </Stage>
 
                 <Title>{page.title}</Title>
@@ -246,6 +262,14 @@ const Stage = styled.View`
   border-width: 1px;
   border-color: ${({ theme }) => theme.colors.border};
   overflow: hidden;
+`;
+
+/* Stands in for a demo while its frames still carry the previous brand. */
+const MarkStage = styled.View`
+  flex: 1;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
 `;
 
 const Title = styled.Text`

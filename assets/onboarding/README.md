@@ -1,5 +1,10 @@
 # Onboarding demo frames
 
+> **Pending after the Aluza rebrand.** The PNGs in the repository were captured
+> before the rename, so they still show the old name and the old "Projetos"
+> wording. Recapture both slides with the script below on a device running the
+> rebranded build; the captions already read "Espaços".
+
 The first-run walk-through plays screenshots of this app, not illustrations.
 Every PNG here was captured on a device by
 `scripts/capture-onboarding-frames.sh` and cropped to the band where the action
@@ -14,7 +19,7 @@ script; after it, set `aspect` of both demos to `1080 / 1150` in
 
 - `capture-01..08.png` — slide 1: the Tasks screen, the new task button, the
   sheet, the title being typed and the date/priority/project chips.
-- `shared-01..06.png` — slide 2: the Projects screen, the shared project open
+- `shared-01..06.png` — slide 2: the Spaces screen, the shared space open
   with its agreement band, the invite link and the copied link.
 - `capture-taps.json` / `shared-taps.json` — where each step was tapped,
   normalised to the frame. The values are copied into
@@ -31,7 +36,7 @@ Prepare the device:
 2. profile name `Gustavo`, handle `gustavo` (Você → Editar perfil);
 3. tasks in the inbox: `Marcar dentista`, `Pagar o aluguel`,
    `Levar o carro na oficina`;
-4. projects `Casa nova` (shared, with an invite link already created) and
+4. spaces `Casa nova` (shared, with an invite link already created) and
    `Viagem de julho`, with `Escolher a cor da sala` and `Comprar as cortinas`
    inside `Casa nova`;
 5. no task named `Renovar o seguro` — slide 1 creates it during the capture.

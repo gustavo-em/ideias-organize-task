@@ -329,7 +329,7 @@ export interface TaskCopy {
 }
 
 const ptBR: TaskCopy = {
-  tabs: { today: 'Tarefas', lists: 'Projetos', you: 'Você' },
+  tabs: { today: 'Tarefas', lists: 'Espaços', you: 'Você' },
   today: {
     title: 'Em aberto',
     taskCount: count => (count === 1 ? '1 tarefa' : `${count} tarefas`),
@@ -349,7 +349,7 @@ const ptBR: TaskCopy = {
     groupBy: 'Organizar por',
     grouping: {
       deadline: 'Prazo',
-      list: 'Projeto',
+      list: 'Espaço',
       priority: 'Prioridade',
     },
     agora: 'Agora',
@@ -373,7 +373,7 @@ const ptBR: TaskCopy = {
     syntaxTitle: 'Atalhos de escrita',
     syntaxHelp:
       'Nada disso é obrigatório: as fichas fazem o mesmo com um toque.',
-    noList: 'sem projeto',
+    noList: 'sem espaço',
     previousMonth: 'Mês anterior',
     nextMonth: 'Próximo mês',
     save: 'Salvar',
@@ -407,25 +407,28 @@ const ptBR: TaskCopy = {
   },
   lists: {
     title: 'Onde os\nplanos andam.',
-    subtitle: (lists, tasks) => `${lists} projetos · ${tasks} abertas`,
-    empty: 'Nenhuma tarefa neste projeto.',
+    subtitle: (lists, tasks) =>
+      `${lists} ${lists === 1 ? 'espaço' : 'espaços'} · ${tasks} ${
+        tasks === 1 ? 'aberta' : 'abertas'
+      }`,
+    empty: 'Nenhuma tarefa neste espaço.',
     progress: (done, total) => `${done}/${total}`,
     addToDay: 'Levar para hoje',
     inDay: 'No dia',
-    newList: 'Novo projeto',
-    renameList: 'Editar projeto',
+    newList: 'Novo espaço',
+    renameList: 'Editar espaço',
     create: 'Criar',
-    namePlaceholder: 'Nome do projeto',
+    namePlaceholder: 'Nome do espaço',
     nameHint: 'Reúna os próximos passos de algo maior.',
-    duplicateName: 'Esse projeto já existe. Escolha outro nome.',
-    sharedProject: 'Projeto compartilhado',
+    duplicateName: 'Esse espaço já existe. Escolha outro nome.',
+    sharedProject: 'Espaço compartilhado',
     sharedProjectHint: 'Ao salvar, criamos o link de convite.',
     addFirstTask: 'Adicionar primeira tarefa',
     addTask: 'Adicionar tarefa',
     rename: 'Editar',
     moreActions: name => `Mais ações: ${name}`,
-    expandProject: name => `Abrir projeto ${name}`,
-    collapseProject: name => `Fechar projeto ${name}`,
+    expandProject: name => `Abrir espaço ${name}`,
+    collapseProject: name => `Fechar espaço ${name}`,
     delete: 'Excluir',
     deleteConfirm: name => `Excluir “${name}”?`,
     deleteDetail: 'As tarefas serão movidas para Caixa; nada será apagado.',
@@ -457,10 +460,11 @@ const ptBR: TaskCopy = {
       inbox: 'Caixa',
     },
     share: 'Compartilhar',
-    shareHint: 'Quem abrir o link entra no projeto.',
+    shareHint:
+      'Convide quem divide isso com você. Quem abrir o link entra no espaço.',
     createLink: 'Criar link',
     copyLink: 'Copiar',
-    copyLinkAccessible: 'Copiar link do projeto',
+    copyLinkAccessible: 'Copiar link do espaço',
     linkCopied: 'Link copiado',
     linkNotPublished: 'Link ainda não publicado.',
     readOnlyTag: 'Somente leitura',
@@ -471,7 +475,7 @@ const ptBR: TaskCopy = {
     roleEditor: 'Editar',
     roleOwner: 'dono',
     roleChangeNote: 'Vale para quem entrar depois, não para quem já entrou.',
-    membersHeader: 'No projeto',
+    membersHeader: 'No espaço',
     joinHistoryHeader: 'Entradas',
     joinedAtUnknown: '—',
     joinHistoryTruncated: (shown, total) =>
@@ -481,10 +485,10 @@ const ptBR: TaskCopy = {
     pendingInvite: 'convite pendente',
     memberYou: 'Você',
     memberYouInitials: 'VC',
-    memberSomeone: 'Pessoa do projeto',
+    memberSomeone: 'Pessoa do espaço',
     removeMemberLabel: 'Remover',
-    removeMember: name => `Remover ${name} do projeto`,
-    removeMemberConfirm: name => `Remover ${name} do projeto?`,
+    removeMember: name => `Remover ${name} do espaço`,
+    removeMemberConfirm: name => `Remover ${name} do espaço?`,
     stopSharing: 'Parar de compartilhar',
     stopSharingConfirm:
       'Ninguém mais vai poder entrar; quem já está sai também.',
@@ -520,7 +524,7 @@ const ptBR: TaskCopy = {
     dayBandStateOpen: 'em aberto',
     dayBandStateDone: 'concluída',
     joinInvite: 'Entrar com convite',
-    joinInviteTitle: 'Entrar em um projeto',
+    joinInviteTitle: 'Entrar em um espaço',
     joinInviteHint: 'Cole o link que alguém te mandou.',
     joinInvitePlaceholder: 'Link do convite',
     pasteFromClipboard: 'Colar',
@@ -532,16 +536,16 @@ const ptBR: TaskCopy = {
     shareRefused:
       'O servidor recusou este compartilhamento agora. Tente de novo em instantes.',
     creatingLink: 'Criando link…',
-    leaveProject: 'Sair do projeto',
+    leaveProject: 'Sair do espaço',
     leaveProjectConfirm: name =>
       `Sair de “${name}”? Você deixa de ver as tarefas dele.`,
     deleteSharedDetail:
-      'Isso apaga o projeto para todo mundo, não só para você. Ninguém recupera as tarefas depois.',
+      'Isso apaga o espaço para todo mundo, não só para você. Ninguém recupera as tarefas depois.',
     completedBy: name => `Concluída por ${name}`,
-    groupEmpty: 'Nenhuma tarefa neste projeto ainda.',
+    groupEmpty: 'Um espaço vazio, pronto para o que vocês combinarem.',
     groupEmptyInvite: 'Convide alguém e comecem juntos.',
     groupAllDone: 'Tudo feito por aqui.',
-    viewerCannotAdd: 'Você só pode ver este projeto.',
+    viewerCannotAdd: 'Você só pode ver este espaço.',
   },
   focus: {
     title: 'Foco',
@@ -595,13 +599,13 @@ const ptBR: TaskCopy = {
       closed === 1
         ? `Melhor dia: ${weekday}, com 1 fechada`
         : `Melhor dia: ${weekday}, com ${closed} fechadas`,
-    activeProjects: 'Projetos ativos',
+    activeProjects: 'Espaços ativos',
     activeProjectsOf: total =>
-      total === 1 ? 'de 1 projeto' : `de ${total} projetos`,
+      total === 1 ? 'de 1 espaço' : `de ${total} espaços`,
     projectsSummary: (active, total) =>
       active === 1
-        ? `1 projeto ativo de ${total}`
-        : `${active} projetos ativos de ${total}`,
+        ? `1 espaço ativo de ${total}`
+        : `${active} espaços ativos de ${total}`,
     footnote: (level, streakDays) =>
       streakDays === 0
         ? `Nível ${level}`
@@ -636,16 +640,16 @@ const ptBR: TaskCopy = {
       'Abre os dois passos que explicam o app. Nada muda nas suas tarefas.',
   },
   projectActivity: {
-    settingsLabel: 'Notificações do projeto',
-    settingsToggle: 'Avisar sobre projetos compartilhados',
+    settingsLabel: 'Notificações do espaço',
+    settingsToggle: 'Avisar sobre espaços compartilhados',
     settingsHint:
-      'Avisa quando alguém do projeto conclui uma tarefa ou entra. Com o app fechado, o aviso pode levar alguns minutos.',
+      'Avisa quando alguém do espaço conclui uma tarefa ou entra. Com o app fechado, o aviso pode levar alguns minutos.',
     settingsHintOff:
-      'Ligado, avisa quando alguém do projeto conclui uma tarefa ou entra.',
+      'Ligado, avisa quando alguém do espaço conclui uma tarefa ou entra.',
     blockedNote: 'Avisos bloqueados nos ajustes do sistema',
     blockedAction: 'Abrir ajustes',
     promptBody:
-      'Quer saber quando alguém do projeto concluir uma tarefa ou entrar?',
+      'Quer saber quando alguém do espaço concluir uma tarefa ou entrar?',
     promptEnable: 'Ativar avisos',
     promptDismiss: 'Agora não',
   },
@@ -653,12 +657,12 @@ const ptBR: TaskCopy = {
     steps: [
       {
         title: 'Anotar leva segundos',
-        body: 'Toque em Nova tarefa, escreva e ajuste data, prioridade e projeto na mesma folha.',
-        example: 'Ex.: “Renovar o seguro”, amanhã, no projeto Casa nova.',
+        body: 'Toque em Nova tarefa, escreva e ajuste data, prioridade e espaço na mesma folha.',
+        example: 'Ex.: “Renovar o seguro”, amanhã, no espaço Casa nova.',
       },
       {
-        title: 'Projetos que você divide',
-        body: 'Abra um projeto compartilhado, envie o convite e acompanhe o combinado do dia no mesmo lugar.',
+        title: 'Espaços que você divide',
+        body: 'Abra um espaço compartilhado, envie o convite e acompanhe o combinado do dia no mesmo lugar.',
         example: 'Ex.: “Casa nova”, com o link de convite pronto.',
       },
     ],
@@ -684,7 +688,7 @@ const ptBR: TaskCopy = {
 };
 
 const enUS: TaskCopy = {
-  tabs: { today: 'Tasks', lists: 'Projects', you: 'You' },
+  tabs: { today: 'Tasks', lists: 'Spaces', you: 'You' },
   today: {
     title: 'Open tasks',
     taskCount: count => (count === 1 ? '1 task' : `${count} tasks`),
@@ -704,7 +708,7 @@ const enUS: TaskCopy = {
     groupBy: 'Group by',
     grouping: {
       deadline: 'Deadline',
-      list: 'Project',
+      list: 'Space',
       priority: 'Priority',
     },
     agora: 'Now',
@@ -727,7 +731,7 @@ const enUS: TaskCopy = {
     lessOptions: 'Fewer options',
     syntaxTitle: 'Writing shortcuts',
     syntaxHelp: 'None of this is required: the chips do the same with one tap.',
-    noList: 'no project',
+    noList: 'no space',
     previousMonth: 'Previous month',
     nextMonth: 'Next month',
     save: 'Save',
@@ -761,25 +765,26 @@ const enUS: TaskCopy = {
   },
   lists: {
     title: 'Where plans\nmove forward.',
-    subtitle: (lists, tasks) => `${lists} projects · ${tasks} open`,
-    empty: 'No tasks in this project.',
+    subtitle: (lists, tasks) =>
+      `${lists} ${lists === 1 ? 'space' : 'spaces'} · ${tasks} open`,
+    empty: 'No tasks in this space.',
     progress: (done, total) => `${done}/${total}`,
     addToDay: 'Move into today',
     inDay: 'In the day',
-    newList: 'New project',
-    renameList: 'Edit project',
+    newList: 'New space',
+    renameList: 'Edit space',
     create: 'Create',
-    namePlaceholder: 'Project name',
+    namePlaceholder: 'Space name',
     nameHint: 'Gather the next steps of something larger.',
-    duplicateName: 'That project already exists. Choose another name.',
-    sharedProject: 'Shared project',
+    duplicateName: 'That space already exists. Choose another name.',
+    sharedProject: 'Shared space',
     sharedProjectHint: 'Saving creates the invite link.',
     addFirstTask: 'Add first task',
     addTask: 'Add task',
     rename: 'Edit',
     moreActions: name => `More actions: ${name}`,
-    expandProject: name => `Open project ${name}`,
-    collapseProject: name => `Close project ${name}`,
+    expandProject: name => `Open space ${name}`,
+    collapseProject: name => `Close space ${name}`,
     delete: 'Delete',
     deleteConfirm: name => `Delete “${name}”?`,
     deleteDetail: 'Its tasks will move to Inbox; nothing will be deleted.',
@@ -811,10 +816,11 @@ const enUS: TaskCopy = {
       inbox: 'Inbox',
     },
     share: 'Share',
-    shareHint: 'Whoever opens the link joins the project.',
+    shareHint:
+      'Invite whoever shares this with you. Whoever opens the link joins the space.',
     createLink: 'Create link',
     copyLink: 'Copy',
-    copyLinkAccessible: 'Copy the project link',
+    copyLinkAccessible: 'Copy the space link',
     linkCopied: 'Link copied',
     linkNotPublished: 'Link not published yet.',
     readOnlyTag: 'Read only',
@@ -825,7 +831,7 @@ const enUS: TaskCopy = {
     roleEditor: 'Edit',
     roleOwner: 'owner',
     roleChangeNote: 'Applies to whoever joins next, not to who is already in.',
-    membersHeader: 'In the project',
+    membersHeader: 'In the space',
     joinHistoryHeader: 'Joined',
     joinedAtUnknown: '—',
     joinHistoryTruncated: (shown, total) =>
@@ -835,10 +841,10 @@ const enUS: TaskCopy = {
     pendingInvite: 'invite pending',
     memberYou: 'You',
     memberYouInitials: 'YO',
-    memberSomeone: 'Someone in this project',
+    memberSomeone: 'Someone in this space',
     removeMemberLabel: 'Remove',
-    removeMember: name => `Remove ${name} from the project`,
-    removeMemberConfirm: name => `Remove ${name} from the project?`,
+    removeMember: name => `Remove ${name} from the space`,
+    removeMemberConfirm: name => `Remove ${name} from the space?`,
     stopSharing: 'Stop sharing',
     stopSharingConfirm:
       'Nobody else can join; whoever is already in leaves too.',
@@ -874,7 +880,7 @@ const enUS: TaskCopy = {
     dayBandStateOpen: 'open',
     dayBandStateDone: 'done',
     joinInvite: 'Join with invite',
-    joinInviteTitle: 'Join a project',
+    joinInviteTitle: 'Join a space',
     joinInviteHint: 'Paste the link someone sent you.',
     joinInvitePlaceholder: 'Invite link',
     pasteFromClipboard: 'Paste',
@@ -886,15 +892,15 @@ const enUS: TaskCopy = {
     shareRefused:
       'The server refused this share right now. Try again in a moment.',
     creatingLink: 'Creating link…',
-    leaveProject: 'Leave project',
+    leaveProject: 'Leave space',
     leaveProjectConfirm: name => `Leave “${name}”? You stop seeing its tasks.`,
     deleteSharedDetail:
-      'This deletes the project for everyone, not just you. Nobody gets the tasks back after.',
+      'This deletes the space for everyone, not just you. Nobody gets the tasks back after.',
     completedBy: name => `Completed by ${name}`,
-    groupEmpty: 'No tasks in this project yet.',
+    groupEmpty: 'An empty space, ready for whatever you set up together.',
     groupEmptyInvite: 'Invite someone and start together.',
     groupAllDone: 'All done here.',
-    viewerCannotAdd: 'You can only view this project.',
+    viewerCannotAdd: 'You can only view this space.',
   },
   focus: {
     title: 'Focus',
@@ -943,13 +949,13 @@ const enUS: TaskCopy = {
       closed === 1
         ? `Best day: ${weekday}, with 1 closed`
         : `Best day: ${weekday}, with ${closed} closed`,
-    activeProjects: 'Active projects',
+    activeProjects: 'Active spaces',
     activeProjectsOf: total =>
-      total === 1 ? 'of 1 project' : `of ${total} projects`,
+      total === 1 ? 'of 1 space' : `of ${total} spaces`,
     projectsSummary: (active, total) =>
       active === 1
-        ? `1 active project of ${total}`
-        : `${active} active projects of ${total}`,
+        ? `1 active space of ${total}`
+        : `${active} active spaces of ${total}`,
     footnote: (level, streakDays) =>
       streakDays === 0
         ? `Level ${level}`
@@ -984,16 +990,16 @@ const enUS: TaskCopy = {
       'Opens the two steps that explain the app. Nothing changes in your tasks.',
   },
   projectActivity: {
-    settingsLabel: 'Project notifications',
-    settingsToggle: 'Tell me about shared projects',
+    settingsLabel: 'Space notifications',
+    settingsToggle: 'Tell me about shared spaces',
     settingsHint:
-      'Says when someone in the project completes a task or joins. With the app closed, the alert may take a few minutes.',
+      'Says when someone in the space completes a task or joins. With the app closed, the alert may take a few minutes.',
     settingsHintOff:
-      'When on, it tells you when someone in the project completes a task or joins.',
+      'When on, it tells you when someone in the space completes a task or joins.',
     blockedNote: 'Alerts are off in system settings',
     blockedAction: 'Open settings',
     promptBody:
-      'Want to hear when someone in the project completes a task or joins?',
+      'Want to hear when someone in the space completes a task or joins?',
     promptEnable: 'Turn on alerts',
     promptDismiss: 'Not now',
   },
@@ -1001,13 +1007,13 @@ const enUS: TaskCopy = {
     steps: [
       {
         title: 'Capture takes seconds',
-        body: 'Tap New task, type it, then set date, priority and project in the same sheet.',
+        body: 'Tap New task, type it, then set date, priority and space in the same sheet.',
         example:
-          'Like “Renew the insurance”, tomorrow, in the New place project.',
+          'Like “Renew the insurance”, tomorrow, in the New place space.',
       },
       {
-        title: 'Projects you share',
-        body: 'Open a shared project, send the invite and follow the day’s agreement in one place.',
+        title: 'Spaces you share',
+        body: 'Open a shared space, send the invite and follow the day’s agreement in one place.',
         example: 'Like “New place”, with the invite link ready.',
       },
     ],

@@ -2,7 +2,10 @@ import { act, create, type ReactTestInstance } from 'react-test-renderer';
 import { ThemeProvider } from 'styled-components/native';
 
 import { OnboardingScreen } from '../src/app/components/OnboardingScreen';
-import { onboardingDemos } from '../src/app/components/onboarding/onboardingSteps';
+import {
+  ONBOARDING_FRAMES_STALE,
+  onboardingDemos,
+} from '../src/app/components/onboarding/onboardingSteps';
 import { lightTheme } from '../src/app/theme/theme';
 import { getTaskCopy } from '../src/features/tasks/presentation/localization/taskCopy';
 
@@ -76,7 +79,28 @@ describe('first-run walk-through', () => {
     expect(onFinish).toHaveBeenCalledTimes(1);
   });
 
+  it('holds the brand mark while the frames still carry the old brand', () => {
+    // Recapturing flips the flag; until then no screenshot of the previous
+    // brand reaches the walk-through.
+    if (!ONBOARDING_FRAMES_STALE) return;
+
+    const tree = renderOnboarding(jest.fn());
+
+    onboardingDemos.forEach(demo => {
+      expect(
+        tree.root.findAllByProps({ testID: `onboarding-demo-${demo.id}` })
+          .length,
+      ).toBeGreaterThan(0);
+      expect(
+        tree.root.findAllByProps({ testID: `onboarding-frame-${demo.id}-0` })
+          .length,
+      ).toBe(0);
+    });
+  });
+
   it('plays every demo from real screenshots, with a ring on the tapped button', () => {
+    if (ONBOARDING_FRAMES_STALE) return;
+
     const tree = renderOnboarding(jest.fn());
 
     onboardingDemos.forEach(demo => {
@@ -154,9 +178,12 @@ describe('first-run walk-through', () => {
       expect(still).toBeLessThanOrEqual(380);
 
       // The ring of the first frame stays on screen, without the pulse.
-      expect(
-        tree.root.findAllByProps({ testID: 'onboarding-tap-capture-0' }).length,
-      ).toBeGreaterThan(0);
+      if (!ONBOARDING_FRAMES_STALE) {
+        expect(
+          tree.root.findAllByProps({ testID: 'onboarding-tap-capture-0' })
+            .length,
+        ).toBeGreaterThan(0);
+      }
     } finally {
       spy.mockRestore();
     }

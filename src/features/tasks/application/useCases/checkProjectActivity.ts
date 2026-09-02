@@ -16,7 +16,7 @@ export interface ProjectActivityDeps {
   language: AppLanguage;
   /** The signed-in account. Its own facts are never news. */
   meId: string;
-  /** The "Notificações do projeto" setting. Off means nothing is detected and
+  /** The "Notificações do espaço" setting. Off means nothing is detected and
    * nothing is written. */
   enabled: boolean;
 }

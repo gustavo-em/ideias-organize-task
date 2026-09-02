@@ -95,7 +95,7 @@ const pt: AuthCopy = {
   },
   anonymous: {
     title: 'Continuar só com nome',
-    subtitle: 'Sem e-mail, sem senha. Só o nome que aparece nos projetos.',
+    subtitle: 'Sem e-mail, sem senha. Só o nome que aparece nos espaços.',
     submit: 'Entrar',
     notice:
       'Esta conta fica só neste aparelho. Trocar de celular ou desinstalar o app leva as ideias junto. Dá para vincular a um e-mail ou ao Google depois, sem perder nada.',
@@ -155,7 +155,7 @@ const pt: AuthCopy = {
   },
   profile: {
     title: 'Perfil',
-    subtitle: 'É assim que as outras pessoas te reconhecem nos projetos.',
+    subtitle: 'É assim que as outras pessoas te reconhecem nos espaços.',
     edit: 'Editar perfil',
     displayNameLabel: 'Nome de exibição',
     displayNamePlaceholder: 'Como te chamam',
@@ -195,7 +195,7 @@ const en: AuthCopy = {
   },
   anonymous: {
     title: 'Continue with just a name',
-    subtitle: 'No email, no password. Just the name shown in your projects.',
+    subtitle: 'No email, no password. Just the name shown in your spaces.',
     submit: 'Continue',
     notice:
       'This account stays on this device. Switching phones or uninstalling the app takes the ideas with it. You can link it to an email or to Google later, without losing anything.',
@@ -253,7 +253,7 @@ const en: AuthCopy = {
   },
   profile: {
     title: 'Profile',
-    subtitle: 'This is how other people recognise you in shared projects.',
+    subtitle: 'This is how other people recognise you in shared spaces.',
     edit: 'Edit profile',
     displayNameLabel: 'Display name',
     displayNamePlaceholder: 'What people call you',

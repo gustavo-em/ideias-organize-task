@@ -18,7 +18,7 @@ import {
 import type { AppLanguage } from '../localization/taskCopy';
 
 interface ProjectActivityOptions {
-  /** The "Notificações do projeto" setting. */
+  /** The "Notificações do espaço" setting. */
   enabled: boolean;
   language: AppLanguage;
   /** Null until the session resolves; nothing runs without an account. */
