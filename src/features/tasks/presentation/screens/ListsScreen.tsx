@@ -96,6 +96,9 @@ export function ListsScreen({
   const [editing, setEditing] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState<Task | null>(null);
   const [creatingList, setCreatingList] = useState(false);
+  // Whether the project being created is meant for other people. Decided in
+  // the sheet, answered right after saving by the invite itself.
+  const [createShared, setCreateShared] = useState(false);
   const [renamingList, setRenamingList] = useState<TaskList | null>(null);
   const [deletingList, setDeletingList] = useState<TaskList | null>(null);
   const [capturingForList, setCapturingForList] = useState<TaskList | null>(
@@ -263,18 +266,6 @@ export function ListsScreen({
           title={copy.lists.title}
         />
 
-        <JoinButton
-          accessibilityLabel={copy.lists.joinInvite}
-          onPress={() => {
-            markSheetPress('JoinInviteSheet');
-            setJoiningInvite(true);
-          }}
-          testID="join-invite"
-        >
-          <LinkGlyph color={theme.colors.accentInk} size={14} />
-          <JoinButtonText>{copy.lists.joinInvite}</JoinButtonText>
-        </JoinButton>
-
         {viewModel.lists.map((list, index) => (
           <ProjectBlock
             copy={copy}
@@ -309,6 +300,24 @@ export function ListsScreen({
         ))}
       </Content>
 
+      {/* Whoever arrives holding a link is not looking for "new project":
+          the way in stays on screen, in reach, just above the primary action
+          and never scrolling away with the list. Its place does not move when
+          the floating action steps aside, so the target holds still. */}
+      <JoinDock pointerEvents="box-none">
+        <JoinButton
+          accessibilityLabel={copy.lists.joinInvite}
+          onPress={() => {
+            markSheetPress('JoinInviteSheet');
+            setJoiningInvite(true);
+          }}
+          testID="join-invite"
+        >
+          <LinkGlyph color={theme.colors.accentInk} size={14} />
+          <JoinButtonText>{copy.lists.joinInvite}</JoinButtonText>
+        </JoinButton>
+      </JoinDock>
+
       {/* An open project has an action of its own at the end of its tasks —
           "Adicionar tarefa" — and the floating button used to sit on top of
           it. While a project is open, making a new project is not what the
@@ -316,7 +325,10 @@ export function ListsScreen({
       {creatingList || renamingList != null || openListId != null ? null : (
         <FloatingAction
           label={copy.lists.newList}
-          onPress={() => setCreatingList(true)}
+          onPress={() => {
+            setCreateShared(false);
+            setCreatingList(true);
+          }}
           testID="new-list"
         />
       )}
@@ -324,12 +336,27 @@ export function ListsScreen({
       {creatingList ? (
         <ProjectEditorSheet
           copy={copy}
-          onCancel={() => setCreatingList(false)}
+          onCancel={() => {
+            setCreatingList(false);
+            setCreateShared(false);
+          }}
           onSubmit={(name, appearance) => {
             const created = viewModel.createList(name, appearance);
             if (created != null) setOpenListId(created.id);
+            // The project exists locally before anything is asked of the
+            // network, so a refused link never costs the typed name: the
+            // sheet takes over from here with the invite, or with the error
+            // and the button to try again.
+            if (created != null && createShared) {
+              markSheetPress('ShareSheet');
+              setSharingList(created);
+              viewModel.createShareLink(created.id, 'editor');
+            }
+            // A refused name keeps the sheet open, and the choice in it.
+            if (created != null) setCreateShared(false);
             return created != null;
           }}
+          shareOption={{ value: createShared, onChange: setCreateShared }}
           submitLabel={copy.lists.create}
           title={copy.lists.newList}
         />
@@ -955,13 +982,24 @@ const FLOATING_ACTION_HEIGHT = 54;
 /** `theme.spacing.large`, for the one style built outside the theme. */
 const SPACING_LARGE = 24;
 
+/** The secondary action's own height, and the gap it keeps from the primary
+ * one below it. */
+const JOIN_BUTTON_HEIGHT = 48;
+const JOIN_BUTTON_GAP = 12;
+
 /* The whole clearance lives here, on the scroll's own content, rather than
    inside a project block: the floating action's height, the space it floats in,
    and the tab bar under it. The last line of the list — "Adicionar tarefa"
    inside the last project — clears the yellow button instead of ending under
    it. */
 const styles = StyleSheet.create({
-  scroll: { paddingBottom: FLOATING_ACTION_HEIGHT + SPACING_LARGE * 2 },
+  scroll: {
+    paddingBottom:
+      FLOATING_ACTION_HEIGHT +
+      JOIN_BUTTON_HEIGHT +
+      JOIN_BUTTON_GAP +
+      SPACING_LARGE * 2,
+  },
 });
 
 const Screen = styled.View`
@@ -1113,14 +1151,36 @@ const AddTaskText = styled.Text`
   font-size: ${({ theme }) => theme.type.label}px;
   font-weight: 800;
 `;
+/* The secondary half of the pair at the bottom right: same right edge as the
+   floating action, one gap above it. Card and border instead of yellow — only
+   one action on this screen is the primary one. */
+/* The pill has to keep its own width. Left floating on its own, the absolute
+   box grew back to the left edge of the screen and the button bled past the
+   margin every card respects; the dock takes the positioning and the pill
+   only sizes itself, ending flush with the floating action's right edge. */
+const JoinDock = styled.View`
+  position: absolute;
+  right: ${({ theme }) => theme.spacing.large}px;
+  bottom: ${SPACING_LARGE + FLOATING_ACTION_HEIGHT + JOIN_BUTTON_GAP}px;
+  align-items: flex-end;
+`;
+
 const JoinButton = styled(PressableScale)`
+  align-self: flex-end;
   flex-direction: row;
-  align-self: flex-start;
   align-items: center;
+  justify-content: center;
   gap: 7px;
-  min-height: 48px;
-  padding: 0px 4px;
-  margin-top: ${({ theme }) => theme.spacing.small}px;
+  min-height: ${JOIN_BUTTON_HEIGHT}px;
+  padding: 0px 18px;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background-color: ${({ theme }) => theme.colors.card};
+  elevation: 2;
+  shadow-color: #1b1710;
+  shadow-opacity: ${({ theme }) => (theme.mode === 'dark' ? 0 : 0.07)};
+  shadow-radius: 10px;
+  shadow-offset: 0px 4px;
 `;
 const JoinButtonText = styled.Text`
   color: ${({ theme }) => theme.colors.accentInk};

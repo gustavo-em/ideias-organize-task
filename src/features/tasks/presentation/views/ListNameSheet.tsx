@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { BackHandler, Modal } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import {
@@ -11,6 +14,7 @@ import {
   type TaskList,
 } from '../../domain/TaskList';
 import {
+  TOGGLE,
   scrimEnter,
   scrimExit,
   sheetEnter,
@@ -34,6 +38,11 @@ interface ProjectEditorSheetProps {
   initialName?: string;
   initialAppearance?: Pick<TaskList, 'color' | 'icon'>;
   onCancel: () => void;
+  /**
+   * Deciding at creation time that the project is a group. Absent on rename:
+   * a project already made is turned into a group from its own menu.
+   */
+  shareOption?: { value: boolean; onChange: (value: boolean) => void };
   /** False means the name is empty or already belongs to another list. */
   onSubmit: (
     name: string,
@@ -49,6 +58,7 @@ export function ProjectEditorSheet({
   initialName = '',
   initialAppearance,
   onCancel,
+  shareOption,
   onSubmit,
 }: ProjectEditorSheetProps) {
   const theme = useTheme();
@@ -190,6 +200,14 @@ export function ProjectEditorSheet({
                   );
                 })}
               </ColorRow>
+              {shareOption == null ? null : (
+                <ShareToggle
+                  hint={copy.lists.sharedProjectHint}
+                  label={copy.lists.sharedProject}
+                  onChange={shareOption.onChange}
+                  value={shareOption.value}
+                />
+              )}
               <SheetActionsRow>
                 <SheetCancelButton
                   label={copy.capture.cancel}
@@ -279,6 +297,55 @@ export function ProjectEditorSheet({
         </Sheet>
       </Overlay>
     </Modal>
+  );
+}
+
+/** How far the thumb travels: the track's width minus its padding and the
+ * thumb itself. */
+const THUMB_TRAVEL = 20;
+
+interface ShareToggleProps {
+  label: string;
+  hint: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+}
+
+/**
+ * Deciding, while the project is still being named, that other people are
+ * coming into it. The whole row is the target, so the switch is as easy to
+ * hit as the words next to it.
+ */
+function ShareToggle({ label, hint, value, onChange }: ShareToggleProps) {
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: withTiming(value ? THUMB_TRAVEL : 0, TOGGLE) }],
+  }));
+  // The lit track fades in over the resting one instead of the colour itself
+  // being animated: opacity and transform are the two things the compositor
+  // can carry on its own.
+  const fillStyle = useAnimatedStyle(() => ({
+    opacity: withTiming(value ? 1 : 0, TOGGLE),
+  }));
+
+  return (
+    <ShareRow
+      accessibilityHint={hint}
+      accessibilityLabel={label}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      onPress={() => onChange(!value)}
+      scaleTo={0.99}
+      testID="list-shared-toggle"
+    >
+      <ShareTexts>
+        <ShareLabel>{label}</ShareLabel>
+        <ShareHint>{hint}</ShareHint>
+      </ShareTexts>
+      <Track>
+        <TrackFill style={fillStyle} />
+        <Thumb $on={value} style={thumbStyle} />
+      </Track>
+    </ShareRow>
   );
 }
 
@@ -384,6 +451,59 @@ const IconOption = styled(PressableScale)<{ $selected: boolean }>`
   border-radius: ${({ theme }) => theme.radii.medium}px;
   background-color: ${({ theme, $selected }) =>
     $selected ? theme.colors.cardElevated : theme.colors.card};
+`;
+
+const ShareRow = styled(PressableScale)`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.medium}px;
+  min-height: 56px;
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+`;
+
+const ShareTexts = styled.View`
+  flex: 1;
+`;
+
+const ShareLabel = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
+`;
+
+const ShareHint = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  margin-top: 2px;
+`;
+
+const Track = styled.View`
+  width: 52px;
+  height: 32px;
+  padding: 3px;
+  justify-content: center;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background-color: ${({ theme }) => theme.colors.card};
+`;
+
+const TrackFill = styled(Animated.View)`
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  background-color: ${({ theme }) => theme.colors.accent};
+`;
+
+const Thumb = styled(Animated.View)<{ $on: boolean }>`
+  width: 24px;
+  height: 24px;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  background-color: ${({ theme, $on }) =>
+    $on ? theme.colors.onAccent : theme.colors.mutedStrong};
 `;
 
 const ColorRow = styled.View`

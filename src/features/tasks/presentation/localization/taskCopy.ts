@@ -104,6 +104,8 @@ export interface TaskCopy {
     namePlaceholder: string;
     nameHint: string;
     duplicateName: string;
+    sharedProject: string;
+    sharedProjectHint: string;
     addFirstTask: string;
     addTask: string;
     rename: string;
@@ -379,6 +381,8 @@ const ptBR: TaskCopy = {
     namePlaceholder: 'Nome do projeto',
     nameHint: 'Reúna os próximos passos de algo maior.',
     duplicateName: 'Esse projeto já existe. Escolha outro nome.',
+    sharedProject: 'Projeto compartilhado',
+    sharedProjectHint: 'Ao salvar, criamos o link de convite.',
     addFirstTask: 'Adicionar primeira tarefa',
     addTask: 'Adicionar tarefa',
     rename: 'Editar',
@@ -690,6 +694,8 @@ const enUS: TaskCopy = {
     namePlaceholder: 'Project name',
     nameHint: 'Gather the next steps of something larger.',
     duplicateName: 'That project already exists. Choose another name.',
+    sharedProject: 'Shared project',
+    sharedProjectHint: 'Saving creates the invite link.',
     addFirstTask: 'Add first task',
     addTask: 'Add task',
     rename: 'Edit',
