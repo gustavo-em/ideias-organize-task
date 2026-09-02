@@ -111,7 +111,7 @@ const Chip = styled(PressableScale)<{ selected: boolean }>`
   padding: 0px ${({ theme }) => theme.spacing.medium}px;
   border-radius: ${({ theme }) => theme.radii.pill}px;
   background-color: ${({ theme, selected }) =>
-    selected ? theme.colors.accent : theme.colors.cardElevated};
+    selected ? theme.colors.accent : theme.colors.cardNeutral};
 `;
 
 const ChipText = styled.Text.attrs(buttonTextAttrs)<{ selected: boolean }>`
@@ -133,7 +133,7 @@ const StepButton = styled(PressableScale)`
   width: 40px;
   height: 40px;
   border-radius: ${({ theme }) => theme.radii.pill}px;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  background-color: ${({ theme }) => theme.colors.cardNeutral};
   align-items: center;
   justify-content: center;
 `;

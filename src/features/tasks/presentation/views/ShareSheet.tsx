@@ -765,7 +765,7 @@ const ErrorBanner = styled.View`
   align-items: center;
   justify-content: space-between;
   gap: ${({ theme }) => theme.spacing.small}px;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  background-color: ${({ theme }) => theme.colors.cardNeutral};
   border-radius: ${({ theme }) => theme.radii.medium}px;
   padding: ${({ theme }) => theme.spacing.small + 4}px
     ${({ theme }) => theme.spacing.medium}px;

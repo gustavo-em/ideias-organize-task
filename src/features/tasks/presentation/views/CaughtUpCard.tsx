@@ -118,7 +118,7 @@ const IconWrap = styled.View<{ $tone?: 'accent' }>`
      success colour, so the two states read as distinct pictures. */
   background-color: ${({ theme, $tone }) =>
     $tone === 'accent'
-      ? theme.colors.cardElevated
+      ? theme.colors.cardNeutral
       : `${theme.colors.success}26`};
 `;
 

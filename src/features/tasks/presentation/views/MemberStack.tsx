@@ -54,7 +54,7 @@ const Stack = styled(Animated.View)`
 const Overflow = styled.Text`
   margin-left: 6px;
   color: ${({ theme }) => theme.colors.accentInk};
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  background-color: ${({ theme }) => theme.colors.cardNeutral};
   font-size: ${({ theme }) => theme.type.caption}px;
   font-weight: 800;
   width: 28px;

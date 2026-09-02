@@ -1049,7 +1049,7 @@ const NewListUse = styled(PressableScale)`
   align-items: center;
   justify-content: center;
   background-color: ${({ theme, disabled }) =>
-    disabled ? theme.colors.cardElevated : theme.colors.accent};
+    disabled ? theme.colors.cardNeutral : theme.colors.accent};
   border-radius: ${({ theme }) => theme.radii.small}px;
   padding: 0px ${({ theme }) => theme.spacing.medium}px;
 `;
