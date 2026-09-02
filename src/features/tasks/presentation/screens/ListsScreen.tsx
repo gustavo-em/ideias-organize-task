@@ -1435,7 +1435,7 @@ const InviteHighlight = styled(PressableScale)`
   padding: 0px ${({ theme }) => theme.spacing.medium}px;
   margin-top: ${({ theme }) => theme.spacing.small}px;
   border-radius: ${({ theme }) => theme.radii.pill}px;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  background-color: ${({ theme }) => theme.colors.cardNeutral};
 `;
 const InviteHighlightText = styled.Text`
   color: ${({ theme }) => theme.colors.accentInk};

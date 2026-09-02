@@ -19,6 +19,9 @@ interface ThemeColors {
   background: string;
   card: string;
   cardElevated: string;
+  /** A support surface with no yellow of its own: for pills and callouts that
+   * sit near the accent and must not compete with it. */
+  cardNeutral: string;
   border: string;
   borderSubtle: string;
   text: string;
@@ -116,6 +119,7 @@ export const lightTheme: AppTheme = {
     // read as a state, quiet enough that the accent keeps ownership of the
     // primary action.
     cardElevated: '#FFF3D0',
+    cardNeutral: '#EDEAE3',
     border: '#E3E1DB',
     // With card shadows gone, this line is the only separation left between
     // rows, so it has to be visible on the new paper.
@@ -151,6 +155,7 @@ export const darkTheme: AppTheme = {
     background: '#141008',
     card: '#1E1810',
     cardElevated: '#2A2216',
+    cardNeutral: '#272319',
     border: '#3A3122',
     borderSubtle: '#2A2317',
     text: '#FBF3E1',
