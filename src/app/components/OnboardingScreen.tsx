@@ -319,7 +319,7 @@ const Page = styled.View`
 const Stage = styled.View`
   align-items: center;
   justify-content: center;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  background-color: ${({ theme }) => theme.colors.card};
   border-radius: 20px;
   border-width: 1px;
   border-color: ${({ theme }) => theme.colors.border};
@@ -362,7 +362,9 @@ const Body = styled.Text`
 
 const Example = styled.View`
   align-self: flex-start;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  background-color: ${({ theme }) => theme.colors.card};
+  border-width: 1px;
+  border-color: ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.pill}px;
   margin-top: ${({ theme }) => theme.spacing.medium}px;
   padding: ${({ theme }) => theme.spacing.small}px
