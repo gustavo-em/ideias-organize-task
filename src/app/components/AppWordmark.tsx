@@ -8,8 +8,8 @@ const WORDMARK_LIGHT = require('../../../assets/brand/aluza-wordmark.png');
 const WORDMARK_DARK = require('../../../assets/brand/aluza-wordmark-dark.png');
 
 const wordSource = Image.resolveAssetSource(WORDMARK_LIGHT) ?? {
-  width: 485,
-  height: 223,
+  width: 474,
+  height: 167,
 };
 
 export const WORDMARK_RATIO =
