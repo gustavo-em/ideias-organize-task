@@ -33,6 +33,10 @@ export interface ListMember {
   role: ListRole;
   /** Invite accepted or still pending. */
   joined: boolean;
+  /** When the invite was accepted, in local epoch milliseconds. Absent for
+   * anybody recorded before this was kept: the history shows a dash rather
+   * than a date nobody wrote down. */
+  joinedAtMs?: number;
 }
 
 export interface ListShare {
@@ -266,6 +270,8 @@ function sanitizeMember(value: unknown): ListMember | null {
 
   if (personId == null || name.length === 0) return null;
 
+  const joinedAtMs = sanitizeJoinedAtMs(candidate.joinedAtMs);
+
   return {
     personId,
     name,
@@ -274,7 +280,16 @@ function sanitizeMember(value: unknown): ListMember | null {
       ? (candidate.role as ListRole)
       : 'viewer',
     joined: candidate.joined === true,
+    ...(joinedAtMs == null ? {} : { joinedAtMs }),
   };
+}
+
+/** A moment somebody joined, or nothing at all: a broken value is dropped
+ * rather than turned into a date the app made up. */
+export function sanitizeJoinedAtMs(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
 }
 
 /** Entry from disk is untrusted input, same rigor as the rest of the list:

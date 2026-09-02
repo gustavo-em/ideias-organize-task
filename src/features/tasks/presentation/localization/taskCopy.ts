@@ -140,6 +140,16 @@ export interface TaskCopy {
     roleOwner: string;
     roleChangeNote: string;
     membersHeader: string;
+    /** Who came into the project and when, most recent first. */
+    joinHistoryHeader: string;
+    /** Stands in for the moment of entry of somebody recorded before it was
+     * kept: a dash, never a guessed date. */
+    joinedAtUnknown: string;
+    /** Says the section shows only the latest entries. */
+    joinHistoryTruncated: (shown: number, total: number) => string;
+    joinedAtAccessible: (name: string, when: string) => string;
+    /** Spoken form of the dash: a screen reader never reads a bare glyph. */
+    joinedAtUnknownAccessible: (name: string) => string;
     pendingInvite: string;
     /** The logged-in person's own row. */
     memberYou: string;
@@ -360,7 +370,7 @@ const ptBR: TaskCopy = {
     duplicateName: 'Esse projeto já existe. Escolha outro nome.',
     addFirstTask: 'Adicionar primeira tarefa',
     addTask: 'Adicionar tarefa',
-    rename: 'Renomear',
+    rename: 'Editar',
     moreActions: name => `Mais ações: ${name}`,
     delete: 'Excluir',
     deleteConfirm: name => `Excluir “${name}”?`,
@@ -408,6 +418,12 @@ const ptBR: TaskCopy = {
     roleOwner: 'dono',
     roleChangeNote: 'Vale para quem entrar depois, não para quem já entrou.',
     membersHeader: 'No projeto',
+    joinHistoryHeader: 'Entradas',
+    joinedAtUnknown: '—',
+    joinHistoryTruncated: (shown, total) =>
+      `Mostrando as ${shown} entradas mais recentes de ${total}.`,
+    joinedAtAccessible: (name, when) => `${name} entrou em ${when}`,
+    joinedAtUnknownAccessible: name => `${name}, sem data de entrada`,
     pendingInvite: 'convite pendente',
     memberYou: 'Você',
     memberYouInitials: 'VC',
@@ -656,7 +672,7 @@ const enUS: TaskCopy = {
     duplicateName: 'That project already exists. Choose another name.',
     addFirstTask: 'Add first task',
     addTask: 'Add task',
-    rename: 'Rename',
+    rename: 'Edit',
     moreActions: name => `More actions: ${name}`,
     delete: 'Delete',
     deleteConfirm: name => `Delete “${name}”?`,
@@ -704,6 +720,12 @@ const enUS: TaskCopy = {
     roleOwner: 'owner',
     roleChangeNote: 'Applies to whoever joins next, not to who is already in.',
     membersHeader: 'In the project',
+    joinHistoryHeader: 'Joined',
+    joinedAtUnknown: '—',
+    joinHistoryTruncated: (shown, total) =>
+      `Showing the ${shown} most recent of ${total}.`,
+    joinedAtAccessible: (name, when) => `${name} joined on ${when}`,
+    joinedAtUnknownAccessible: name => `${name}, no join date recorded`,
     pendingInvite: 'invite pending',
     memberYou: 'You',
     memberYouInitials: 'YO',

@@ -110,6 +110,7 @@ export function ProjectEditorSheet({
           entering={sheetEnter()}
           exiting={sheetExit()}
           onLayout={traceOpen}
+          testID="project-editor-sheet"
         >
           <Grabber />
           {stage === 'details' ? (
@@ -145,6 +146,7 @@ export function ProjectEditorSheet({
                         accessibilityState={{ selected }}
                         key={value}
                         onPress={() => setIcon(value)}
+                        testID={`list-icon-${value}`}
                       >
                         <ProjectGlyph
                           color={
@@ -173,6 +175,7 @@ export function ProjectEditorSheet({
                       accessibilityState={{ selected }}
                       key={value}
                       onPress={() => setColor(value)}
+                      testID={`list-color-${value}`}
                     >
                       {selected ? (
                         <CheckGlyph
@@ -217,6 +220,7 @@ export function ProjectEditorSheet({
                         accessibilityState={{ selected }}
                         key={value}
                         onPress={() => setIcon(value)}
+                        testID={`list-icon-${value}`}
                       >
                         <ProjectGlyph
                           color={
@@ -245,6 +249,7 @@ export function ProjectEditorSheet({
                       accessibilityState={{ selected }}
                       key={value}
                       onPress={() => setColor(value)}
+                      testID={`list-color-${value}`}
                     >
                       {selected ? (
                         <CheckGlyph

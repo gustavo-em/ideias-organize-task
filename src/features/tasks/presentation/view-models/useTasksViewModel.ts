@@ -493,6 +493,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
         handle: identity.handle,
         role: 'owner' as const,
         joined: true,
+        joinedAtMs: clock.now(),
       };
       const tasks = current.current.tasks.filter(
         task => task.listId === listId,
@@ -839,6 +840,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
         handle: identity.handle,
         role: 'viewer' as const,
         joined: true,
+        joinedAtMs: clock.now(),
       };
 
       setJoinStatus('loading');
@@ -846,10 +848,19 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
       return shareGateway
         .joinByToken(token, joiner)
         .then(incoming => {
+          const remote = incoming.list.share?.members.find(
+            member => member.personId === identity.personId,
+          );
+          // What the project recorded wins, including the moment of entry;
+          // this device's own stamp only covers a project that did not
+          // return the row.
           const granted =
-            incoming.list.share?.members.find(
-              member => member.personId === identity.personId,
-            ) ?? joiner;
+            remote == null
+              ? joiner
+              : {
+                  ...remote,
+                  joinedAtMs: remote.joinedAtMs ?? joiner.joinedAtMs,
+                };
 
           run(acceptInvite(current.current, incoming, granted, clock.now()));
           setJoinStatus('idle');
