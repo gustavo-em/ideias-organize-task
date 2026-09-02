@@ -43,7 +43,6 @@ import { ConfirmDialog } from '../views/ConfirmDialog';
 import {
   CalendarGlyph,
   ChevronGlyph,
-  FilterGlyph,
   PriorityGlyph,
   ProjectGlyph,
   TagGlyph,
@@ -55,7 +54,6 @@ import {
 import { FloatingAction } from '../views/FloatingAction';
 import { PressableScale } from '../views/PressableScale';
 import { QuickCaptureSheet } from '../views/QuickCaptureSheet';
-import { ScreenHeader } from '../views/ScreenHeader';
 import { SectionHeader } from '../views/SectionHeader';
 import { TaskRow, type FocusRowState } from '../views/TaskRow';
 
@@ -230,34 +228,23 @@ export function TodayScreen({
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
       >
-        {/* No headline, and no date either: the phone already says what day it
-            is, in its own status bar, all day long. What is left is the name of
-            the screen, how much is open, and the lens the list is ordered by. */}
-        <ScreenHeader
-          count={viewModel.openTaskCount}
-          countLabel={copy.today.taskCount(viewModel.openTaskCount)}
-          eyebrow={copy.tabs.today}
+        {/* No headline, no date, and no screen name either: the tab bar
+            already names the screen. The list opens on the one control that
+            matters — the lens it is ordered by. */}
+        <GroupingHeader
+          accessibilityLabel={copy.today.groupBy}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: filtersOpen }}
+          onPress={() => setFiltersOpen(open => !open)}
+          scaleTo={0.97}
           testID="today-header"
-          trailing={
-            <FilterToggle
-              accessibilityLabel={copy.today.groupBy}
-              accessibilityState={{ expanded: filtersOpen }}
-              hitSlop={6}
-              onPress={() => setFiltersOpen(open => !open)}
-              scaleTo={0.9}
-            >
-              <FilterGlyph color={theme.colors.mutedStrong} size={17} />
-              {/* The same chevron the section headings use: this control opens
-                  the strip right below it, so it has to say whether that strip
-                  is open instead of looking like a second way in. */}
-              <DisclosureChevron expanded={filtersOpen} />
-            </FilterToggle>
-          }
-        />
+        >
+          <GroupingLabel>{copy.today.groupBy}</GroupingLabel>
+          <DisclosureChevron expanded={filtersOpen} />
+        </GroupingHeader>
 
         {filtersOpen ? (
           <Grouping entering={fadeEnter()}>
-            <GroupingLabel>{copy.today.groupBy}</GroupingLabel>
             <GroupingRow>
               <GroupingButton
                 $selected={grouping === 'deadline'}
@@ -630,18 +617,17 @@ const Content = styled(ScrollView)`
   padding: 0px ${({ theme }) => theme.spacing.large}px;
 `;
 
-const FilterToggle = styled(PressableScale)`
+/* The whole line is the toggle: label and chevron share one 48px target. */
+const GroupingHeader = styled(PressableScale)`
   flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-width: 56px;
+  align-self: flex-start;
+  gap: ${({ theme }) => theme.spacing.tiny}px;
   min-height: 48px;
-  border-radius: ${({ theme }) => theme.radii.pill}px;
 `;
 
 const Grouping = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
+  margin-top: 0px;
 `;
 
 const GroupingLabel = styled.Text`
