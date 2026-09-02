@@ -56,7 +56,7 @@ import {
   type ShareErrorKind,
 } from '../../domain/ShareError';
 import { dayKeyOf, type SharedMemberDay } from '../../domain/SharedMemberDay';
-import { isAssigned, isOpen } from '../../domain/Task';
+import { isAssigned, isOpen, type Task } from '../../domain/Task';
 import {
   getActiveProjects,
   getClosedByDay,
@@ -79,6 +79,7 @@ import {
   findListById,
   parseInviteToken,
   type ListRole,
+  type TaskList,
 } from '../../domain/TaskList';
 import type { TaskEventBus, UseCaseResult } from '../../domain/TaskEvent';
 import {
@@ -120,6 +121,13 @@ export interface TasksDependencies {
   } | null;
   /** How many tasks the day commits to, from the person's own settings. */
   dayCapacity?: number;
+  /** Called with every shared project that comes back from a pull, before
+   * anything else happens to it. The shell uses it to notice what other
+   * members did; the view model itself stays out of notifications. */
+  onRemoteProject?: (remote: {
+    list: TaskList;
+    tasks: readonly Task[];
+  }) => void;
 }
 
 /** How often the screen re-reads the clock. Overdue is a fact that changes on
@@ -166,6 +174,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     clipboard,
     identity,
     dayCapacity = DEFAULT_DAY_CAPACITY,
+    onRemoteProject,
   } = dependencies;
 
   const [workspace, setWorkspace] = useState<Workspace>(EMPTY_WORKSPACE);
@@ -863,6 +872,9 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
             run(deleteTaskList(current.current, listId, clock.now()));
           } else {
             run(applyRemoteList(current.current, listId, remote, clock.now()));
+            // Layer A: the pull that already happened is also what tells the
+            // person what the others did. No second read of the network.
+            onRemoteProject?.(remote);
           }
           setShareStatus('idle');
         })
@@ -872,7 +884,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
         })
         .then(() => pullDaysFor(listId));
     },
-    [clock, pullDaysFor, run, shareGateway],
+    [clock, onRemoteProject, pullDaysFor, run, shareGateway],
   );
 
   const refreshAllSharedLists = useCallback(() => {

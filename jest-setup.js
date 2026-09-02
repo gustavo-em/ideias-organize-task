@@ -9,6 +9,7 @@ jest.mock('@react-native-async-storage/async-storage', () => {
     __esModule: true,
     default: {
       getItem: jest.fn(async key => (store.has(key) ? store.get(key) : null)),
+      getAllKeys: jest.fn(async () => [...store.keys()]),
       setItem: jest.fn(async (key, value) => {
         store.set(key, value);
       }),
@@ -81,6 +82,38 @@ jest.mock('lottie-react-native', () => {
     default: props => React.createElement(View, props),
   };
 });
+
+jest.mock('@notifee/react-native', () => ({
+  __esModule: true,
+  AndroidImportance: { DEFAULT: 3 },
+  AuthorizationStatus: { DENIED: 0, AUTHORIZED: 1, PROVISIONAL: 2 },
+  default: {
+    createChannel: jest.fn(async () => 'project-activity'),
+    displayNotification: jest.fn(async () => undefined),
+    getNotificationSettings: jest.fn(async () => ({ authorizationStatus: 1 })),
+    openNotificationSettings: jest.fn(async () => undefined),
+    requestPermission: jest.fn(async () => ({ authorizationStatus: 1 })),
+  },
+}));
+
+jest.mock('react-native-background-fetch', () => ({
+  __esModule: true,
+  default: {
+    NETWORK_TYPE_ANY: 0,
+    configure: jest.fn(async () => 2),
+    finish: jest.fn(),
+    registerHeadlessTask: jest.fn(),
+  },
+}));
+
+jest.mock('@react-native-firebase/messaging', () => ({
+  __esModule: true,
+  getMessaging: jest.fn(() => ({})),
+  getToken: jest.fn(async () => 'test-token'),
+  onMessage: jest.fn(() => () => undefined),
+  onTokenRefresh: jest.fn(() => () => undefined),
+  setBackgroundMessageHandler: jest.fn(),
+}));
 
 beforeEach(async () => {
   await require('@react-native-async-storage/async-storage').default.clear();

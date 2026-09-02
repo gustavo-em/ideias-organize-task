@@ -33,6 +33,14 @@ service cloud.firestore {
         request.resource.data.handle is string &&
         request.resource.data.handle.matches('^[a-z0-9_]{3,20}$');
       allow delete: if request.auth != null && request.auth.uid == uid;
+
+      // Camada B — push real. Um documento por aparelho, com o próprio token
+      // como id. Só o dono da conta lê e escreve os seus: nenhum outro membro
+      // do projeto consegue listar nem ler tokens alheios, e é a Cloud
+      // Function (Admin SDK, fora destas regras) que os lê para enviar.
+      match /fcmTokens/{fcmToken} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
     }
 
     // Reserva de handle: o id do documento é o próprio handle, e é isso que

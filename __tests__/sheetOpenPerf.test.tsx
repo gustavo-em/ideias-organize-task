@@ -142,6 +142,11 @@ function render(): ReactTestInstance {
           copy={copy}
           language="pt-BR"
           ownProfile={null}
+          notificationPrompt={{
+            visible: false,
+            onEnable: async () => false,
+            onDismiss: () => undefined,
+          }}
           viewModel={viewModel()}
         />
       </ThemeProvider>,

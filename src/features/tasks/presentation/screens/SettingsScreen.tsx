@@ -1,5 +1,6 @@
+import { Switch } from 'react-native';
 import Animated from 'react-native-reanimated';
-import styled from 'styled-components/native';
+import styled, { useTheme } from 'styled-components/native';
 
 import {
   contentEnter,
@@ -33,6 +34,13 @@ interface SettingsScreenProps {
   profileSaved: boolean;
   isAnonymous: boolean;
   version: string;
+  /** Whether a shared project may notify. On by default. */
+  projectActivityNotifications: boolean;
+  /** True when the system itself is refusing the alerts. Null while it has not
+   * answered yet, and then nothing is claimed either way. */
+  projectActivityBlocked: boolean;
+  onProjectActivityNotificationsChange: (enabled: boolean) => void;
+  onOpenNotificationSettings: () => void;
   onAppearanceModeChange: (mode: AppearanceMode) => void;
   onDayCapacityChange: (capacity: number) => void;
   onLanguageChange: (language: AppLanguage) => void;
@@ -58,6 +66,10 @@ export function SettingsScreen({
   profileSaved,
   isAnonymous,
   version,
+  projectActivityNotifications,
+  projectActivityBlocked,
+  onProjectActivityNotificationsChange,
+  onOpenNotificationSettings,
   onAppearanceModeChange,
   onDayCapacityChange,
   onLanguageChange,
@@ -65,6 +77,8 @@ export function SettingsScreen({
   onSignOut,
   onReplayOnboarding,
 }: SettingsScreenProps) {
+  const theme = useTheme();
+
   return (
     <Content>
       <ScreenHeader eyebrow={copy.tabs.you} testID="you-header" />
@@ -194,6 +208,53 @@ export function SettingsScreen({
         </Segmented>
       </Group>
 
+      {/* News from a shared project, and the only place to turn it off. The
+          section is a label, a row and a note — no box of its own. */}
+      <Group entering={contentEnter(3)}>
+        <GroupLabel>{copy.projectActivity.settingsLabel}</GroupLabel>
+        <ToggleRow>
+          <ToggleLabel>{copy.projectActivity.settingsToggle}</ToggleLabel>
+          <Switch
+            accessibilityLabel={copy.projectActivity.settingsToggle}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: projectActivityNotifications }}
+            onValueChange={onProjectActivityNotificationsChange}
+            testID="settings-project-activity"
+            thumbColor={theme.colors.card}
+            trackColor={{
+              false: theme.colors.border,
+              true: theme.colors.accent,
+            }}
+            value={projectActivityNotifications}
+          />
+        </ToggleRow>
+        {projectActivityNotifications && projectActivityBlocked ? (
+          // The switch is on and the system is the one holding the alerts
+          // back: saying so is the difference between a setting that works and
+          // one that lies. Informative, and with the only way out next to it.
+          <BlockedRow
+            accessibilityHint={copy.projectActivity.blockedNote}
+            accessibilityLabel={`${copy.projectActivity.blockedNote}, ${copy.projectActivity.blockedAction}`}
+            accessibilityRole="button"
+            onPress={onOpenNotificationSettings}
+            testID="settings-project-activity-blocked"
+          >
+            <BlockedText>
+              {`${copy.projectActivity.blockedNote} · `}
+              <BlockedAction>
+                {copy.projectActivity.blockedAction}
+              </BlockedAction>
+            </BlockedText>
+          </BlockedRow>
+        ) : (
+          <GroupNote>
+            {projectActivityNotifications
+              ? copy.projectActivity.settingsHint
+              : copy.projectActivity.settingsHintOff}
+          </GroupNote>
+        )}
+      </Group>
+
       <Group entering={contentEnter(3)}>
         <ReplayRow
           accessibilityHint={copy.settings.replayOnboardingHint}
@@ -257,6 +318,40 @@ const SegmentText = styled.Text<{ $active: boolean }>`
   color: ${({ theme, $active }) =>
     $active ? theme.colors.onAccent : theme.colors.mutedStrong};
   font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
+`;
+
+const ToggleRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  min-height: 48px;
+`;
+
+const ToggleLabel = styled.Text`
+  flex: 1;
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
+`;
+
+/* Same weight as the note it replaces: a line of type with the way out in it,
+   not a warning box. */
+const BlockedRow = styled(PressableScale)`
+  min-height: 44px;
+  justify-content: center;
+  margin-top: ${({ theme }) => theme.spacing.tiny}px;
+`;
+
+const BlockedText = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  line-height: 18px;
+`;
+
+const BlockedAction = styled.Text`
+  color: ${({ theme }) => theme.colors.accentInk};
   font-weight: 700;
 `;
 

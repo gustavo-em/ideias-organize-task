@@ -16,6 +16,13 @@ export interface AppPreferences {
   /** False until the first run has been walked through or skipped, which is
    * what tells a returning person apart from a new one. */
   hasSeenOnboarding: boolean;
+  /** Whether a shared project may say something when somebody else closes a
+   * task or joins. On by default: a project people share is the one place the
+   * app has news that is not the person's own doing. */
+  projectActivityNotifications: boolean;
+  /** True once the permission has been asked for — in a shared project or in
+   * settings, never on a cold start. A refusal is not asked about again. */
+  hasAskedActivityPermission: boolean;
 }
 
 export const DEFAULT_APP_PREFERENCES: AppPreferences = {
@@ -23,6 +30,8 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   language: 'pt-BR',
   dayCapacity: 3,
   hasSeenOnboarding: false,
+  projectActivityNotifications: true,
+  hasAskedActivityPermission: false,
 };
 
 function pick<T extends string>(
@@ -60,5 +69,13 @@ export function sanitizeAppPreferences(
       typeof values.hasSeenOnboarding === 'boolean'
         ? values.hasSeenOnboarding
         : defaults.hasSeenOnboarding,
+    projectActivityNotifications:
+      typeof values.projectActivityNotifications === 'boolean'
+        ? values.projectActivityNotifications
+        : defaults.projectActivityNotifications,
+    hasAskedActivityPermission:
+      typeof values.hasAskedActivityPermission === 'boolean'
+        ? values.hasAskedActivityPermission
+        : defaults.hasAskedActivityPermission,
   };
 }
