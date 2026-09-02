@@ -138,10 +138,12 @@ export const SHEET_EXIT = {
   reduceMotion: ReduceMotion.System,
 } as const;
 
-/** The spring the sheets already open with; measured, so it is not retuned. */
+/** Critically damped (damping ≈ 2·√stiffness): the sheet lands firm and
+ * still, with no overshoot — a bounce here read as the whole surface
+ * shaking. */
 export const SHEET_ENTER_SPRING = {
-  damping: 20,
-  stiffness: 200,
+  damping: 32,
+  stiffness: 260,
   reduceMotion: ReduceMotion.System,
 } as const;
 
