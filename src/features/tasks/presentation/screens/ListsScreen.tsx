@@ -460,11 +460,10 @@ export function ListsScreen({
         </JoinButton>
       </JoinDock>
 
-      {/* An open project has an action of its own at the end of its tasks —
-          "Adicionar tarefa" — and the floating button used to sit on top of
-          it. While a project is open, making a new project is not what the
-          screen is for: the button steps aside and comes back on closing. */}
-      {creatingList || renamingList != null || openListId != null ? null : (
+      {/* The primary action never leaves the screen — hiding it while a
+          project is open made it look like creating had moved somewhere else.
+          Only a sheet on top takes its place. */}
+      {creatingList || renamingList != null ? null : (
         <FloatingAction
           label={copy.lists.newList}
           onPress={() => {
