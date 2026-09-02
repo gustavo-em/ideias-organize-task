@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshControl, StyleSheet } from 'react-native';
+import { AppState, RefreshControl, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -63,6 +63,13 @@ interface ListsScreenProps {
    * or not: their own row never waits on the network to show the name and
    * handle they chose. */
   ownProfile: { displayName: string; handle: string | null } | null;
+  /** The one-time ask for the notification permission, shown only when there
+   * is a shared project on screen — never on a cold start. */
+  notificationPrompt: {
+    visible: boolean;
+    onEnable: () => Promise<boolean>;
+    onDismiss: () => void;
+  };
   viewModel: TasksViewModel;
 }
 
@@ -94,6 +101,7 @@ function streakDaysOf(
 export function ListsScreen({
   copy,
   language,
+  notificationPrompt,
   ownProfile,
   viewModel,
 }: ListsScreenProps) {
@@ -116,6 +124,9 @@ export function ListsScreen({
   const [leavingList, setLeavingList] = useState<TaskList | null>(null);
   const [joiningInvite, setJoiningInvite] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // Answered on this screen, so the line leaves the moment it is used and does
+  // not wait for the setting to come back from storage.
+  const [promptAnswered, setPromptAnswered] = useState(false);
 
   const personId = viewModel.identity?.personId ?? null;
 
@@ -125,6 +136,18 @@ export function ListsScreen({
     // pull after that.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Coming back to the app is a sync: whatever the others did while it was in
+  // the background is read here, and that read is what feeds the tray.
+  const refreshAll = viewModel.refreshAllSharedLists;
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') refreshAll();
+    });
+
+    return () => subscription.remove();
+  }, [refreshAll]);
 
   async function handlePullRefresh() {
     setRefreshing(true);
@@ -145,6 +168,13 @@ export function ListsScreen({
 
     return grouped;
   }, [viewModel.tasks]);
+
+  // Nothing to notify about without a project shared with somebody, so that is
+  // also the only moment the permission is worth asking for.
+  const showNotificationPrompt =
+    notificationPrompt.visible &&
+    !promptAnswered &&
+    viewModel.lists.some(list => list.share != null);
 
   // Asking the same project again, from the band that failed to read it.
   const retryDay = useCallback(
@@ -272,6 +302,40 @@ export function ListsScreen({
           testID="lists-header"
           title={copy.lists.title}
         />
+
+        {showNotificationPrompt ? (
+          <PermissionRow entering={fadeEnter()} testID="activity-permission">
+            <PermissionText>{copy.projectActivity.promptBody}</PermissionText>
+            <PermissionActions>
+              <PermissionAction
+                accessibilityLabel={copy.projectActivity.promptEnable}
+                accessibilityRole="button"
+                onPress={() => {
+                  setPromptAnswered(true);
+                  notificationPrompt.onEnable().catch(() => undefined);
+                }}
+                testID="activity-permission-enable"
+              >
+                <PermissionActionLabel $primary>
+                  {copy.projectActivity.promptEnable}
+                </PermissionActionLabel>
+              </PermissionAction>
+              <PermissionAction
+                accessibilityLabel={copy.projectActivity.promptDismiss}
+                accessibilityRole="button"
+                onPress={() => {
+                  setPromptAnswered(true);
+                  notificationPrompt.onDismiss();
+                }}
+                testID="activity-permission-dismiss"
+              >
+                <PermissionActionLabel>
+                  {copy.projectActivity.promptDismiss}
+                </PermissionActionLabel>
+              </PermissionAction>
+            </PermissionActions>
+          </PermissionRow>
+        ) : null}
 
         {viewModel.lists.map((list, index) => (
           <ProjectBlock
@@ -1048,6 +1112,40 @@ const Content = styled.ScrollView`
   flex: 1;
   padding: 0px ${({ theme }) => theme.spacing.large}px;
 `;
+/* A line of type, not a box: the ask sits in the flow of the screen, with a
+   thin rule under it and no card of its own. */
+const PermissionRow = styled(Animated.View)`
+  padding-bottom: ${({ theme }) => theme.spacing.small}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
+  border-bottom-width: 1px;
+  border-bottom-color: ${({ theme }) => theme.colors.borderSubtle};
+`;
+
+const PermissionText = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  line-height: 18px;
+`;
+
+const PermissionActions = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.medium}px;
+  margin-top: ${({ theme }) => theme.spacing.tiny}px;
+`;
+
+const PermissionAction = styled(PressableScale)`
+  min-height: 44px;
+  justify-content: center;
+`;
+
+const PermissionActionLabel = styled.Text<{ $primary?: boolean }>`
+  color: ${({ theme, $primary }) =>
+    $primary ? theme.colors.accentInk : theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
+`;
+
 const ListBlock = styled(Animated.View)`
   margin-top: ${({ theme }) => theme.spacing.small + 1}px;
 `;

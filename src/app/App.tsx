@@ -38,6 +38,7 @@ import { ProgressScreen } from '../features/tasks/presentation/screens/ProgressS
 import { SettingsScreen } from '../features/tasks/presentation/screens/SettingsScreen';
 import { TodayScreen } from '../features/tasks/presentation/screens/TodayScreen';
 import { useFocusViewModel } from '../features/tasks/presentation/view-models/useFocusViewModel';
+import { useProjectActivity } from '../features/tasks/presentation/view-models/useProjectActivity';
 import { useTasksViewModel } from '../features/tasks/presentation/view-models/useTasksViewModel';
 import { TabBar } from '../features/tasks/presentation/views/TabBar';
 import {
@@ -132,6 +133,14 @@ function AppContent({
     return () => clearTimeout(timeout);
   }, [dismissSaved, profileStatus]);
 
+  const activity = useProjectActivity({
+    enabled: app.projectActivityNotifications,
+    language: app.language,
+    personId: auth.user?.uid ?? null,
+    onPermissionAsked: app.markActivityPermissionAsked,
+    onEnabledChange: app.changeProjectActivityNotifications,
+  });
+
   const tasks = useTasksViewModel({
     bus,
     clock: systemClock,
@@ -146,6 +155,7 @@ function AppContent({
     clipboard: systemClipboard,
     identity,
     dayCapacity: app.dayCapacity,
+    onRemoteProject: activity.onRemoteProject,
   });
   const focus = useFocusViewModel({ bus, clock: systemClock });
 
@@ -247,6 +257,15 @@ function AppContent({
           <ListsScreen
             copy={app.copy}
             language={app.language}
+            notificationPrompt={{
+              // The ask happens where the news comes from, and only for
+              // someone who actually shares a project.
+              visible:
+                app.projectActivityNotifications &&
+                !app.hasAskedActivityPermission,
+              onEnable: activity.enableNotifications,
+              onDismiss: app.markActivityPermissionAsked,
+            }}
             ownProfile={profile.profile}
             viewModel={tasks}
           />
@@ -274,6 +293,10 @@ function AppContent({
               personId={auth.user?.uid ?? null}
               profile={profile.profile}
               profileSaved={profileStatus === 'saved'}
+              projectActivityNotifications={app.projectActivityNotifications}
+              projectActivityBlocked={activity.isAllowed === false}
+              onProjectActivityNotificationsChange={activity.setEnabled}
+              onOpenNotificationSettings={activity.openSystemSettings}
               version={APP_VERSION}
             />
           </YouTab>

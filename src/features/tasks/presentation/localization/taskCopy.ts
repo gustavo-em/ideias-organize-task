@@ -291,6 +291,21 @@ export interface TaskCopy {
     replayOnboarding: string;
     replayOnboardingHint: string;
   };
+  /** Notifications about what other people do in a shared project. */
+  projectActivity: {
+    settingsLabel: string;
+    settingsToggle: string;
+    settingsHint: string;
+    /** What the section says while the switch is off: what it would do, not
+     * what it is doing. */
+    settingsHintOff: string;
+    /** The switch is on, and the system is the one holding the alerts back. */
+    blockedNote: string;
+    blockedAction: string;
+    promptBody: string;
+    promptEnable: string;
+    promptDismiss: string;
+  };
   onboarding: {
     steps: readonly { title: string; body: string; example: string }[];
     next: string;
@@ -619,6 +634,20 @@ const ptBR: TaskCopy = {
     replayOnboarding: 'Ver a apresentação de novo',
     replayOnboardingHint:
       'Abre os quatro passos que explicam o app. Nada muda nas suas tarefas.',
+  },
+  projectActivity: {
+    settingsLabel: 'Notificações do projeto',
+    settingsToggle: 'Avisar sobre projetos compartilhados',
+    settingsHint:
+      'Avisa quando alguém do projeto conclui uma tarefa ou entra. Com o app fechado, o aviso pode levar alguns minutos.',
+    settingsHintOff:
+      'Ligado, avisa quando alguém do projeto conclui uma tarefa ou entra.',
+    blockedNote: 'Avisos bloqueados nos ajustes do sistema',
+    blockedAction: 'Abrir ajustes',
+    promptBody:
+      'Quer saber quando alguém do projeto concluir uma tarefa ou entrar?',
+    promptEnable: 'Ativar avisos',
+    promptDismiss: 'Agora não',
   },
   onboarding: {
     steps: [
@@ -963,6 +992,20 @@ const enUS: TaskCopy = {
     replayOnboarding: 'See the walk-through again',
     replayOnboardingHint:
       'Opens the four steps that explain the app. Nothing changes in your tasks.',
+  },
+  projectActivity: {
+    settingsLabel: 'Project notifications',
+    settingsToggle: 'Tell me about shared projects',
+    settingsHint:
+      'Says when someone in the project completes a task or joins. With the app closed, the alert may take a few minutes.',
+    settingsHintOff:
+      'When on, it tells you when someone in the project completes a task or joins.',
+    blockedNote: 'Alerts are off in system settings',
+    blockedAction: 'Open settings',
+    promptBody:
+      'Want to hear when someone in the project completes a task or joins?',
+    promptEnable: 'Turn on alerts',
+    promptDismiss: 'Not now',
   },
   onboarding: {
     steps: [

@@ -156,6 +156,11 @@ function render(list: TaskList, overrides: Partial<TasksViewModel> = {}) {
           copy={copy}
           language="pt-BR"
           ownProfile={null}
+          notificationPrompt={{
+            visible: false,
+            onEnable: async () => false,
+            onDismiss: () => undefined,
+          }}
           viewModel={viewModelFor(list, overrides)}
         />
       </ThemeProvider>,
