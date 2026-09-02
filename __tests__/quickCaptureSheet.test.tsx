@@ -157,7 +157,7 @@ describe('QuickCaptureSheet layers', () => {
     expect(texts(tree)).toContain(copy.capture.hint);
   });
 
-  it('editing opens expanded, with the edit hint and no shortcuts', () => {
+  it('editing opens expanded, without hint text and no shortcuts', () => {
     const tree = renderSheet({
       editing: {
         id: 'task-1',
@@ -172,7 +172,7 @@ describe('QuickCaptureSheet layers', () => {
     expect(has(tree, 'capture-chip-date')).toBe(true);
     expect(has(tree, 'capture-chip-priority')).toBe(true);
     expect(has(tree, 'capture-chip-list')).toBe(true);
-    expect(texts(tree)).toContain(copy.capture.editHint);
+    expect(texts(tree)).not.toContain(copy.capture.editHint);
     expect(has(tree, 'capture-syntax')).toBe(false);
   });
 });
