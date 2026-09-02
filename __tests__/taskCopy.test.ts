@@ -59,11 +59,11 @@ describe('open task screen copy', () => {
     expect(pt.lists.dayBandTitle).not.toBe(en.lists.dayBandTitle);
   });
 
-  it('carries the same four walk-through steps in both languages', () => {
+  it('carries the same two walk-through steps in both languages', () => {
     const pt = getTaskCopy('pt-BR');
     const en = getTaskCopy('en-US');
 
-    expect(pt.onboarding.steps).toHaveLength(4);
+    expect(pt.onboarding.steps).toHaveLength(2);
     expect(en.onboarding.steps).toHaveLength(pt.onboarding.steps.length);
 
     for (const copy of [pt, en]) {

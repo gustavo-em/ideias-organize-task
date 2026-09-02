@@ -12,26 +12,27 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import LottieView from 'lottie-react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import styled, { useTheme } from 'styled-components/native';
 
 import type { TaskCopy } from '../../features/tasks/presentation/localization/taskCopy';
 import { PressableScale } from '../../features/tasks/presentation/views/PressableScale';
-import { onboardingScenes } from './onboarding/onboardingSteps';
+import { DemoPlayer } from './onboarding/DemoPlayer';
+import { onboardingDemos } from './onboarding/onboardingSteps';
 
 interface OnboardingScreenProps {
   copy: TaskCopy;
   onFinish: () => void;
 }
 
-/** The stage keeps the same height whether the scene plays or is frozen, so
+/** The stage keeps the same height whether the demo plays or is frozen, so
  * turning motion off never moves the words under it. */
-const STAGE_HEIGHT = 260;
+const STAGE_MIN = 280;
+const STAGE_MAX = 380;
 
 /**
- * The first-run walk-through: four scenes, one idea each, shown before anyone
+ * The first-run walk-through: two demos of the app itself, shown before anyone
  * is asked for an account. Skip is on screen the whole time and lands in the
  * same place the last step does — the sign-in screen behind this one.
  */
@@ -39,12 +40,15 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
   const [step, setStep] = useState(0);
   const [pageWidth, setPageWidth] = useState(0);
   const window = useWindowDimensions();
-  const pager = useRef<ComponentRef<typeof ScrollView> | null>(null);
   const theme = useTheme();
+  const pager = useRef<ComponentRef<typeof ScrollView> | null>(null);
   const prefersReducedMotion = useReducedMotion();
 
   const steps = copy.onboarding.steps;
-  const total = Math.min(steps.length, onboardingScenes.length);
+  const total = Math.min(steps.length, onboardingDemos.length);
+  const stageHeight = Math.round(
+    Math.min(STAGE_MAX, Math.max(STAGE_MIN, window.height * 0.42)),
+  );
   const isLast = step === total - 1;
   const width = pageWidth === 0 ? window.width : pageWidth;
 
@@ -82,10 +86,6 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
     pager.current?.scrollTo({ x: next * width, animated: true });
   }, [isLast, onFinish, step, width]);
 
-  // The scenes are drawn in the brand yellow, which is the same colour in both
-  // themes; only the supporting layer follows the text colour of the theme.
-  const colorFilters = [{ keypath: 'ink', color: theme.colors.text }];
-
   return (
     <Cover
       accessibilityViewIsModal
@@ -114,40 +114,44 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
           showsHorizontalScrollIndicator={false}
           testID="onboarding-pager"
         >
-          {steps.slice(0, total).map((page, index) => (
-            <Page key={onboardingScenes[index].id} style={{ width }}>
-              <Stage
-                accessible
-                accessibilityLabel={copy.onboarding.stepPosition(
-                  index + 1,
-                  total,
-                )}
-                accessibilityRole="image"
-              >
-                {/* Only the scene being read plays: the other three sit on
-                    their static frame instead of looping off screen. */}
-                <LottieView
-                  autoPlay={!prefersReducedMotion && index === step}
-                  colorFilters={colorFilters}
-                  loop={!prefersReducedMotion && index === step}
-                  progress={
-                    prefersReducedMotion || index !== step
-                      ? onboardingScenes[index].staticProgress
-                      : undefined
-                  }
-                  source={onboardingScenes[index].source}
-                  style={stageStyle}
-                  testID={`onboarding-scene-${onboardingScenes[index].id}`}
-                />
-              </Stage>
+          {steps.slice(0, total).map((page, index) => {
+            // Cada captura tem a própria proporção: o palco encolhe até a
+            // moldura do slide em vez de deixar faixa vazia sob um quadro
+            // mais baixo (o letterbox do slide 2).
+            const stageInnerWidth = width - theme.spacing.large * 2;
+            const slideStageHeight = Math.min(
+              stageHeight,
+              Math.round(stageInnerWidth / onboardingDemos[index].aspect),
+            );
+            return (
+              <Page key={onboardingDemos[index].id} style={{ width }}>
+                <Stage
+                  accessible
+                  accessibilityLabel={copy.onboarding.stepPosition(
+                    index + 1,
+                    total,
+                  )}
+                  accessibilityRole="image"
+                  style={{ height: slideStageHeight }}
+                >
+                  {/* Only the demo being read plays: the other one sits on its
+                    first frame instead of looping off screen. */}
+                  <DemoPlayer
+                    active={index === step}
+                    demo={onboardingDemos[index]}
+                    height={slideStageHeight}
+                    reducedMotion={prefersReducedMotion}
+                  />
+                </Stage>
 
-              <Title>{page.title}</Title>
-              <Body>{page.body}</Body>
-              <Example>
-                <ExampleText>{page.example}</ExampleText>
-              </Example>
-            </Page>
-          ))}
+                <Title>{page.title}</Title>
+                <Body>{page.body}</Body>
+                <Example>
+                  <ExampleText>{page.example}</ExampleText>
+                </Example>
+              </Page>
+            );
+          })}
         </Pager>
 
         <Bottom>
@@ -155,7 +159,7 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
             {steps.slice(0, total).map((_, index) => (
               <Dot
                 $active={index === step}
-                key={onboardingScenes[index].id}
+                key={onboardingDemos[index].id}
                 testID={`onboarding-dot-${index}`}
               />
             ))}
@@ -178,8 +182,6 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
     </Cover>
   );
 }
-
-const stageStyle = { width: '100%' as const, height: STAGE_HEIGHT };
 
 /* The pages stretch to the pager's height, so the whole surface — animation,
    title, body and example — belongs to the scrollable content. */
@@ -234,10 +236,16 @@ const Page = styled.View`
   padding: 0px ${({ theme }) => theme.spacing.large}px;
 `;
 
+/* A product frame: the capture sits inside a card with the same border as the
+   rest of the app, and nothing spills outside it. */
 const Stage = styled.View`
-  height: ${STAGE_HEIGHT}px;
   align-items: center;
   justify-content: center;
+  background-color: ${({ theme }) => theme.colors.cardElevated};
+  border-radius: 20px;
+  border-width: 1px;
+  border-color: ${({ theme }) => theme.colors.border};
+  overflow: hidden;
 `;
 
 const Title = styled.Text`
