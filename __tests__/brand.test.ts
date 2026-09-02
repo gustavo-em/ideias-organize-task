@@ -29,6 +29,8 @@ describe('brand contract', () => {
     expect(SPLASH_TIMING).toEqual({
       mark: 320,
       settle: 520,
+      sunDelay: 360,
+      sun: 220,
       wordmark: 260,
       wordmarkDelay: 820,
       minVisible: 1250,
@@ -42,6 +44,10 @@ describe('brand contract', () => {
     expect(
       SPLASH_TIMING.wordmarkDelay + SPLASH_TIMING.wordmark,
     ).toBeLessThanOrEqual(SPLASH_TIMING.minVisible);
+    // The sun lights up before the wordmark answers it.
+    expect(SPLASH_TIMING.sunDelay + SPLASH_TIMING.sun).toBeLessThanOrEqual(
+      SPLASH_TIMING.wordmarkDelay,
+    );
     // The opening, floor and exit together stay inside the 1.2s–1.6s band.
     const opening = SPLASH_TIMING.minVisible + SPLASH_TIMING.fade;
     expect(opening).toBeGreaterThanOrEqual(1200);
