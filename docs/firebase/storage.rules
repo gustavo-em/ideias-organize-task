@@ -1,3 +1,6 @@
+// NAO USADO no plano atual: a foto de perfil vive no documento do Firestore
+// (data URI). Este arquivo so volta a valer se um dia migrarmos para o Storage
+// no plano Blaze.
 // Regras para o Cloud Storage do projeto "ideiasorganizetask".
 //
 // Isto é um artefato a publicar, não código do app: habilitar o Storage no

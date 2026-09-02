@@ -30,12 +30,14 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly(
           ['displayName', 'handle', 'updatedAtMs', 'photoURL']
         ) &&
-        // A foto é opcional: string com a URL do avatar ou null quando a
-        // pessoa removeu a própria foto. Nunca sai deste documento, que só
-        // quem está autenticado consegue ler por id.
+        // A foto é opcional: URL do provedor OU a própria imagem como data
+        // URI (plano sem Storage — ela mora no documento). O teto de 200k
+        // caracteres impede um documento inflado de propósito; um avatar de
+        // 288px fica em ~20-60k.
         (!('photoURL' in request.resource.data.keys()) ||
           request.resource.data.photoURL == null ||
-          request.resource.data.photoURL is string) &&
+          (request.resource.data.photoURL is string &&
+            request.resource.data.photoURL.size() < 200000)) &&
         request.resource.data.handle is string &&
         request.resource.data.handle.matches('^[a-z0-9_]{3,20}$');
       allow delete: if request.auth != null && request.auth.uid == uid;
