@@ -39,6 +39,7 @@ import {
   applyRemoteList,
   leaveSharedList,
   removeMember as removeShareMemberUseCase,
+  setTaskAssignment,
   shareTaskList,
   stopSharing,
 } from '../../application/useCases/shareTaskList';
@@ -55,7 +56,8 @@ import {
   type ShareErrorKind,
 } from '../../domain/ShareError';
 import { dayKeyOf, type SharedMemberDay } from '../../domain/SharedMemberDay';
-import { isOpen } from '../../domain/Task';
+import { isAssigned, isOpen } from '../../domain/Task';
+import { canToggleAssignment } from '../../domain/TaskAssignment';
 import {
   advanceGroupStreak,
   isGroupDayClosed,
@@ -586,6 +588,56 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     [clock, run, shareGateway],
   );
 
+  /**
+   * Takes one person in or out of one task of a shared project.
+   *
+   * Optimistic on purpose: the ficha moves on the tap and the write follows.
+   * A refused or lost write is not undone here — the next pull is what
+   * reconciles, the same last-write-wins the rest of a project already has.
+   */
+  const toggleTaskAssignee = useCallback(
+    (listId: string, taskId: string, targetId: string) => {
+      const list = findListById(current.current.lists, listId);
+      const task = current.current.tasks.find(entry => entry.id === taskId);
+      if (list?.share == null || task == null || identity == null) return;
+
+      const isOwner =
+        list.share.members.find(member => member.personId === identity.personId)
+          ?.role === 'owner';
+      // Mirrors the security rule; the rule is what actually refuses it.
+      if (
+        !canToggleAssignment({
+          isOwner,
+          actorId: identity.personId,
+          targetId,
+        })
+      ) {
+        return;
+      }
+
+      const assigned = !isAssigned(task, targetId);
+      run(
+        setTaskAssignment(
+          current.current,
+          taskId,
+          targetId,
+          assigned,
+          clock.now(),
+        ),
+      );
+
+      const taskIds = current.current.tasks
+        .filter(entry => entry.listId === listId && isAssigned(entry, targetId))
+        .map(entry => entry.id);
+
+      shareGateway.setAssignment(list.share, targetId, taskIds).catch(() => {
+        // Nothing to say on screen: the tap already answered, and the next
+        // pull brings whatever the project really holds.
+      });
+    },
+    [clock, identity, run, shareGateway],
+  );
+
   const leaveList = useCallback(
     (listId: string) => {
       const list = findListById(current.current.lists, listId);
@@ -952,6 +1004,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     inviteToShareLink,
     stopSharingList,
     removeShareMember,
+    toggleTaskAssignee,
     leaveList,
     refreshSharedList,
     refreshAllSharedLists,

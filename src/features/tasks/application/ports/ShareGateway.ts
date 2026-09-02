@@ -38,6 +38,14 @@ export interface ShareGateway {
   ): Promise<{ list: TaskList; tasks: readonly Task[] } | null>;
   /** Uploads this device's state of a project it already belongs to. */
   push(share: ListShare, list: TaskList, tasks: readonly Task[]): Promise<void>;
+  /** Rewrites which tasks of the project one person took. Owner may write any
+   * member's entry; everybody else only their own — the rule refuses the
+   * rest. Last write wins, per person. */
+  setAssignment(
+    share: ListShare,
+    personId: string,
+    taskIds: readonly string[],
+  ): Promise<void>;
   /** Publishes what this device took for one day. Last write wins, per
    * member: two people writing the same day never touch each other's entry. */
   publishDay(share: ListShare, day: SharedMemberDay): Promise<void>;

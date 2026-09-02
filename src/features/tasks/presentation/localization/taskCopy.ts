@@ -163,6 +163,17 @@ export interface TaskCopy {
     stopSharing: string;
     stopSharingConfirm: string;
     sharedWith: (count: number) => string;
+    /** Who took each task of a shared project. */
+    assignSectionTitle: string;
+    joinTask: string;
+    leaveTask: string;
+    assignedTo: (count: number) => string;
+    /** What the tap does, never where the person already is: the row says
+     * "put in" while nobody is on it, and "take out" once somebody is. */
+    assignPerson: (name: string) => string;
+    unassignPerson: (name: string) => string;
+    assignedAnnouncement: (name: string) => string;
+    unassignedAnnouncement: (name: string) => string;
     // The band at the top of an open shared project — fase 2.
     dayBandTitle: string;
     dayBandEmpty: string;
@@ -435,6 +446,15 @@ const ptBR: TaskCopy = {
     stopSharingConfirm:
       'Ninguém mais vai poder entrar; quem já está sai também.',
     sharedWith: count => (count === 1 ? '1 pessoa' : `${count} pessoas`),
+    assignSectionTitle: 'Pessoas',
+    joinTask: 'Entrar na tarefa',
+    leaveTask: 'Sair da tarefa',
+    assignedTo: count =>
+      count === 1 ? '1 pessoa na tarefa' : `${count} pessoas na tarefa`,
+    assignPerson: name => `Colocar ${name} na tarefa`,
+    unassignPerson: name => `Tirar ${name} da tarefa`,
+    assignedAnnouncement: name => `${name} entrou na tarefa`,
+    unassignedAnnouncement: name => `${name} saiu da tarefa`,
     dayBandTitle: 'Hoje, no combinado',
     dayBandEmpty: 'Ninguém levou nada para hoje ainda.',
     dayBandEmptyHint:
@@ -737,6 +757,15 @@ const enUS: TaskCopy = {
     stopSharingConfirm:
       'Nobody else can join; whoever is already in leaves too.',
     sharedWith: count => (count === 1 ? '1 person' : `${count} people`),
+    assignSectionTitle: 'People',
+    joinTask: 'Join this task',
+    leaveTask: 'Leave this task',
+    assignedTo: count =>
+      count === 1 ? '1 person on this task' : `${count} people on this task`,
+    assignPerson: name => `Put ${name} on this task`,
+    unassignPerson: name => `Take ${name} off this task`,
+    assignedAnnouncement: name => `${name} joined the task`,
+    unassignedAnnouncement: name => `${name} left the task`,
     dayBandTitle: 'Today, together',
     dayBandEmpty: 'Nobody took anything for today yet.',
     dayBandEmptyHint:

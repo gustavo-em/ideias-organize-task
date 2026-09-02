@@ -39,6 +39,7 @@ import {
   SheetPrimaryButton,
 } from './SheetActions';
 import { SubtaskList } from './SubtaskList';
+import { TaskAssignSection, type TaskAssignment } from './TaskAssignSection';
 import {
   disclosureEnter,
   fadeExit,
@@ -84,6 +85,9 @@ interface QuickCaptureSheetProps {
   onRenameSubtask?: (subtaskId: string, title: string) => void;
   onToggleSubtask?: (subtaskId: string) => void;
   onDeleteSubtask?: (subtaskId: string) => void;
+  /** Who took this task, for a task inside a shared project. Absent
+   * everywhere else, and then the sheet is exactly the one it always was. */
+  assignment?: TaskAssignment;
   onSubmit: (
     typed: string,
     overrides: CaptureOverrides,
@@ -116,6 +120,7 @@ export function QuickCaptureSheet({
   onRenameSubtask,
   onToggleSubtask,
   onDeleteSubtask,
+  assignment,
   onSubmit,
 }: QuickCaptureSheetProps) {
   const theme = useTheme();
@@ -599,6 +604,12 @@ export function QuickCaptureSheet({
               shouldKeepPending={() => savedByButton.current}
               subtasks={editing.subtasks}
             />
+          ) : null}
+
+          {/* Who took it, for a task inside a shared project. Nothing is
+              reserved for it anywhere else. */}
+          {isEditing && assignment != null ? (
+            <TaskAssignSection assignment={assignment} copy={copy} />
           ) : null}
 
           {panel === 'none' && (expanded || isEditing) ? (

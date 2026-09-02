@@ -1,4 +1,4 @@
-import type { Task } from '../../domain/Task';
+import { withAssignee, withoutAssignee, type Task } from '../../domain/Task';
 import type { TaskEvent, UseCaseResult } from '../../domain/TaskEvent';
 import {
   INBOX_LIST_ID,
@@ -107,6 +107,36 @@ export function removeMember(
   return committed(next, at, [
     { type: 'list.member.removed', at, list, personId },
   ]);
+}
+
+/**
+ * Puts one person in or out of one task of a shared project.
+ *
+ * Assignment is organisation, not score: nothing here touches completion, the
+ * day, or points. The permission model is checked by the caller against
+ * `canToggleAssignment` and, for real, by the security rule.
+ */
+export function setTaskAssignment(
+  workspace: Workspace,
+  taskId: string,
+  personId: string,
+  assigned: boolean,
+  at: number,
+): UseCaseResult {
+  const current = workspace.tasks.find(task => task.id === taskId) ?? null;
+  if (current == null) return { workspace, events: [] };
+
+  const task = assigned
+    ? withAssignee(current, personId)
+    : withoutAssignee(current, personId);
+  if (task === current) return { workspace, events: [] };
+
+  const next: Workspace = {
+    ...workspace,
+    tasks: workspace.tasks.map(entry => (entry.id === taskId ? task : entry)),
+  };
+
+  return committed(next, at, []);
 }
 
 /** Applies the remote state of a project this device already belongs to

@@ -64,6 +64,8 @@ interface ListsScreenProps {
 const EMPTY_TASKS: readonly Task[] = [];
 const EMPTY_DAY_RECORDS: readonly SharedMemberDay[] = [];
 const EMPTY_DAY_TASK_IDS: readonly string[] = [];
+const EMPTY_ASSIGNEES: readonly ListMember[] = [];
+const EMPTY_ASSIGNED_IDS: readonly string[] = [];
 const EMPTY_DAY_ENTRIES: ReturnType<typeof sharedDay> = [];
 
 function memberFor(list: TaskList, id: string | null): ListMember | null {
@@ -183,6 +185,32 @@ export function ListsScreen({
     (taskId: string) => viewModel.toggle(taskId),
     [viewModel],
   );
+  // Who took the task being edited, when that task lives in a shared project.
+  // Anywhere else the sheet gets nothing and stays the sheet it always was.
+  const editingList =
+    editingTask == null ? null : viewModel.listOf(editingTask.listId);
+  const editingShare = editingList?.share ?? null;
+  const identityId = viewModel.identity?.personId ?? null;
+  const editingAssignment = useMemo(() => {
+    if (editingTask == null || editingShare == null || identityId == null) {
+      return undefined;
+    }
+
+    return {
+      members: editingShare.members,
+      assignedIds: editingTask.assignedIds ?? EMPTY_ASSIGNED_IDS,
+      personId: identityId,
+      isOwner:
+        editingShare.members.find(member => member.personId === identityId)
+          ?.role === 'owner',
+      onToggle: (targetId: string) =>
+        viewModel.toggleTaskAssignee(
+          editingTask.listId,
+          editingTask.id,
+          targetId,
+        ),
+    };
+  }, [editingShare, editingTask, identityId, viewModel]);
   // Taking a task into the day is two things at once, and only one of them was
   // happening: it joins the day's chosen few, and it becomes due today. Without
   // the date the task went on sitting under "sem prazo" on the other tab, which
@@ -281,7 +309,11 @@ export function ListsScreen({
         ))}
       </Content>
 
-      {creatingList || renamingList != null ? null : (
+      {/* An open project has an action of its own at the end of its tasks —
+          "Adicionar tarefa" — and the floating button used to sit on top of
+          it. While a project is open, making a new project is not what the
+          screen is for: the button steps aside and comes back on closing. */}
+      {creatingList || renamingList != null || openListId != null ? null : (
         <FloatingAction
           label={copy.lists.newList}
           onPress={() => setCreatingList(true)}
@@ -331,6 +363,7 @@ export function ListsScreen({
       )}
       {editing == null || editingTask == null ? null : (
         <QuickCaptureSheet
+          assignment={editingAssignment}
           copy={copy}
           editing={{
             id: editingTask.id,
@@ -560,9 +593,22 @@ const ProjectTask = memo(function ProjectTaskView({
     ],
   );
 
+  // The people who took it, in the project's own order, so the stack never
+  // reshuffles between two renders.
+  const assignees = useMemo(
+    () =>
+      list.share == null
+        ? EMPTY_ASSIGNEES
+        : list.share.members.filter(member =>
+            (task.assignedIds ?? []).includes(member.personId),
+          ),
+    [list.share, task.assignedIds],
+  );
+
   return (
     <TaskCard
       action={action}
+      assignees={assignees}
       completedByMember={
         isCompleted(task) && task.completedBy !== personId
           ? memberFor(list, task.completedBy ?? null)
