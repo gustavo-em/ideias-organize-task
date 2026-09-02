@@ -37,7 +37,7 @@ export function StatProportion({ fraction }: StatProportionProps) {
 const Track = styled.View`
   height: 6px;
   border-radius: ${({ theme }) => theme.radii.pill}px;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  background-color: ${({ theme }) => theme.colors.cardNeutral};
   overflow: hidden;
   margin-top: ${({ theme }) => theme.spacing.small}px;
 `;

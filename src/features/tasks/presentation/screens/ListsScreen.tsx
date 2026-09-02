@@ -1319,7 +1319,7 @@ const Track = styled.View`
   width: 100%;
   height: 4px;
   border-radius: ${({ theme }) => theme.radii.pill}px;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  background-color: ${({ theme }) => theme.colors.cardNeutral};
   overflow: hidden;
 `;
 const Fill = styled.View`
@@ -1346,7 +1346,7 @@ const ActionButton = styled(PressableScale)<{ $danger?: boolean }>`
   padding: 8px 10px;
   border-radius: ${({ theme }) => theme.radii.small}px;
   background-color: ${({ theme, $danger }) =>
-    $danger ? theme.colors.cardElevated : theme.colors.card};
+    $danger ? theme.colors.cardNeutral : theme.colors.card};
 `;
 const ActionText = styled.Text<{ $danger?: boolean }>`
   color: ${({ theme, $danger }) =>

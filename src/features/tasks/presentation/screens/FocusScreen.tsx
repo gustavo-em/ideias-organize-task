@@ -371,7 +371,7 @@ const ChoiceTitle = styled.Text`
 `;
 
 const ChoiceMeta = styled.View`
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  background-color: ${({ theme }) => theme.colors.cardNeutral};
   border-radius: ${({ theme }) => theme.radii.pill}px;
   padding: 4px 10px;
 `;

@@ -256,7 +256,7 @@ const Pill = styled.View`
   flex-direction: row;
   align-items: center;
   gap: 6px;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  background-color: ${({ theme }) => theme.colors.cardNeutral};
   border-radius: ${({ theme }) => theme.radii.pill}px;
   padding: 4px 10px;
 `;

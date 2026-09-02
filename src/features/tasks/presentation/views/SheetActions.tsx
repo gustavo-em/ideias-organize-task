@@ -147,7 +147,7 @@ const PrimaryButton = styled(PressableScale)<{
   border-radius: ${({ theme }) => theme.radii.medium}px;
   background-color: ${({ theme, disabled, $destructive }) => {
     if (disabled) {
-      return theme.colors.cardElevated;
+      return theme.colors.cardNeutral;
     }
 
     return $destructive ? theme.colors.danger : theme.colors.accent;
