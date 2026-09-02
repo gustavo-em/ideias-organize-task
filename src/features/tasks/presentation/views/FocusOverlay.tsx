@@ -72,7 +72,9 @@ export function FocusOverlay({
           there the band is reserved. */}
       <Content $reserveChrome={!onSessionGround}>{children}</Content>
 
-      <Chrome pointerEvents="box-none">
+      {/* Absolute children ignore the layer's padding, so the safe-area top
+          has to be applied here again or the button lands on the clock. */}
+      <Chrome pointerEvents="box-none" style={{ top: insets.top }}>
         <Back
           accessibilityLabel={label}
           accessibilityRole="button"
