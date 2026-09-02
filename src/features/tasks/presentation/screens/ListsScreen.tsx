@@ -9,6 +9,7 @@ import {
   rowEnter,
 } from '../../../../app/animation/motion';
 import { markSheetPress, useRenderCount } from '../../../../app/perf/sheetPerf';
+import { endOfDay, isSameDay } from '../../domain/Day';
 import { isCompleted, isOpen, type Task } from '../../domain/Task';
 import { dayKeyOf, type SharedMemberDay } from '../../domain/SharedMemberDay';
 import {
@@ -62,6 +63,7 @@ interface ListsScreenProps {
  * new prop defeats the memo that keeps the projects still. */
 const EMPTY_TASKS: readonly Task[] = [];
 const EMPTY_DAY_RECORDS: readonly SharedMemberDay[] = [];
+const EMPTY_DAY_TASK_IDS: readonly string[] = [];
 const EMPTY_DAY_ENTRIES: ReturnType<typeof sharedDay> = [];
 
 function memberFor(list: TaskList, id: string | null): ListMember | null {
@@ -175,8 +177,32 @@ export function ListsScreen({
     (taskId: string) => viewModel.toggle(taskId),
     [viewModel],
   );
+  // Taking a task into the day is two things at once, and only one of them was
+  // happening: it joins the day's chosen few, and it becomes due today. Without
+  // the date the task went on sitting under "sem prazo" on the other tab, which
+  // read as the button doing nothing at all.
   const moveIntoDay = useCallback(
-    (taskId: string) => viewModel.moveIntoDay(taskId),
+    (taskId: string) => {
+      const nowMs = viewModel.nowMs;
+      // The day can refuse: a full day, or one already closed, keeps the task
+      // where it is, and then nothing else should change either. A task the day
+      // already holds is not a refusal — it produces no event, and its date
+      // still has to say today, or the card reads "No dia" next to "amanhã".
+      const wasAlreadyInDay = (
+        viewModel.dayTaskIds ?? EMPTY_DAY_TASK_IDS
+      ).includes(taskId);
+      const committed = viewModel.moveIntoDay(taskId);
+
+      if (!committed && !wasAlreadyInDay) return;
+
+      const task = viewModel.tasks.find(candidate => candidate.id === taskId);
+
+      if (
+        task != null &&
+        (task.dueAtMs == null || !isSameDay(task.dueAtMs, nowMs))
+      )
+        viewModel.edit(taskId, { dueAtMs: endOfDay(nowMs) });
+    },
     [viewModel],
   );
 
@@ -219,6 +245,7 @@ export function ListsScreen({
           <ProjectBlock
             copy={copy}
             dayRecords={viewModel.sharedDays[list.id] ?? EMPTY_DAY_RECORDS}
+            dayTaskIds={viewModel.dayTaskIds ?? EMPTY_DAY_TASK_IDS}
             index={index}
             key={list.id}
             list={list}
@@ -439,6 +466,8 @@ export function ListsScreen({
 interface ProjectTaskProps {
   copy: TaskCopy;
   index: number;
+  /** Whether the day itself holds this task — membership, not a date. */
+  isInDay: boolean;
   isViewer: boolean;
   list: TaskList;
   nowMs: number;
@@ -460,6 +489,7 @@ interface ProjectTaskProps {
 const ProjectTask = memo(function ProjectTaskView({
   copy,
   index,
+  isInDay,
   isViewer,
   list,
   nowMs,
@@ -479,15 +509,34 @@ const ProjectTask = memo(function ProjectTaskView({
     () => onToggleTask(task.id),
     [onToggleTask, task.id],
   );
+  // The slot answers instead of asking only when both halves are true: the day
+  // holds the task and the task is due today. A task the day picked up while
+  // still due tomorrow would otherwise read "No dia" beside "amanhã", so the
+  // offer stands and taking it sets the date.
+  const isSettledForToday =
+    isInDay && task.dueAtMs != null && isSameDay(task.dueAtMs, nowMs);
   const action = useMemo(
     () =>
       !isViewer && isOpen(task)
-        ? {
-            label: copy.lists.addToDay,
-            onPress: () => onMoveIntoDay(task.id),
-          }
+        ? isSettledForToday
+          ? {
+              label: copy.lists.inDay,
+              disabled: true,
+              onPress: () => undefined,
+            }
+          : {
+              label: copy.lists.addToDay,
+              onPress: () => onMoveIntoDay(task.id),
+            }
         : undefined,
-    [copy.lists.addToDay, isViewer, onMoveIntoDay, task],
+    [
+      copy.lists.addToDay,
+      copy.lists.inDay,
+      isSettledForToday,
+      isViewer,
+      onMoveIntoDay,
+      task,
+    ],
   );
 
   return (
@@ -516,6 +565,9 @@ const ProjectTask = memo(function ProjectTaskView({
 interface ProjectBlockProps {
   copy: TaskCopy;
   dayRecords: readonly SharedMemberDay[];
+  /** The ids the day holds right now, so a card can tell being in the day from
+   * merely carrying today's date. */
+  dayTaskIds: readonly string[];
   index: number;
   list: TaskList;
   nowMs: number;
@@ -549,6 +601,7 @@ interface ProjectBlockProps {
 const ProjectBlock = memo(function ProjectBlockView({
   copy,
   dayRecords,
+  dayTaskIds,
   index,
   list,
   nowMs,
@@ -668,6 +721,20 @@ const ProjectBlock = memo(function ProjectBlockView({
             />
           </Track>
         </Row>
+        {/* Sharing a project is the one action people come looking for, so it
+            stops hiding behind the three dots. The menu keeps its entry: this
+            is a shortcut, not a move. */}
+        {canShare(list) ? (
+          <ShareButton
+            accessibilityLabel={copy.lists.share}
+            accessibilityRole="button"
+            hitSlop={5}
+            onPress={handleShare}
+            testID="list-share-inline"
+          >
+            <PeopleGlyph color={theme.colors.mutedStrong} size={18} />
+          </ShareButton>
+        ) : null}
         {canManage ? (
           <MoreButton
             accessibilityLabel={copy.lists.moreActions(list.name)}
@@ -778,6 +845,7 @@ const ProjectBlock = memo(function ProjectBlockView({
             <ProjectTask
               copy={copy}
               index={taskIndex}
+              isInDay={dayTaskIds.includes(task.id)}
               isViewer={isViewer}
               key={task.id}
               list={list}
@@ -814,7 +882,20 @@ const ProjectBlock = memo(function ProjectBlockView({
   );
 });
 
-const styles = StyleSheet.create({ scroll: { paddingBottom: 168 } });
+/** The floating action's own height, from `FloatingAction`. */
+const FLOATING_ACTION_HEIGHT = 54;
+
+/** `theme.spacing.large`, for the one style built outside the theme. */
+const SPACING_LARGE = 24;
+
+/* The whole clearance lives here, on the scroll's own content, rather than
+   inside a project block: the floating action's height, the space it floats in,
+   and the tab bar under it. The last line of the list — "Adicionar tarefa"
+   inside the last project — clears the yellow button instead of ending under
+   it. */
+const styles = StyleSheet.create({
+  scroll: { paddingBottom: FLOATING_ACTION_HEIGHT + SPACING_LARGE * 2 },
+});
 
 const Screen = styled.View`
   flex: 1;
@@ -846,6 +927,16 @@ const Row = styled(PressableScale)`
   align-items: center;
   flex-wrap: wrap;
   gap: ${({ theme }) => theme.spacing.small + 3}px;
+`;
+/* Same box as the three dots beside it, so the two read as one pair of
+   controls rather than a button and an afterthought. */
+const ShareButton = styled(PressableScale)`
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  margin-left: ${({ theme }) => theme.spacing.tiny}px;
 `;
 const MoreButton = styled(PressableScale)`
   width: 38px;
@@ -922,8 +1013,18 @@ const ActionText = styled.Text<{ $danger?: boolean }>`
   font-size: ${({ theme }) => theme.type.caption}px;
   font-weight: 800;
 `;
+/* The tasks belong to the project above them, and eight points of indent were
+   not saying so. A rule down the left carries the project into its list — the
+   same hairline the section headings use, turned on its side — with the indent
+   behind it. No fill, no border around them, no second card: continuity is
+   drawn, not boxed. */
 const Expanded = styled(Animated.View)`
-  padding-left: ${({ theme }) => theme.spacing.small}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
+  padding-bottom: ${({ theme }) => theme.spacing.small}px;
+  margin-left: ${({ theme }) => theme.spacing.medium}px;
+  padding-left: ${({ theme }) => theme.spacing.medium}px;
+  border-left-width: 1px;
+  border-left-color: ${({ theme }) => theme.colors.borderSubtle};
 `;
 const EmptyText = styled.Text`
   color: ${({ theme }) => theme.colors.muted};

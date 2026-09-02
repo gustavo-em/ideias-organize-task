@@ -295,14 +295,13 @@ export function SharedDayBand({
   );
 }
 
-/** Bleeds to both edges from inside the `Expanded` of the lists screen, which
- * carries a left padding of its own. Never a screen width: the band is a
- * field of the page, not a measured box. */
+/** Reaches back across the indent of the `Expanded` it sits in, so it starts at
+ * the project's own rule — and stops where the cards under it stop. Running past
+ * the right gutter made it read as a screen-wide banner belonging to no project
+ * in particular. */
 const Band = styled(Animated.View)`
   background-color: ${({ theme }) => theme.colors.accent};
-  margin: ${({ theme }) => theme.spacing.medium}px -${({ theme }) =>
-      theme.spacing.large}px 0px -${({ theme }) =>
-      theme.spacing.large + theme.spacing.small}px;
+  margin: ${({ theme }) => theme.spacing.medium}px 0px 0px -${({ theme }) => theme.spacing.medium}px;
   padding: ${({ theme }) => theme.spacing.large - 4}px
     ${({ theme }) => theme.spacing.large}px;
 `;

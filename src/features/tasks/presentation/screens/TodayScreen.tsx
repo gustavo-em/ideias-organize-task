@@ -23,7 +23,6 @@ import {
   type ProjectIcon,
 } from '../../domain/TaskList';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
-import { formatDayLabel } from '../models/dateLabel';
 import { homeSections, type HomeGrouping } from '../models/homeSections';
 import { projectTone } from '../models/projectAppearance';
 import {
@@ -224,15 +223,13 @@ export function TodayScreen({
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
       >
-        {/* No headline. "Em aberto" never changed, said what the screen
-            below already showed, and spent the first third of the phone
-            saying it. The date carries the context; the lens under it says
-            how the list is ordered. */}
+        {/* No headline, and no date either: the phone already says what day it
+            is, in its own status bar, all day long. What is left is the name of
+            the screen, how much is open, and the lens the list is ordered by. */}
         <ScreenHeader
           count={viewModel.openTaskCount}
           countLabel={copy.today.taskCount(viewModel.openTaskCount)}
           eyebrow={copy.tabs.today}
-          subtitle={formatDayLabel(viewModel.nowMs, language)}
           testID="today-header"
           trailing={
             <FilterToggle
@@ -325,6 +322,9 @@ export function TodayScreen({
           </Grouping>
         ) : null}
 
+        {/* The card is a direct child of the scroll, with one step of the scale
+            of its own: no wrapper in between that could grow taller than the
+            card it holds. */}
         {isFullyEmpty ? (
           <EmptyStateCard copy={copy} onCapture={() => setIsCapturing(true)} />
         ) : null}
@@ -631,9 +631,14 @@ const GroupingLabel = styled.Text`
   text-transform: uppercase;
 `;
 
+/* One line, and only ever one. Wrapping let the row reserve height for lines
+   that hold nothing — the empty band that opened between the three chips and
+   the card under them — so the chips share the width instead of falling to a
+   second row. */
 const GroupingRow = styled.View`
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: ${({ theme }) => theme.spacing.small}px;
   margin-top: ${({ theme }) => theme.spacing.tiny + 2}px;
 `;
@@ -641,8 +646,10 @@ const GroupingRow = styled.View`
 const GroupingButton = styled(PressableScale)<{ $selected: boolean }>`
   flex-direction: row;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 1;
   gap: ${({ theme }) => theme.spacing.tiny + 2}px;
-  min-height: 48px;
+  height: 48px;
   padding: 0px 10px;
   /* The selected chip is read by its shape — a thicker accent ring — so the
      state does not depend on a pale fill alone. */
@@ -659,6 +666,7 @@ const GroupingButton = styled(PressableScale)<{ $selected: boolean }>`
    and without a box of their own the labels beside them sat at three different
    heights. */
 const GroupingGlyph = styled.View`
+  flex-shrink: 0;
   width: 16px;
   height: 16px;
   align-items: center;
@@ -668,6 +676,7 @@ const GroupingGlyph = styled.View`
 const GroupingButtonText = styled.Text.attrs(buttonTextAttrs)<{
   $selected: boolean;
 }>`
+  flex-shrink: 1;
   color: ${({ theme, $selected }) =>
     $selected ? theme.colors.accentInk : theme.colors.mutedStrong};
   ${({ theme }) => buttonTextMetrics(theme.type.caption + 1)}

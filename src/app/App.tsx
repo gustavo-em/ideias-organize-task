@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import { StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import styled, { ThemeProvider } from 'styled-components/native';
 
@@ -465,7 +465,6 @@ function AppShell({
 }
 
 export default function App() {
-  const systemAppearance = useColorScheme();
   const bus = useMemo(
     () =>
       createEventBus<TaskEvent>({
@@ -483,10 +482,11 @@ export default function App() {
   // The only place that knows Firebase exists, matching the storage adapters
   // above: everything downstream depends on AuthPort, never on the SDK.
   const auth = useAuthViewModel(firebaseAuthAdapter);
-  const openingAppearance = app.isRestored
+  // The app opens light, always: the phone's own theme is not a preference
+  // anybody set here, and following it made a clean install open dark before
+  // the stored choice came back.
+  const openingAppearance: AppearanceMode = app.isRestored
     ? app.appearanceMode
-    : systemAppearance === 'dark'
-    ? 'dark'
     : 'light';
 
   return (

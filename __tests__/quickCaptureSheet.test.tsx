@@ -69,14 +69,19 @@ function texts(tree: ReturnType<typeof create>): string[] {
 }
 
 describe('QuickCaptureSheet layers', () => {
-  it('opens on layer zero: field, two controls, no chips or hints', () => {
+  it('opens on layer zero: field, two controls, the date already on today', () => {
     const tree = renderSheet();
 
     expect(has(tree, 'capture-field')).toBe(true);
     expect(has(tree, 'capture-more')).toBe(true);
     expect(has(tree, 'capture-syntax')).toBe(true);
     expect(has(tree, 'capture-save')).toBe(true);
-    expect(has(tree, 'capture-chip-date')).toBe(false);
+    // A new task is a task for today, and the chip says so from the first
+    // frame — an answer already given is never hidden behind the disclosure.
+    expect(has(tree, 'capture-chip-date')).toBe(true);
+    expect(first(tree, 'capture-chip-date').props.accessibilityLabel).toBe(
+      copy.capture.today,
+    );
     expect(has(tree, 'capture-chip-priority')).toBe(false);
     expect(has(tree, 'capture-chip-list')).toBe(false);
     expect(texts(tree)).not.toContain(copy.capture.hint);
@@ -114,7 +119,9 @@ describe('QuickCaptureSheet layers', () => {
 
     act(() => toggle().props.onPress());
 
-    expect(has(tree, 'capture-chip-date')).toBe(false);
+    // The date stays: it carries an answer of its own now.
+    expect(has(tree, 'capture-chip-date')).toBe(true);
+    expect(has(tree, 'capture-chip-list')).toBe(false);
     expect(texts(tree)).not.toContain(copy.capture.hint);
   });
 
@@ -129,7 +136,6 @@ describe('QuickCaptureSheet layers', () => {
     act(() => first(tree, 'capture-more').props.onPress());
 
     expect(has(tree, 'calendar-next')).toBe(false);
-    expect(has(tree, 'capture-chip-date')).toBe(false);
   });
 
   it('opens the writing shortcuts in the panel slot, never beside the hint', () => {

@@ -529,17 +529,17 @@ describe('SharedDayBand', () => {
     expect(rendered).toContain(copy.lists.dayBandEmptyHint);
   });
 
-  it('bleeds to both edges over a sun ground', () => {
+  it('reaches back to the project rule and stops at the right gutter', () => {
     const root = render({ entries: ALL_FOUR });
     const style = flatStyle(
       hosts(root, node => node.props.testID === 'shared-day-band')[0],
     );
 
     expect(style.backgroundColor).toBe(lightTheme.colors.accent);
-    expect(style.marginRight).toBe(-lightTheme.spacing.large);
-    expect(style.marginLeft).toBe(
-      -(lightTheme.spacing.large + lightTheme.spacing.small),
-    );
+    // Right edge in line with the cards under it; left edge back across the
+    // indent, onto the rule that carries the project down its tasks.
+    expect(style.marginRight).toBe(0);
+    expect(style.marginLeft).toBe(-lightTheme.spacing.medium);
     expect(style.borderRadius).toBeUndefined();
   });
 
