@@ -81,4 +81,96 @@ describe('open task screen copy', () => {
 
     expect(pt.onboarding.steps[0].title).not.toBe(en.onboarding.steps[0].title);
   });
+
+  it('names the shared entity Espaços/Spaces everywhere it is written', () => {
+    const pt = getTaskCopy('pt-BR');
+    const en = getTaskCopy('en-US');
+
+    expect(pt.tabs.lists).toBe('Espaços');
+    expect(en.tabs.lists).toBe('Spaces');
+    expect(pt.today.grouping.list).toBe('Espaço');
+    expect(en.today.grouping.list).toBe('Space');
+    expect(pt.lists.newList).toBe('Novo espaço');
+    expect(en.lists.newList).toBe('New space');
+    expect(pt.lists.sharedProject).toBe('Espaço compartilhado');
+    expect(en.lists.sharedProject).toBe('Shared space');
+  });
+
+  it('conjugates the Espaços summary by count in both languages', () => {
+    const pt = getTaskCopy('pt-BR');
+    const en = getTaskCopy('en-US');
+
+    expect(pt.lists.subtitle(1, 1)).toBe('1 espaço · 1 aberta');
+    expect(pt.lists.subtitle(0, 0)).toBe('0 espaços · 0 abertas');
+    expect(pt.lists.subtitle(2, 3)).toBe('2 espaços · 3 abertas');
+    expect(en.lists.subtitle(1, 1)).toBe('1 space · 1 open');
+    expect(en.lists.subtitle(0, 0)).toBe('0 spaces · 0 open');
+    expect(en.lists.subtitle(2, 3)).toBe('2 spaces · 3 open');
+  });
+
+  it('leaves no "projeto"/"project" in the written copy', () => {
+    const forbidden = /projeto|project/i;
+
+    for (const language of ['pt-BR', 'en-US'] as const) {
+      for (const [path, value] of walkCopy(getTaskCopy(language))) {
+        // Keys may keep the internal name; what is written must not.
+        if (forbidden.test(value)) {
+          throw new Error(`${language} ${path} still says: ${value}`);
+        }
+      }
+    }
+  });
+
+  it('welcomes whoever shares the space, without naming a couple', () => {
+    const pt = getTaskCopy('pt-BR');
+    const en = getTaskCopy('en-US');
+    const exclusive = /parceir|c[ôo]njuge|casal|namorad|partner|spouse/i;
+
+    expect(pt.lists.shareHint).toContain('Convide quem divide isso com você');
+    expect(en.lists.shareHint).toContain('Invite whoever shares this with you');
+    expect(pt.lists.groupEmpty).toBe(
+      'Um espaço vazio, pronto para o que vocês combinarem.',
+    );
+    expect(en.lists.groupEmpty).toBe(
+      'An empty space, ready for whatever you set up together.',
+    );
+
+    for (const language of ['pt-BR', 'en-US'] as const) {
+      for (const [, value] of walkCopy(getTaskCopy(language))) {
+        expect(value).not.toMatch(exclusive);
+      }
+    }
+  });
 });
+
+/** Every string the copy can produce, including the ones behind functions. */
+function walkCopy(node: unknown, path = ''): [string, string][] {
+  if (typeof node === 'string') return [[path, node]];
+  if (typeof node === 'function') {
+    const samples: unknown[][] = [
+      ['Casa nova', 'Ana'],
+      [1, 2],
+      [0, 0],
+      [2, 5],
+    ];
+    const out: [string, string][] = [];
+    for (const args of samples) {
+      try {
+        const value = (node as (...rest: unknown[]) => unknown)(...args);
+        if (typeof value === 'string') out.push([path, value]);
+      } catch {
+        // A signature this sample does not fit: the other samples cover it.
+      }
+    }
+    return out;
+  }
+  if (Array.isArray(node)) {
+    return node.flatMap((item, index) => walkCopy(item, `${path}[${index}]`));
+  }
+  if (node !== null && typeof node === 'object') {
+    return Object.entries(node).flatMap(([key, value]) =>
+      walkCopy(value, path ? `${path}.${key}` : key),
+    );
+  }
+  return [];
+}

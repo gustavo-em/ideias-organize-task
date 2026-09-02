@@ -1,8 +1,11 @@
 <resources>
-    <!-- The brand yellow. The system paints this while the process starts, so
-         the launch window and the animated splash inside the app are the same
-         colour and the opening never flashes white. -->
-    <color name="brand_sun">#FFC63D</color>
-    <color name="brand_ink">#1B1710</color>
-    <color name="brand_launch_background">#FFFDF7</color>
+    <!-- Official Aluza kit. The system paints the launch window with the same
+         cream the in-app splash uses, so the opening never flashes another
+         colour or another brand. -->
+    <color name="brand_sun">#FFC107</color>
+    <color name="brand_ink">#1D1D1B</color>
+    <color name="brand_cream">#F6F3EC</color>
+    <color name="brand_launch_background">#F6F3EC</color>
+    <!-- The launcher icon keeps its light background in both appearances. -->
+    <color name="brand_icon_background">#F6F3EC</color>
 </resources>

@@ -10,14 +10,13 @@ import Animated, {
   useSharedValue,
   withDelay,
   withTiming,
-  type SharedValue,
 } from 'react-native-reanimated';
-import Svg, { Path, Rect } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import styled, { useTheme } from 'styled-components/native';
 
 import type { AppLanguage } from '../../features/tasks/presentation/localization/taskCopy';
-import { MARK_COLORS, MARK_GEOMETRY } from './AppMark';
-import { AppWordmark } from './AppWordmark.generated';
+import { MARK_COLORS, MARK_GEOMETRY, MARK_PATHS } from './AppMark';
+import { AppWordmark } from './AppWordmark';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -28,24 +27,47 @@ interface AppSplashProps {
 }
 
 export const SPLASH_TIMING = {
-  morph: 420,
+  /** The symbol contour drawing itself. */
+  draw: 640,
+  /** The ink filling in behind the finished contour. */
+  fill: 240,
+  fillDelay: 460,
+  /** The yellow detail lighting up. */
+  spark: 260,
+  sparkDelay: 520,
+  /** The wordmark arriving under the symbol. */
+  wordmark: 200,
+  wordmarkDelay: 620,
+  /** Floor so the brand is legible even on a fast cold start. */
+  minVisible: 900,
   fade: 140,
-  compact: 180,
+  /** Shorter exit for when the app was ready before the floor above. */
+  compact: 100,
   reducedFade: 80,
   slowState: 1500,
 } as const;
 
 const SLOW_COPY: Record<AppLanguage, string> = {
-  'pt-BR': 'Abrindo suas ideias…',
-  'en-US': 'Opening your ideas…',
+  'pt-BR': 'Abrindo o Aluza…',
+  'en-US': 'Opening Aluza…',
 };
+
+const OUTLINE_LENGTH = MARK_GEOMETRY.outlineLength;
+const SYMBOL_CANVAS = MARK_GEOMETRY.size.width;
+/** Contour weight in view-box units: thin enough not to thicken the mark. */
+const OUTLINE_WIDTH = Math.round(SYMBOL_CANVAS * 0.012);
 
 /** The single, post-native cold-start transition. */
 export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
   const theme = useTheme();
   const reduceMotion = useReducedMotion();
   const { width } = useWindowDimensions();
-  const morph = useSharedValue(reduceMotion ? 1 : 0);
+  const isDark = theme.mode === 'dark';
+  const paper = isDark ? MARK_COLORS.ink : MARK_COLORS.cream;
+  const ink = isDark ? MARK_COLORS.white : MARK_COLORS.ink;
+  const draw = useSharedValue(reduceMotion ? 1 : 0);
+  const fill = useSharedValue(reduceMotion ? 1 : 0);
+  const spark = useSharedValue(reduceMotion ? 1 : 0);
   const wordmark = useSharedValue(reduceMotion ? 1 : 0);
   const cover = useSharedValue(1);
   const startedAt = useRef(Date.now());
@@ -55,28 +77,46 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
 
   useEffect(() => {
     if (reduceMotion) {
-      morph.value = 1;
+      draw.value = 1;
+      fill.value = 1;
+      spark.value = 1;
       wordmark.value = 1;
       return;
     }
 
-    morph.value = withTiming(1, {
-      duration: SPLASH_TIMING.morph,
+    draw.value = withTiming(1, {
+      duration: SPLASH_TIMING.draw,
       easing: Easing.bezier(0.22, 1, 0.36, 1),
     });
-    wordmark.value = withDelay(
-      60,
+    fill.value = withDelay(
+      SPLASH_TIMING.fillDelay,
       withTiming(1, {
-        duration: 220,
+        duration: SPLASH_TIMING.fill,
+        easing: Easing.out(Easing.quad),
+      }),
+    );
+    spark.value = withDelay(
+      SPLASH_TIMING.sparkDelay,
+      withTiming(1, {
+        duration: SPLASH_TIMING.spark,
+        easing: Easing.out(Easing.back(1.4)),
+      }),
+    );
+    wordmark.value = withDelay(
+      SPLASH_TIMING.wordmarkDelay,
+      withTiming(1, {
+        duration: SPLASH_TIMING.wordmark,
         easing: Easing.out(Easing.quad),
       }),
     );
 
     return () => {
-      cancelAnimation(morph);
+      cancelAnimation(draw);
+      cancelAnimation(fill);
+      cancelAnimation(spark);
       cancelAnimation(wordmark);
     };
-  }, [morph, reduceMotion, wordmark]);
+  }, [draw, fill, reduceMotion, spark, wordmark]);
 
   useEffect(() => {
     if (isReady) {
@@ -94,53 +134,61 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
   useEffect(() => {
     if (!isReady || exitStarted.current) return;
 
-    exitStarted.current = true;
-    const wasMorphFinished =
-      reduceMotion || Date.now() - startedAt.current >= SPLASH_TIMING.morph;
+    // The animation never delays the app: it runs while the app loads, and the
+    // exit only waits for the floor that keeps the mark legible.
+    const elapsed = Date.now() - startedAt.current;
+    const wait = reduceMotion
+      ? 0
+      : Math.max(0, SPLASH_TIMING.minVisible - elapsed);
+    // Ready before the floor: the opening already spent its budget waiting, so
+    // the fade is compressed instead of paid in full.
+    const readyAfterFloor = elapsed >= SPLASH_TIMING.minVisible;
     const exitDuration = reduceMotion
       ? SPLASH_TIMING.reducedFade
-      : wasMorphFinished
+      : readyAfterFloor
       ? SPLASH_TIMING.fade
       : SPLASH_TIMING.compact;
 
-    if (!reduceMotion && !wasMorphFinished) {
-      cancelAnimation(morph);
-      cancelAnimation(wordmark);
-      morph.value = withTiming(1, {
-        duration: SPLASH_TIMING.compact,
-        easing: Easing.out(Easing.cubic),
-      });
-      wordmark.value = withTiming(1, {
-        duration: Math.min(100, exitDuration),
-        easing: Easing.out(Easing.quad),
-      });
-    }
+    exitStarted.current = true;
 
-    cover.value = withTiming(
-      0,
-      {
-        duration: exitDuration,
-        easing: Easing.inOut(Easing.quad),
-      },
-      finished => {
-        if (finished) runOnJS(onFinished)();
-      },
-    );
-  }, [cover, isReady, morph, onFinished, reduceMotion, wordmark]);
+    const timeout = setTimeout(() => {
+      cover.value = withTiming(
+        0,
+        {
+          duration: exitDuration,
+          easing: Easing.inOut(Easing.quad),
+        },
+        finished => {
+          if (finished) runOnJS(onFinished)();
+        },
+      );
+    }, wait);
+
+    return () => clearTimeout(timeout);
+  }, [cover, isReady, onFinished, reduceMotion]);
 
   const coverStyle = useAnimatedStyle(() => ({ opacity: cover.value }));
   const wordmarkStyle = useAnimatedStyle(() => ({
     opacity: wordmark.value,
     transform: [{ translateY: reduceMotion ? 0 : (1 - wordmark.value) * 4 }],
   }));
-  const shortCheck = useFragmentProps(morph, 'a');
-  const longCheck = useFragmentProps(morph, 'b');
-  const thirdFragment = useThirdFragmentProps(morph);
-  const spark = useSparkProps(morph);
+  const outlineProps = useAnimatedProps(() => ({
+    strokeDashoffset: OUTLINE_LENGTH * (1 - draw.value),
+  }));
+  const inkProps = useAnimatedProps(() => ({ fillOpacity: fill.value }));
+  const sparkProps = useAnimatedProps(() => {
+    const scale = 0.6 + spark.value * 0.4;
+    const { x, y } = MARK_GEOMETRY.sunCenter;
+    return {
+      opacity: spark.value,
+      transform: `translate(${x} ${y}) scale(${scale}) translate(${-x} ${-y})`,
+    };
+  });
   const busyLabel = useMemo(() => SLOW_COPY[language], [language]);
 
   return (
     <Cover
+      $paper={paper}
       accessibilityElementsHidden={!showSlowState}
       importantForAccessibility={showSlowState ? 'yes' : 'no-hide-descendants'}
       pointerEvents="auto"
@@ -148,34 +196,33 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
       testID="app-splash"
     >
       <BrandGroup>
-        <Svg height={markSize} viewBox="0 0 120 120" width={markSize}>
-          <Rect
+        <Svg height={markSize} viewBox={MARK_GEOMETRY.viewBox} width={markSize}>
+          <AnimatedPath
+            animatedProps={inkProps}
+            d={MARK_PATHS.ink}
+            fill={ink}
+            fillRule="evenodd"
+          />
+          <AnimatedPath
+            animatedProps={outlineProps}
+            d={MARK_PATHS.ink}
+            fill="none"
+            stroke={ink}
+            strokeDasharray={OUTLINE_LENGTH}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={OUTLINE_WIDTH}
+          />
+          <AnimatedPath
+            animatedProps={sparkProps}
+            d={MARK_PATHS.sun}
             fill={MARK_COLORS.sun}
-            height={120}
-            rx={MARK_GEOMETRY.tileRadius}
-            width={120}
-          />
-          <AnimatedPath
-            {...strokeProps(MARK_COLORS.ink)}
-            animatedProps={shortCheck}
-          />
-          <AnimatedPath
-            {...strokeProps(MARK_COLORS.ink)}
-            animatedProps={longCheck}
-          />
-          <AnimatedPath
-            {...strokeProps(MARK_COLORS.grape)}
-            animatedProps={thirdFragment}
-          />
-          <AnimatedPath
-            animatedProps={spark}
-            d={MARK_GEOMETRY.spark.path}
-            fill={MARK_COLORS.grape}
+            fillRule="evenodd"
           />
         </Svg>
 
         <WordmarkFrame style={wordmarkStyle}>
-          <AppWordmark color={theme.colors.text} />
+          <AppWordmark color={ink} height={26} />
         </WordmarkFrame>
       </BrandGroup>
 
@@ -186,70 +233,17 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
           accessibilityRole="progressbar"
           accessibilityState={{ busy: true }}
         >
-          <ActivityIndicator color={MARK_COLORS.grape} size="small" />
-          <BusyText>{busyLabel}</BusyText>
+          <ActivityIndicator color={ink} size="small" />
+          <BusyText $ink={ink}>{busyLabel}</BusyText>
         </BusyStatus>
       ) : null}
     </Cover>
   );
 }
 
-function strokeProps(color: string) {
-  return {
-    fill: 'none' as const,
-    stroke: color,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    strokeWidth: MARK_GEOMETRY.strokeWidth,
-  };
-}
-
-function useFragmentProps(morph: SharedValue<number>, key: 'a' | 'b') {
-  const from = MARK_GEOMETRY.list[key];
-  const to = key === 'a' ? MARK_GEOMETRY.check.short : MARK_GEOMETRY.check.long;
-
-  return useAnimatedProps(() => {
-    const value = morph.value;
-    const startX = from.start.x + (to.start.x - from.start.x) * value;
-    const startY = from.start.y + (to.start.y - from.start.y) * value;
-    const endX = from.end.x + (to.end.x - from.end.x) * value;
-    const endY = from.end.y + (to.end.y - from.end.y) * value;
-    return { d: `M${startX} ${startY} L${endX} ${endY}` };
-  });
-}
-
-function useThirdFragmentProps(morph: SharedValue<number>) {
-  const from = MARK_GEOMETRY.list.c;
-  const center = MARK_GEOMETRY.spark.center;
-
-  return useAnimatedProps(() => {
-    const value = morph.value;
-    const remaining = 1 - value;
-    const halfWidth = ((from.end.x - from.start.x) / 2) * remaining;
-    const sourceCenterX = (from.start.x + from.end.x) / 2;
-    const centerX = sourceCenterX + (center.x - sourceCenterX) * value;
-    const centerY = from.start.y + (center.y - from.start.y) * value;
-    return {
-      d: `M${centerX - halfWidth} ${centerY} L${
-        centerX + halfWidth
-      } ${centerY}`,
-      opacity: Math.max(0, 1 - value * 1.35),
-    };
-  });
-}
-
-function useSparkProps(morph: SharedValue<number>) {
-  return useAnimatedProps(() => {
-    const reveal = Math.max(0, Math.min(1, (morph.value - 0.55) / 0.45));
-    const scale = 0.55 + reveal * 0.45;
-    return {
-      opacity: reveal,
-      transform: `translate(92 28) scale(${scale}) translate(-92 -28)`,
-    };
-  });
-}
-
-const Cover = styled(Animated.View)`
+/** The kit's cream, the same colour the native launch window paints, so the
+ * opening never flashes or changes brand between the two. */
+const Cover = styled(Animated.View)<{ $paper: string }>`
   position: absolute;
   top: 0px;
   left: 0px;
@@ -257,20 +251,17 @@ const Cover = styled(Animated.View)`
   bottom: 0px;
   align-items: center;
   justify-content: center;
-  background-color: ${({ theme }) => theme.colors.background};
+  background-color: ${({ $paper }) => $paper};
   z-index: 20;
 `;
 
 const BrandGroup = styled.View`
   align-items: center;
-  transform: translateY(-3px);
 `;
 
 const WordmarkFrame = styled(Animated.View)`
   align-items: center;
   justify-content: center;
-  width: 79px;
-  height: 32px;
   margin-top: 18px;
 `;
 
@@ -281,8 +272,9 @@ const BusyStatus = styled.View`
   gap: 8px;
 `;
 
-const BusyText = styled.Text`
-  color: ${({ theme }) => theme.colors.mutedStrong};
+const BusyText = styled.Text<{ $ink: string }>`
+  color: ${({ $ink }) => $ink};
   font-size: 13px;
   line-height: 18px;
+  opacity: 0.72;
 `;

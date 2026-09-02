@@ -6,36 +6,59 @@ import {
 } from '../src/app/components/AppMark';
 import { SPLASH_TIMING } from '../src/app/components/AppSplash';
 import {
-  IDEIAS_WORDMARK_LICENSE,
-  IDEIAS_WORDMARK_SOURCE,
-  IDEIAS_WORDMARK_VIEWBOX,
-} from '../src/app/components/AppWordmark.generated';
+  WORDMARK_RATIO,
+  WORDMARK_SOURCE,
+  WORDMARK_VIEWBOX,
+} from '../src/app/components/AppWordmark';
+import { APP_NAME } from '../src/app/config/appMetadata';
 
 describe('brand contract', () => {
-  it('keeps the approved check, spark and clear-space geometry', () => {
-    expect(MARK_GEOMETRY.canvas).toBe(120);
-    expect(MARK_GEOMETRY.clearSpace).toBe(16);
-    expect(MARK_GEOMETRY.strokeWidth).toBe(14);
-    expect(MARK_GEOMETRY.check.vertex).toEqual({ x: 47, y: 78 });
-    expect(MARK_GEOMETRY.spark.center).toEqual({ x: 92, y: 28 });
-    expect(MARK_PATHS.check).toBe('M29 60 L47 78 L89 36');
+  it('carries the Aluza name', () => {
+    expect(APP_NAME).toBe('Aluza');
   });
 
-  it('keeps the approved palette and launch timing bounds', () => {
+  it('keeps the kit symbol square, so no size ever distorts it', () => {
+    expect(MARK_GEOMETRY.size.width).toBe(MARK_GEOMETRY.size.height);
+    expect(MARK_GEOMETRY.viewBox).toBe(
+      `0 0 ${MARK_GEOMETRY.size.width.toFixed(
+        2,
+      )} ${MARK_GEOMETRY.size.height.toFixed(2)}`,
+    );
+    expect(MARK_GEOMETRY.outlineLength).toBeGreaterThan(0);
+    // 46dp of the 108dp adaptive canvas: inside the 66dp safe zone.
+    expect(MARK_GEOMETRY.adaptiveShare).toBeCloseTo(46 / 108, 5);
+    expect(MARK_PATHS.ink.startsWith('M')).toBe(true);
+    expect(MARK_PATHS.sun.startsWith('M')).toBe(true);
+  });
+
+  it('keeps the kit palette and the launch timing bounds', () => {
     expect(MARK_COLORS).toMatchObject({
-      sun: '#FFC63D',
-      ink: '#1B1710',
-      grape: '#4B3A8F',
-      paper: '#FFFDF7',
-      darkBackground: '#141008',
+      ink: '#1D1D1B',
+      sun: '#FFC107',
+      cream: '#F6F3EC',
+      white: '#FFFFFF',
     });
     expect(SPLASH_TIMING).toEqual({
-      morph: 420,
+      draw: 640,
+      fill: 240,
+      fillDelay: 460,
+      spark: 260,
+      sparkDelay: 520,
+      wordmark: 200,
+      wordmarkDelay: 620,
+      minVisible: 900,
       fade: 140,
-      compact: 180,
+      compact: 100,
       reducedFade: 80,
       slowState: 1500,
     });
+    // The whole sequence has to be over before the floor that holds it on
+    // screen, so the mark is never cut mid-drawing.
+    expect(
+      SPLASH_TIMING.wordmarkDelay + SPLASH_TIMING.wordmark,
+    ).toBeLessThanOrEqual(SPLASH_TIMING.minVisible);
+    // Ready before the floor means a shorter exit, never a longer one.
+    expect(SPLASH_TIMING.compact).toBeLessThan(SPLASH_TIMING.fade);
   });
 
   it('writes the same ink on Sol in both modes', () => {
@@ -51,9 +74,10 @@ describe('brand contract', () => {
     expect(darkTheme.colors.onAccent).toBe(lightTheme.colors.onAccent);
   });
 
-  it('keeps the approved licensed Bricolage Grotesque wordmark', () => {
-    expect(IDEIAS_WORDMARK_LICENSE).toBe('SIL Open Font License 1.1');
-    expect(IDEIAS_WORDMARK_SOURCE).toContain('google/fonts');
-    expect(IDEIAS_WORDMARK_VIEWBOX).toBe('0 0 2816 758');
+  it('keeps the wordmark outlined from the official kit', () => {
+    expect(WORDMARK_SOURCE).toBe('assets/brand/aluza-logo-primary.svg');
+    expect(WORDMARK_VIEWBOX.startsWith('0 0 ')).toBe(true);
+    // Width follows the kit ratio: the letters are never stretched to fit.
+    expect(WORDMARK_RATIO).toBeGreaterThan(2.5);
   });
 });

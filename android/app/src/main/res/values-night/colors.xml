@@ -1,5 +1,6 @@
 <resources>
-    <color name="brand_sun">#FFC63D</color>
-    <color name="brand_ink">#1B1710</color>
-    <color name="brand_launch_background">#141008</color>
+    <color name="brand_sun">#FFC107</color>
+    <color name="brand_ink">#1D1D1B</color>
+    <color name="brand_cream">#F6F3EC</color>
+    <color name="brand_launch_background">#1D1D1B</color>
 </resources>

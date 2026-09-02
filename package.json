@@ -6,7 +6,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "start": "react-native start",
-    "brand:wordmark": "node scripts/generate-wordmark-component.cjs",
+    "brand:assets": "python3 scripts/generate-aluza-brand.py",
     "lint": "eslint .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",

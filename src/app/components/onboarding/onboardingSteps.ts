@@ -42,6 +42,15 @@ export const FRAME_HOLD_MS = 900;
  * the app looks unreadable. */
 export const FRAME_FADE_MS = 140;
 
+/** The screenshots in `assets/onboarding/` were captured before the Aluza
+ * rebrand: they still show the old name and the word "Projetos", which the
+ * interface no longer uses. While this is true the walk-through shows the
+ * brand mark instead of the stale frames — teaching a name the app dropped is
+ * worse than showing no demo. Recapture with
+ * `scripts/capture-onboarding-frames.sh` (see docs/brand/release-checklist.md)
+ * and flip this to `false` in the same commit as the new PNGs. */
+export const ONBOARDING_FRAMES_STALE = true;
+
 export const onboardingDemos: readonly OnboardingDemo[] = [
   {
     id: 'capture',

@@ -23,19 +23,19 @@ interface ActivityNotificationCopy {
 
 const COPY: Record<AppLanguage, ActivityNotificationCopy> = {
   'pt-BR': {
-    channelName: 'Atividade do projeto',
+    channelName: 'Atividade do espaço',
     channelDescription:
-      'Avisos de quem concluiu uma tarefa ou entrou num projeto compartilhado.',
-    someone: 'Alguém do projeto',
+      'Avisos de quem concluiu uma tarefa ou entrou num espaço compartilhado.',
+    someone: 'Alguém do espaço',
     completed: (person, taskTitle) => `${person} concluiu “${taskTitle}”`,
     joined: (person, projectName) => `${person} entrou em ${projectName}`,
     summary: (count, projectName) => `${count} atualizações em ${projectName}`,
   },
   'en-US': {
-    channelName: 'Project activity',
+    channelName: 'Space activity',
     channelDescription:
-      'Alerts when someone completes a task or joins a shared project.',
-    someone: 'Someone in the project',
+      'Alerts when someone completes a task or joins a shared space.',
+    someone: 'Someone in the space',
     completed: (person, taskTitle) => `${person} completed “${taskTitle}”`,
     joined: (person, projectName) => `${person} joined ${projectName}`,
     summary: (count, projectName) => `${count} updates in ${projectName}`,
