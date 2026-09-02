@@ -162,6 +162,14 @@ export const BREATH = {
 /** How far the ring swells on each breath. */
 export const BREATH_SCALE = 1.02;
 
+/** A switch flipping: the thumb crosses its track. Shorter than a disclosure
+ * because a single control is moving, not a section. */
+export const TOGGLE = {
+  duration: 140,
+  easing: Easing.out(Easing.quad),
+  reduceMotion: ReduceMotion.System,
+} as const;
+
 /** The clock label ticking over to a new second. */
 export const BUMP = {
   duration: 180,
