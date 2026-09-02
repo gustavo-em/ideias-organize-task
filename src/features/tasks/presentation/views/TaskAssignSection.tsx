@@ -112,9 +112,9 @@ export function TaskAssignSection({
                   </MemberSub>
                 )}
               </MemberInfo>
-              <CheckSlot>
+              <CheckSlot $checked={checked}>
                 {checked ? (
-                  <CheckGlyph color={theme.colors.accentInk} size={14} />
+                  <CheckGlyph color={theme.colors.onAccent} size={12} />
                 ) : null}
               </CheckSlot>
             </MemberRow>
@@ -201,14 +201,21 @@ const MemberSub = styled.Text`
   font-size: ${({ theme }) => theme.type.caption}px;
 `;
 
-/** The check keeps its own square, so a row never changes width when somebody
- * joins or leaves the task. */
-const CheckSlot = styled.View`
-  width: 14px;
-  height: 14px;
+/** An empty ring when the person is out, the accent disc with a check when
+ * they are in: the ring is what says the row is a toggle at all — a bare
+ * glyph that vanished when unchecked left nothing to press. */
+const CheckSlot = styled.View<{ $checked: boolean }>`
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  border: 2px solid
+    ${({ theme, $checked }) =>
+      $checked ? theme.colors.accent : theme.colors.border};
+  background-color: ${({ theme, $checked }) =>
+    $checked ? theme.colors.accent : theme.colors.card};
 `;
 
 const SelfButton = styled(PressableScale)<{ $joined: boolean }>`
