@@ -1,36 +1,38 @@
-import Svg, { Path } from 'react-native-svg';
+import { Image } from 'react-native';
+import { useTheme } from 'styled-components/native';
 
-import {
-  ALUZA_COLORS,
-  ALUZA_WORDMARK_PATH,
-  ALUZA_WORDMARK_RATIO,
-  ALUZA_WORDMARK_VIEWBOX,
-} from './AluzaArtwork.generated';
+/** The "aluza" wordmark, cut straight from the brand board
+ * (`assets/brand/aluza-wordmark.png`): no font dependency, no redrawing, and
+ * only uniform scaling — the letters are never stretched to fill a box. */
+const WORDMARK_LIGHT = require('../../../assets/brand/aluza-wordmark.png');
+const WORDMARK_DARK = require('../../../assets/brand/aluza-wordmark-dark.png');
 
-export const WORDMARK_VIEWBOX = ALUZA_WORDMARK_VIEWBOX;
-export const WORDMARK_RATIO = ALUZA_WORDMARK_RATIO;
-export const WORDMARK_SOURCE = 'assets/brand/aluza-logo-primary.svg';
+const wordSource = Image.resolveAssetSource(WORDMARK_LIGHT) ?? {
+  width: 485,
+  height: 223,
+};
+
+export const WORDMARK_RATIO =
+  (wordSource.width ?? 485) / (wordSource.height ?? 223);
 
 interface AppWordmarkProps {
-  color?: string;
-  /** Height in points. The width follows the kit ratio, so the letters are
-   * never stretched to fill a box. */
+  /** Height in points. The width follows the artwork's own ratio. */
   height?: number;
+  /** Forces one artwork; by default the theme decides. */
+  variant?: 'light' | 'dark';
 }
 
-/** The "aluza" wordmark, outlined in the official kit: no font dependency and
- * no redrawing. */
-export function AppWordmark({
-  color = ALUZA_COLORS.ink,
-  height = 24,
-}: AppWordmarkProps) {
+export function AppWordmark({ height = 24, variant }: AppWordmarkProps) {
+  const theme = useTheme();
+  const dark =
+    (variant ?? (theme.mode === 'dark' ? 'dark' : 'light')) === 'dark';
+
   return (
-    <Svg
-      height={height}
-      viewBox={ALUZA_WORDMARK_VIEWBOX}
-      width={height * ALUZA_WORDMARK_RATIO}
-    >
-      <Path d={ALUZA_WORDMARK_PATH} fill={color} fillRule="evenodd" />
-    </Svg>
+    <Image
+      accessibilityRole="image"
+      resizeMode="contain"
+      source={dark ? WORDMARK_DARK : WORDMARK_LIGHT}
+      style={{ width: height * WORDMARK_RATIO, height }}
+    />
   );
 }

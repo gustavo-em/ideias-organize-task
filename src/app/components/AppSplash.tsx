@@ -3,14 +3,12 @@ import { ActivityIndicator, useWindowDimensions } from 'react-native';
 import Animated, {
   cancelAnimation,
   runOnJS,
-  useAnimatedProps,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Path } from 'react-native-svg';
 import styled, { useTheme } from 'styled-components/native';
 
 import {
@@ -18,22 +16,12 @@ import {
   SPLASH_MARK,
   SPLASH_SETTLE,
   SPLASH_SETTLE_SCALE,
-  SPLASH_SUN,
-  SPLASH_SUN_DELAY_MS,
-  SPLASH_SUN_SCALE,
-  SPLASH_SUN_STAGGER_MS,
   SPLASH_WORDMARK,
   SPLASH_WORDMARK_DELAY_MS,
 } from '../animation/motion';
 import type { AppLanguage } from '../../features/tasks/presentation/localization/taskCopy';
-import {
-  ALUZA_SUN_CENTERS,
-  ALUZA_SYMBOL_SUN_PATHS,
-} from './AluzaArtwork.generated';
-import { MARK_COLORS, MARK_GEOMETRY, MARK_PATHS } from './AppMark';
+import { AppMark, MARK_COLORS } from './AppMark';
 import { AppWordmark } from './AppWordmark';
-
-const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 interface AppSplashProps {
   isReady: boolean;
@@ -41,23 +29,12 @@ interface AppSplashProps {
   onFinished: () => void;
 }
 
-/** Every stroke of the sun, with the delay that lights it. */
-const SUN_STROKES = ALUZA_SYMBOL_SUN_PATHS.map((d, index) => ({
-  d,
-  center: ALUZA_SUN_CENTERS[index],
-  delay: index * SPLASH_SUN_STAGGER_MS,
-}));
-
 export const SPLASH_TIMING = {
   /** The symbol arriving. */
   mark: SPLASH_MARK.duration,
   /** The symbol settling into its size, behind the arrival. */
   settle: SPLASH_SETTLE.duration,
-  /** The first stroke of the sun, and the gap between the ones after it. */
-  sunDelay: SPLASH_SUN_DELAY_MS,
-  sun: SPLASH_SUN.duration,
-  sunStagger: SPLASH_SUN_STAGGER_MS,
-  /** The wordmark arriving under the symbol, once the sun is lit. */
+  /** The wordmark arriving under the symbol. */
   wordmarkDelay: SPLASH_WORDMARK_DELAY_MS,
   wordmark: SPLASH_WORDMARK.duration,
   /** Floor so the brand is legible even on a fast cold start. */
@@ -74,7 +51,8 @@ const SLOW_COPY: Record<AppLanguage, string> = {
   'en-US': 'Opening Aluza…',
 };
 
-/** The single, post-native cold-start transition. */
+/** The single, post-native cold-start transition. The artwork is the brand
+ * board's own — a bitmap cut from it, never a redrawn approximation. */
 export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
   const theme = useTheme();
   const reduceMotion = useReducedMotion();
@@ -177,6 +155,7 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
 
   const coverStyle = useAnimatedStyle(() => ({ opacity: cover.value }));
   const markStyle = useAnimatedStyle(() => ({
+    opacity: mark.value,
     transform: [
       {
         scale: SPLASH_SETTLE_SCALE - (SPLASH_SETTLE_SCALE - 1) * settle.value,
@@ -187,7 +166,6 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
     opacity: wordmark.value,
     transform: [{ translateY: reduceMotion ? 0 : (1 - wordmark.value) * 4 }],
   }));
-  const inkProps = useAnimatedProps(() => ({ fillOpacity: mark.value }));
   const busyLabel = useMemo(() => SLOW_COPY[language], [language]);
 
   return (
@@ -200,33 +178,12 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
       testID="app-splash"
     >
       <BrandGroup>
-        <MarkFrame $size={markSize} style={markStyle}>
-          <Svg
-            height={markSize}
-            viewBox={MARK_GEOMETRY.viewBox}
-            width={markSize}
-          >
-            <AnimatedPath
-              animatedProps={inkProps}
-              d={MARK_PATHS.ink}
-              fill={ink}
-              fillRule="evenodd"
-            />
-          </Svg>
-          {SUN_STROKES.map(stroke => (
-            <SunStroke
-              center={stroke.center}
-              d={stroke.d}
-              delay={stroke.delay}
-              key={stroke.d}
-              reduceMotion={reduceMotion}
-              size={markSize}
-            />
-          ))}
+        <MarkFrame style={markStyle}>
+          <AppMark size={markSize} variant={isDark ? 'dark' : 'light'} />
         </MarkFrame>
 
         <WordmarkFrame style={wordmarkStyle}>
-          <AppWordmark color={ink} height={26} />
+          <AppWordmark height={26} variant={isDark ? 'dark' : 'light'} />
         </WordmarkFrame>
       </BrandGroup>
 
@@ -242,62 +199,6 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
         </BusyStatus>
       ) : null}
     </Cover>
-  );
-}
-
-interface SunStrokeProps {
-  center: { readonly x: number; readonly y: number };
-  d: string;
-  delay: number;
-  reduceMotion: boolean;
-  /** Side of the rendered symbol, in points. */
-  size: number;
-}
-
-/** One stroke of the sun, lighting up from its own centre.
- *
- * The stroke is drawn in its own layer over the symbol and scaled with a React
- * Native transform rather than an SVG one: a transform on an SVG node is put
- * together on the JS side, so the lighting could arrive as opacity only. */
-function SunStroke({ center, d, delay, reduceMotion, size }: SunStrokeProps) {
-  const light = useSharedValue(reduceMotion ? 1 : 0);
-  const canvas = MARK_GEOMETRY.size.width;
-  const offsetX = (center.x / canvas - 0.5) * size;
-  const offsetY = (center.y / canvas - 0.5) * size;
-
-  useEffect(() => {
-    if (reduceMotion) {
-      light.value = 1;
-      return;
-    }
-
-    light.value = withDelay(
-      SPLASH_TIMING.sunDelay + delay,
-      withTiming(1, SPLASH_SUN),
-    );
-
-    return () => cancelAnimation(light);
-  }, [delay, light, reduceMotion]);
-
-  // The two translations put the stroke's own centre under the scale, so it
-  // lights up in place instead of sliding out of the symbol.
-  const style = useAnimatedStyle(() => ({
-    opacity: light.value,
-    transform: [
-      { translateX: offsetX },
-      { translateY: offsetY },
-      { scale: SPLASH_SUN_SCALE + light.value * (1 - SPLASH_SUN_SCALE) },
-      { translateX: -offsetX },
-      { translateY: -offsetY },
-    ],
-  }));
-
-  return (
-    <StrokeLayer $size={size} style={style}>
-      <Svg height={size} viewBox={MARK_GEOMETRY.viewBox} width={size}>
-        <Path d={d} fill={MARK_COLORS.sun} fillRule="evenodd" />
-      </Svg>
-    </StrokeLayer>
   );
 }
 
@@ -319,20 +220,9 @@ const BrandGroup = styled.View`
   align-items: center;
 `;
 
-const MarkFrame = styled(Animated.View)<{ $size: number }>`
-  width: ${({ $size }) => $size}px;
-  height: ${({ $size }) => $size}px;
+const MarkFrame = styled(Animated.View)`
   align-items: center;
   justify-content: center;
-`;
-
-/** A stroke of the sun sits exactly over the symbol, in its own layer. */
-const StrokeLayer = styled(Animated.View)<{ $size: number }>`
-  position: absolute;
-  top: 0px;
-  left: 0px;
-  width: ${({ $size }) => $size}px;
-  height: ${({ $size }) => $size}px;
 `;
 
 const WordmarkFrame = styled(Animated.View)`
