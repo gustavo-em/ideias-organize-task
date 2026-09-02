@@ -4,6 +4,7 @@ import type { ListColor, ProjectIcon } from '../../domain/TaskList';
 import type { TaskFacts as Facts } from '../models/taskMeta';
 import {
   CalendarGlyph,
+  ChecklistGlyph,
   ClockGlyph,
   PriorityGlyph,
   ProjectGlyph,
@@ -85,6 +86,17 @@ export function TaskFacts({
         <Fact>
           <ClockGlyph color={quiet} size={11} />
           <Label $color={quiet}>{facts.stale.label}</Label>
+        </Fact>
+      )}
+
+      {/* Steps done out of steps written, as a fact like any other: no bar, no
+          pill, and nothing at all on a task nobody broke down. */}
+      {compact || facts.subtasks == null ? null : (
+        <Fact accessibilityLabel={facts.subtasks.label}>
+          <ChecklistGlyph color={quiet} size={13} />
+          <Label $color={quiet}>
+            {`${facts.subtasks.done}/${facts.subtasks.total}`}
+          </Label>
         </Fact>
       )}
 

@@ -173,6 +173,12 @@ export function ListsScreen({
     setEditing(task);
   }, []);
   const deleteTask = useCallback((task: Task) => setDeleting(task), []);
+  // What the sheet shows comes from the workspace, not from the snapshot that
+  // opened it: a step added inside the sheet has to appear in it.
+  const editingTask =
+    editing == null
+      ? null
+      : viewModel.tasks.find(task => task.id === editing.id) ?? editing;
   const toggleTask = useCallback(
     (taskId: string) => viewModel.toggle(taskId),
     [viewModel],
@@ -323,19 +329,33 @@ export function ListsScreen({
           }
         />
       )}
-      {editing == null ? null : (
+      {editing == null || editingTask == null ? null : (
         <QuickCaptureSheet
           copy={copy}
           editing={{
-            title: editing.title,
-            priority: editing.priority,
-            dueAtMs: editing.dueAtMs,
-            listId: editing.listId,
+            id: editingTask.id,
+            title: editingTask.title,
+            priority: editingTask.priority,
+            dueAtMs: editingTask.dueAtMs,
+            listId: editingTask.listId,
+            subtasks: editingTask.subtasks,
           }}
           language={language}
           lists={viewModel.lists}
           nowMs={viewModel.nowMs}
+          onAddSubtask={title =>
+            viewModel.addTaskSubtask(editingTask.id, title)
+          }
           onCancel={() => setEditing(null)}
+          onDeleteSubtask={subtaskId =>
+            viewModel.deleteTaskSubtask(editingTask.id, subtaskId)
+          }
+          onRenameSubtask={(subtaskId, title) =>
+            viewModel.renameTaskSubtask(editingTask.id, subtaskId, title)
+          }
+          onToggleSubtask={subtaskId =>
+            viewModel.toggleTaskSubtask(editingTask.id, subtaskId)
+          }
           onSubmit={(typed, overrides) => {
             viewModel.edit(editing.id, { title: typed, ...overrides });
             setEditing(null);

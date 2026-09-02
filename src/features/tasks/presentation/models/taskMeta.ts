@@ -1,5 +1,11 @@
 import { daysBetween } from '../../domain/Day';
-import { isDueToday, isOpen, isOverdue, type Task } from '../../domain/Task';
+import {
+  isDueToday,
+  isOpen,
+  isOverdue,
+  subtaskProgress,
+  type Task,
+} from '../../domain/Task';
 import type { TaskCopy } from '../localization/taskCopy';
 
 /**
@@ -26,6 +32,9 @@ export interface TaskFacts {
   /** How long it has been sitting untouched. Only for something old and
    * undated, where it is the only fact worth showing. */
   stale: { label: string } | null;
+  /** How many steps are done, for a task that has any. Null when the task was
+   * never broken down, so nothing is drawn where there is nothing to say. */
+  subtasks: { done: number; total: number; label: string } | null;
   listName: string | null;
 }
 
@@ -66,8 +75,17 @@ export function taskFacts(
     },
     due: dueFact(task, nowMs, copy),
     stale: staleFact(task, nowMs, copy),
+    subtasks: subtaskFact(task, copy),
     listName,
   };
+}
+
+function subtaskFact(task: Task, copy: TaskCopy): TaskFacts['subtasks'] {
+  const { done, total } = subtaskProgress(task);
+
+  if (total === 0) return null;
+
+  return { done, total, label: copy.subtasks.progress(done, total) };
 }
 
 function dueFact(task: Task, nowMs: number, copy: TaskCopy): TaskFacts['due'] {
@@ -123,6 +141,7 @@ export function describeTask(facts: TaskFacts): string {
     facts.priority.label,
     facts.due?.label,
     facts.stale?.label,
+    facts.subtasks?.label,
     facts.listName,
   ]
     .filter(part => part != null && part !== '')

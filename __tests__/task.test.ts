@@ -23,6 +23,7 @@ const base: Task = {
   estimatedMinutes: null,
   createdAtMs: now,
   completedAtMs: null,
+  subtasks: [],
 };
 
 describe('task', () => {

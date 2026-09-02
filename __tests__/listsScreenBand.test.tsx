@@ -107,6 +107,7 @@ const task: Task = {
   createdAtMs: NOW - 1000,
   completedAtMs: null,
   completedBy: null,
+  subtasks: [],
 };
 
 const days: readonly SharedMemberDay[] = [

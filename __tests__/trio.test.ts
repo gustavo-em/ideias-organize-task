@@ -24,6 +24,7 @@ function task(overrides: Partial<Task> & { id: string }): Task {
     estimatedMinutes: null,
     createdAtMs: now,
     completedAtMs: null,
+    subtasks: [],
     ...overrides,
   };
 }

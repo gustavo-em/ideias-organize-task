@@ -22,6 +22,7 @@ describe('local data ownership', () => {
         estimatedMinutes: null,
         createdAtMs: 1,
         completedAtMs: null,
+        subtasks: [],
       },
     ]);
     await asyncStorageListStore.save([

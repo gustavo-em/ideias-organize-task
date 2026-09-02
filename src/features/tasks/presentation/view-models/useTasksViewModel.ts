@@ -17,6 +17,12 @@ import {
 import { deleteTask } from '../../application/useCases/deleteTask';
 import { editTask, type TaskEdit } from '../../application/useCases/editTask';
 import {
+  addSubtask,
+  deleteSubtask,
+  renameSubtask,
+  toggleSubtask,
+} from '../../application/useCases/manageSubtasks';
+import {
   createTaskList,
   deleteTaskList,
   renameTaskList,
@@ -390,6 +396,34 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
   const edit = useCallback(
     (taskId: string, change: TaskEdit) =>
       run(editTask(current.current, taskId, change, clock.now())),
+    [clock, run],
+  );
+
+  // The steps inside a task. They follow the same road as an edit — no points,
+  // no streak, no trio — so each one is a single call through `run`.
+  const addTaskSubtask = useCallback(
+    (taskId: string, title: string) =>
+      run(addSubtask(current.current, taskId, title, clock.now())),
+    [clock, run],
+  );
+
+  const renameTaskSubtask = useCallback(
+    (taskId: string, subtaskId: string, title: string) =>
+      run(
+        renameSubtask(current.current, taskId, subtaskId, title, clock.now()),
+      ),
+    [clock, run],
+  );
+
+  const toggleTaskSubtask = useCallback(
+    (taskId: string, subtaskId: string) =>
+      run(toggleSubtask(current.current, taskId, subtaskId, clock.now())),
+    [clock, run],
+  );
+
+  const deleteTaskSubtask = useCallback(
+    (taskId: string, subtaskId: string) =>
+      run(deleteSubtask(current.current, taskId, subtaskId, clock.now())),
     [clock, run],
   );
 
@@ -887,6 +921,10 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     toggle,
     remove,
     edit,
+    addTaskSubtask,
+    renameTaskSubtask,
+    toggleTaskSubtask,
+    deleteTaskSubtask,
     reshuffle,
     moveIntoDay,
     createList,

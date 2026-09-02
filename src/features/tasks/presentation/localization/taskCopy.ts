@@ -72,6 +72,25 @@ export interface TaskCopy {
     tomorrow: string;
     minutes: (value: number) => string;
   };
+  /** The steps inside one task. Only ever seen while editing a task: capture
+   * stays one field. */
+  subtasks: {
+    title: string;
+    /** Names one step for a screen reader, so its box is never mistaken for
+     * the task's own. */
+    item: (title: string) => string;
+    /** Read out on a card that has steps, where only "2/5" is drawn. */
+    progress: (done: number, total: number) => string;
+    addPlaceholder: string;
+    add: string;
+    /** Names the step being renamed, so the field is not an unlabelled box. */
+    rename: (title: string) => string;
+    remove: (title: string) => string;
+    /** A suggestion, never a verdict: finishing the steps is not finishing the
+     * task, and the person is the one who says it is done. */
+    allDone: string;
+    limitReached: (limit: number) => string;
+  };
   lists: {
     title: string;
     subtitle: (lists: number, tasks: number) => string;
@@ -314,6 +333,17 @@ const ptBR: TaskCopy = {
     tomorrow: 'amanhã',
     minutes: value =>
       value >= 60 ? `${Math.round(value / 60)} h` : `${value} min`,
+  },
+  subtasks: {
+    title: 'Subtarefas',
+    item: title => `Subtarefa: ${title}`,
+    progress: (done, total) => `${done} de ${total} subtarefas`,
+    addPlaceholder: 'Nova subtarefa',
+    add: 'Adicionar subtarefa',
+    rename: title => `Renomear subtarefa: ${title}`,
+    remove: title => `Excluir subtarefa: ${title}`,
+    allDone: 'Todas as subtarefas concluídas.',
+    limitReached: limit => `Limite de ${limit} subtarefas por tarefa.`,
   },
   lists: {
     title: 'Onde os\nplanos andam.',
@@ -599,6 +629,17 @@ const enUS: TaskCopy = {
     tomorrow: 'tomorrow',
     minutes: value =>
       value >= 60 ? `${Math.round(value / 60)} h` : `${value} min`,
+  },
+  subtasks: {
+    title: 'Subtasks',
+    item: title => `Subtask: ${title}`,
+    progress: (done, total) => `${done} of ${total} subtasks`,
+    addPlaceholder: 'New subtask',
+    add: 'Add subtask',
+    rename: title => `Rename subtask: ${title}`,
+    remove: title => `Delete subtask: ${title}`,
+    allDone: 'All subtasks done.',
+    limitReached: limit => `Limit of ${limit} subtasks per task.`,
   },
   lists: {
     title: 'Where plans\nmove forward.',

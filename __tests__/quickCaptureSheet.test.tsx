@@ -160,10 +160,12 @@ describe('QuickCaptureSheet layers', () => {
   it('editing opens expanded, with the edit hint and no shortcuts', () => {
     const tree = renderSheet({
       editing: {
+        id: 'task-1',
         title: 'ligar pro contador',
         priority: 'medium',
         dueAtMs: null,
         listId: null,
+        subtasks: [],
       },
     });
 

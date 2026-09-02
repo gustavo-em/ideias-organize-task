@@ -123,6 +123,19 @@ export function TaskRow({
         <Title $done={done} numberOfLines={1}>
           {task.title}
         </Title>
+
+        {/* Steps done out of steps written, in the quietest ink on the row.
+            The spoken label already carries it, so the digits are decoration
+            for the eye and never a second thing to read out. */}
+        {facts.subtasks == null ? null : (
+          <SubtaskCount
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            testID={`task-subtasks-${task.id}`}
+          >
+            {`${facts.subtasks.done}/${facts.subtasks.total}`}
+          </SubtaskCount>
+        )}
       </Main>
 
       {done ? (
@@ -195,6 +208,17 @@ const Main = styled(PressableScale)`
   align-items: center;
   min-width: 0px;
   gap: ${({ theme }) => theme.spacing.small}px;
+`;
+
+/* Sits with the title rather than in the right-hand slot, which the project
+   name and the timer already own. Never shrinks: four characters. */
+const SubtaskCount = styled.Text`
+  flex-shrink: 0;
+  margin-left: 8px;
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 700;
+  font-variant: tabular-nums;
 `;
 
 const Title = styled.Text<{ $done: boolean }>`
