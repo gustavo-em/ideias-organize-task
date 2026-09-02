@@ -247,17 +247,35 @@ export interface TaskCopy {
     openSession: string;
   };
   progress: {
-    title: string;
-    /** Conjugates. "1 seguidos" is the kind of thing that makes an app feel
-     * machine-written, and zero is a sentence rather than a number. */
-    streakTitle: (days: number) => string;
-    streakHint: string;
-    level: (level: number) => string;
-    levelPoints: (into: number, span: number) => string;
-    trios: string;
-    week: string;
+    /** The small label above the board's title. It names the screen, so it
+     * cannot repeat or contradict the title under it. */
+    eyebrow: string;
+    /** The board's own title. Deliberately steady: a headline that changes with
+     * the numbers turns the screen into a scoreboard that shouts. */
+    boardTitle: string;
+    /** Says out loud that none of this leaves the phone. */
+    privacyHint: string;
+    balanceLabel: string;
+    open: string;
+    closed: string;
+    /** Read out for the ring, which draws a share no screen reader can see. */
+    balanceSummary: (open: number, closed: number) => string;
+    sevenDays: string;
+    closedInWeek: (closed: number) => string;
+    weekSummary: (closed: number) => string;
+    patterns: string;
+    bestWeekday: string;
+    /** Neutral, never a reproach: nothing closed yet is not a failure. */
+    noPatternYet: string;
+    bestWeekdaySummary: (weekday: string, closed: number) => string;
+    activeProjects: string;
+    activeProjectsOf: (total: number) => string;
+    projectsSummary: (active: number, total: number) => string;
+    /** Level and streak together, in one quiet line at the bottom. */
+    footnote: (level: number, streakDays: number) => string;
     weekdays: readonly string[];
-    weightHint: string;
+    /** Full weekday names, Sunday first, for the best-day line. */
+    weekdayNames: readonly string[];
   };
   settings: {
     title: string;
@@ -536,20 +554,55 @@ const ptBR: TaskCopy = {
     openSession: 'Abrir sessão de foco',
   },
   progress: {
-    title: 'Seu ritmo',
-    streakTitle: days =>
-      days === 0
-        ? 'Sem sequência ainda'
-        : days === 1
-        ? '1 dia seguido'
-        : `${days} dias seguidos`,
-    streakHint: 'A sequência conta dia em que tudo do dia foi feito',
-    level: level => `Nível ${level}`,
-    levelPoints: (into, span) => `${into} de ${span} pontos`,
-    trios: 'dias fechados',
-    week: 'Últimos sete dias',
+    eyebrow: 'Progresso',
+    boardTitle: 'Seu placar',
+    privacyHint: 'Só neste aparelho',
+    balanceLabel: 'Equilíbrio',
+    open: 'Abertas',
+    closed: 'Fechadas',
+    balanceSummary: (open, closed) =>
+      `${open} ${open === 1 ? 'aberta' : 'abertas'}, ${closed} ${
+        closed === 1 ? 'fechada' : 'fechadas'
+      }`,
+    sevenDays: '7 dias',
+    closedInWeek: closed =>
+      closed === 1
+        ? 'fechada nos últimos 7 dias'
+        : 'fechadas nos últimos 7 dias',
+    weekSummary: closed =>
+      closed === 1
+        ? '1 tarefa fechada nos últimos 7 dias'
+        : `${closed} tarefas fechadas nos últimos 7 dias`,
+    patterns: 'Padrões',
+    bestWeekday: 'Melhor dia',
+    noPatternYet: 'Ainda sem dados',
+    bestWeekdaySummary: (weekday, closed) =>
+      closed === 1
+        ? `Melhor dia: ${weekday}, com 1 fechada`
+        : `Melhor dia: ${weekday}, com ${closed} fechadas`,
+    activeProjects: 'Projetos ativos',
+    activeProjectsOf: total =>
+      total === 1 ? 'de 1 projeto' : `de ${total} projetos`,
+    projectsSummary: (active, total) =>
+      active === 1
+        ? `1 projeto ativo de ${total}`
+        : `${active} projetos ativos de ${total}`,
+    footnote: (level, streakDays) =>
+      streakDays === 0
+        ? `Nível ${level}`
+        : streakDays === 1
+        ? `Nível ${level} · 1 dia seguido`
+        : `Nível ${level} · ${streakDays} dias seguidos`,
     weekdays: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'],
-    weightHint: 'Pontos vêm do peso da tarefa, nunca da quantidade.',
+    weekdayNames: [
+      'domingo',
+      'segunda',
+      'terça',
+      'quarta',
+      'quinta',
+      'sexta',
+      'sábado',
+    ],
   },
   settings: {
     title: 'Ajustes',
@@ -851,20 +904,49 @@ const enUS: TaskCopy = {
     openSession: 'Open focus session',
   },
   progress: {
-    title: 'Your pace',
-    streakTitle: days =>
-      days === 0
-        ? 'No streak yet'
-        : days === 1
-        ? '1 day in a row'
-        : `${days} days in a row`,
-    streakHint: 'The streak counts days where the whole day was done',
-    level: level => `Level ${level}`,
-    levelPoints: (into, span) => `${into} of ${span} points`,
-    trios: 'days closed',
-    week: 'Last seven days',
+    eyebrow: 'Progress',
+    boardTitle: 'Your board',
+    privacyHint: 'Stays on this phone',
+    balanceLabel: 'Balance',
+    open: 'Open',
+    closed: 'Closed',
+    balanceSummary: (open, closed) => `${open} open, ${closed} closed`,
+    sevenDays: '7 days',
+    closedInWeek: () => 'closed in the last 7 days',
+    weekSummary: closed =>
+      closed === 1
+        ? '1 task closed in the last 7 days'
+        : `${closed} tasks closed in the last 7 days`,
+    patterns: 'Patterns',
+    bestWeekday: 'Best day',
+    noPatternYet: 'No data yet',
+    bestWeekdaySummary: (weekday, closed) =>
+      closed === 1
+        ? `Best day: ${weekday}, with 1 closed`
+        : `Best day: ${weekday}, with ${closed} closed`,
+    activeProjects: 'Active projects',
+    activeProjectsOf: total =>
+      total === 1 ? 'of 1 project' : `of ${total} projects`,
+    projectsSummary: (active, total) =>
+      active === 1
+        ? `1 active project of ${total}`
+        : `${active} active projects of ${total}`,
+    footnote: (level, streakDays) =>
+      streakDays === 0
+        ? `Level ${level}`
+        : streakDays === 1
+        ? `Level ${level} · 1 day in a row`
+        : `Level ${level} · ${streakDays} days in a row`,
     weekdays: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
-    weightHint: 'Points come from weight, never from count.',
+    weekdayNames: [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ],
   },
   settings: {
     title: 'Settings',

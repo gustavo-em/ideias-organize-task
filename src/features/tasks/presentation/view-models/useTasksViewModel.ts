@@ -57,6 +57,12 @@ import {
 } from '../../domain/ShareError';
 import { dayKeyOf, type SharedMemberDay } from '../../domain/SharedMemberDay';
 import { isAssigned, isOpen } from '../../domain/Task';
+import {
+  getActiveProjects,
+  getClosedByDay,
+  getTaskBalance,
+  getWeekdayPattern,
+} from '../../domain/TaskStats';
 import { canToggleAssignment } from '../../domain/TaskAssignment';
 import {
   advanceGroupStreak,
@@ -951,6 +957,26 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
 
   const level = getLevelProgress(workspace.progress.points);
 
+  /* The board on the You tab. Counted from the tasks themselves rather than
+     from the stored progress, so what the charts show is the same thing the
+     lists show, and reopening a task takes its mark back. */
+  const balance = useMemo(
+    () => getTaskBalance(workspace.tasks),
+    [workspace.tasks],
+  );
+  const closedByDay = useMemo(
+    () => getClosedByDay(workspace.tasks, nowMs),
+    [nowMs, workspace.tasks],
+  );
+  const weekdayPattern = useMemo(
+    () => getWeekdayPattern(workspace.tasks, nowMs),
+    [nowMs, workspace.tasks],
+  );
+  const activeProjects = useMemo(
+    () => getActiveProjects(workspace.tasks, workspace.lists),
+    [workspace.lists, workspace.tasks],
+  );
+
   return {
     isRestored: restored != null,
     nowMs,
@@ -977,6 +1003,10 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     level,
     trioCount: getTrioCount(workspace.progress),
     week: getWeek(workspace.progress, nowMs),
+    balance,
+    closedByDay,
+    weekdayPattern,
+    activeProjects,
     celebratingStreak,
     dismissCelebration: () => setCelebratingStreak(null),
     listOf,

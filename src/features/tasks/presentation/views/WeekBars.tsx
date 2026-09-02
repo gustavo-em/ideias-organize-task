@@ -1,51 +1,84 @@
-import Animated from 'react-native-reanimated';
+import { useEffect } from 'react';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
-import type { DayRecord } from '../../domain/Progress';
-import { rowEnter } from '../../../../app/animation/motion';
+import { GROUND } from '../../../../app/animation/motion';
+import type { ClosedDay } from '../../domain/TaskStats';
 
 interface WeekBarsProps {
-  week: readonly DayRecord[];
+  days: readonly ClosedDay[];
+  todayMs: number;
   weekdays: readonly string[];
   height?: number;
 }
 
 /**
- * Seven days of finished weight.
+ * Seven days of finished tasks.
  *
- * The bar is weight, not count: a day with one hard thing done should not look
- * emptier than a day of five errands, because it was not.
+ * The bars grow from the floor when the tab opens, and only today is at full
+ * strength: one accent per chart, so the eye lands on the day the person is
+ * still living instead of hunting for the tallest column.
  */
-export function WeekBars({ week, weekdays, height = 96 }: WeekBarsProps) {
-  const peak = Math.max(1, ...week.map(day => day.weight));
+export function WeekBars({
+  days,
+  todayMs,
+  weekdays,
+  height = 96,
+}: WeekBarsProps) {
+  const peak = Math.max(1, ...days.map(day => day.closed));
 
   return (
     <Wrapper>
       <Bars style={{ height }}>
-        {week.map((day, index) => (
+        {days.map(day => (
           <Column key={day.dayMs}>
-            {/* The entrance and the dimming live in two views on purpose: a
-                component that animates in and also sets its own opacity is
-                exactly what Reanimated warns about, once per bar. */}
-            <Grow
-              entering={rowEnter(index)}
-              style={{
-                height: `${Math.max(4, (day.weight / peak) * 100)}%`,
-              }}
-            >
-              <Bar $closed={day.trioClosed} />
-            </Grow>
+            <GrowingBar
+              isToday={day.dayMs === todayMs}
+              /* A floor of 4% keeps the row of days readable when nothing was
+                 closed: an empty week is still a week. */
+              fraction={Math.max(0.04, day.closed / peak)}
+            />
           </Column>
         ))}
       </Bars>
       <Labels>
-        {week.map(day => (
+        {days.map(day => (
           <Label key={`label-${day.dayMs}`}>
             {weekdays[new Date(day.dayMs).getDay()]}
           </Label>
         ))}
       </Labels>
     </Wrapper>
+  );
+}
+
+function GrowingBar({
+  fraction,
+  isToday,
+}: {
+  fraction: number;
+  isToday: boolean;
+}) {
+  const grown = useSharedValue(0);
+
+  useEffect(() => {
+    grown.value = withTiming(fraction, GROUND);
+  }, [fraction, grown]);
+
+  /* Scale rather than height: a transform runs on the compositor, and a column
+     of seven animated heights is seven layout passes a frame. */
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: grown.value }],
+  }));
+
+  return (
+    <Bar $today={isToday} style={animatedStyle}>
+      <BarFill />
+    </Bar>
   );
 }
 
@@ -65,11 +98,14 @@ const Column = styled.View`
   justify-content: flex-end;
 `;
 
-const Grow = styled(Animated.View)`
+const Bar = styled(Animated.View)<{ $today: boolean }>`
   width: 100%;
+  height: 100%;
+  transform-origin: bottom;
+  opacity: ${({ $today }) => ($today ? 1 : 0.35)};
 `;
 
-const Bar = styled.View<{ $closed: boolean }>`
+const BarFill = styled.View`
   width: 100%;
   height: 100%;
   border-top-left-radius: 5px;
@@ -77,7 +113,6 @@ const Bar = styled.View<{ $closed: boolean }>`
   border-bottom-left-radius: 3px;
   border-bottom-right-radius: 3px;
   background-color: ${({ theme }) => theme.colors.accent};
-  opacity: ${({ $closed }) => ($closed ? 1 : 0.35)};
 `;
 
 const Labels = styled.View`
