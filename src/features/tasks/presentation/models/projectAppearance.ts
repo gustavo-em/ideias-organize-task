@@ -11,3 +11,12 @@ export function projectTone(theme: AppTheme, color: ListColor): string {
     ocean: theme.colors.projectOcean,
   }[color];
 }
+
+/**
+ * The same accent as a ground instead of as ink. The value is the token
+ * itself with an alpha suffix, so no colour is invented here: dark mode needs
+ * a little more of it for the wash to be seen over a near-black card.
+ */
+export function projectTint(theme: AppTheme, color: ListColor): string {
+  return `${projectTone(theme, color)}${theme.mode === 'dark' ? '33' : '1F'}`;
+}
