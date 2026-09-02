@@ -99,6 +99,12 @@ export interface TaskCopy {
     addToDay: string;
     inDay: string;
     newList: string;
+    /** Sits under "Novo espaço": the templates are a shortcut, never a
+     * requirement. */
+    templatesSubtitle: string;
+    /** Name and short description of each starting point. The name is what
+     * lands in the name field when the card is tapped. */
+    templates: Record<ProjectTemplateId, { name: string; description: string }>;
     renameList: string;
     create: string;
     namePlaceholder: string;
@@ -416,6 +422,15 @@ const ptBR: TaskCopy = {
     addToDay: 'Levar para hoje',
     inDay: 'No dia',
     newList: 'Novo espaço',
+    templatesSubtitle: 'Comece de um destes ou do zero.',
+    templates: {
+      home: { name: 'Casa', description: 'Consertos e combinados' },
+      trip: { name: 'Viagem', description: 'Reservas, malas, roteiro' },
+      bills: { name: 'Contas', description: 'O que vence e quando' },
+      market: { name: 'Mercado', description: 'A lista da semana' },
+      work: { name: 'Trabalho', description: 'Entregas e responsáveis' },
+      blank: { name: 'Em branco', description: 'Só o nome' },
+    },
     renameList: 'Editar espaço',
     create: 'Criar',
     namePlaceholder: 'Nome do espaço',
@@ -772,6 +787,15 @@ const enUS: TaskCopy = {
     addToDay: 'Move into today',
     inDay: 'In the day',
     newList: 'New space',
+    templatesSubtitle: 'Start from one of these, or from scratch.',
+    templates: {
+      home: { name: 'Home', description: 'Repairs and agreements' },
+      trip: { name: 'Trip', description: 'Bookings, packing, itinerary' },
+      bills: { name: 'Bills', description: 'What is due and when' },
+      market: { name: 'Groceries', description: 'This week’s list' },
+      work: { name: 'Work', description: 'Deliverables and owners' },
+      blank: { name: 'Blank', description: 'Just the name' },
+    },
     renameList: 'Edit space',
     create: 'Create',
     namePlaceholder: 'Space name',
@@ -1044,3 +1068,4 @@ export function getTaskCopy(language: AppLanguage): TaskCopy {
   return COPY[language] ?? ptBR;
 }
 import type { ListColor, ProjectIcon } from '../../domain/TaskList';
+import type { ProjectTemplateId } from '../models/projectTemplates';

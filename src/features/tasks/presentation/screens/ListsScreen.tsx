@@ -429,6 +429,7 @@ export function ListsScreen({
           }}
           shareOption={{ value: createShared, onChange: setCreateShared }}
           submitLabel={copy.lists.create}
+          templates
           title={copy.lists.newList}
         />
       ) : null}
