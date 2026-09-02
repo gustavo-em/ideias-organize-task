@@ -320,6 +320,9 @@ export interface TaskCopy {
     /** Announced on the scene, so the position in the walk-through is spoken
      * instead of being only a row of dots. */
     stepPosition: (step: number, total: number) => string;
+    /** The last step asks for the one thing the app cannot do alone: somebody
+     * else in the same space. Both answers close the walk-through. */
+    invite: { action: string; later: string };
   };
   celebration: {
     title: string;
@@ -652,7 +655,7 @@ const ptBR: TaskCopy = {
     version: value => `Versão ${value}`,
     replayOnboarding: 'Ver a apresentação de novo',
     replayOnboardingHint:
-      'Abre os dois passos que explicam o app. Nada muda nas suas tarefas.',
+      'Abre a apresentação inteira, do começo. Nada muda nas suas tarefas.',
   },
   projectActivity: {
     settingsLabel: 'Notificações do espaço',
@@ -680,11 +683,17 @@ const ptBR: TaskCopy = {
         body: 'Abra um espaço compartilhado, envie o convite e acompanhe o combinado do dia no mesmo lugar.',
         example: 'Ex.: “Casa nova”, com o link de convite pronto.',
       },
+      {
+        title: 'Convide quem divide a rotina',
+        body: 'Um espaço compartilhado guarda o combinado de vocês: par, família, casa, amigos. Quem entra vê o mesmo dia.',
+        example: 'Ex.: “Casa”, com o link pronto.',
+      },
     ],
     next: 'Continuar',
     start: 'Começar',
     skip: 'Pular',
     stepPosition: (step, total) => `Passo ${step} de ${total}`,
+    invite: { action: 'Convidar alguém', later: 'Agora não' },
   },
   celebration: {
     title: 'Dia fechado.',
@@ -1011,7 +1020,7 @@ const enUS: TaskCopy = {
     version: value => `Version ${value}`,
     replayOnboarding: 'See the walk-through again',
     replayOnboardingHint:
-      'Opens the two steps that explain the app. Nothing changes in your tasks.',
+      'Opens the whole walk-through, from the start. Nothing changes in your tasks.',
   },
   projectActivity: {
     settingsLabel: 'Space notifications',
@@ -1040,11 +1049,17 @@ const enUS: TaskCopy = {
         body: 'Open a shared space, send the invite and follow the day’s agreement in one place.',
         example: 'Like “New place”, with the invite link ready.',
       },
+      {
+        title: 'Invite whoever shares your routine',
+        body: 'A shared space holds what you agreed on: the two of you, family, housemates, friends. Whoever joins sees the same day.',
+        example: 'Like “Home”, with the link ready.',
+      },
     ],
     next: 'Continue',
     start: 'Start',
     skip: 'Skip',
     stepPosition: (step, total) => `Step ${step} of ${total}`,
+    invite: { action: 'Invite someone', later: 'Not now' },
   },
   celebration: {
     title: 'Day closed.',

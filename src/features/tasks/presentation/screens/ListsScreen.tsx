@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, RefreshControl, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -48,6 +48,7 @@ import { JoinInviteSheet } from '../views/JoinInviteSheet';
 import { ProjectEditorSheet } from '../views/ListNameSheet';
 import { MemberStack } from '../views/MemberStack';
 import { projectTone } from '../models/projectAppearance';
+import { templateAppearance } from '../models/projectTemplates';
 import { PressableScale } from '../views/PressableScale';
 import { ProjectEmptyState } from '../views/ProjectEmptyState';
 import { QuickCaptureSheet } from '../views/QuickCaptureSheet';
@@ -57,6 +58,11 @@ import { ShareSheet } from '../views/ShareSheet';
 import { TaskCard } from '../views/TaskCard';
 
 interface ListsScreenProps {
+  /** Somebody asked for an invite on the walk-through and has just signed in:
+   * the space is opened here with its link already being made, so the first
+   * screen after the account is the invite itself. */
+  autoInvite?: boolean;
+  onAutoInviteDone?: () => void;
   copy: TaskCopy;
   language: AppLanguage;
   /** The signed-in account's own profile as this device knows it, reservation
@@ -99,6 +105,8 @@ function streakDaysOf(
 
 /** Lists hold the next steps of something bigger, opening in place for comparison. */
 export function ListsScreen({
+  autoInvite = false,
+  onAutoInviteDone,
   copy,
   language,
   notificationPrompt,
@@ -114,6 +122,11 @@ export function ListsScreen({
   // Whether the project being created is meant for other people. Decided in
   // the sheet, answered right after saving by the invite itself.
   const [createShared, setCreateShared] = useState(false);
+  // Only set when the invite from the walk-through could not name a space by
+  // itself: the editor opens on that name, not on the template list.
+  const [inviteFallbackName, setInviteFallbackName] = useState<string | null>(
+    null,
+  );
   const [renamingList, setRenamingList] = useState<TaskList | null>(null);
   const [deletingList, setDeletingList] = useState<TaskList | null>(null);
   const [capturingForList, setCapturingForList] = useState<TaskList | null>(
@@ -129,6 +142,64 @@ export function ListsScreen({
   const [promptAnswered, setPromptAnswered] = useState(false);
 
   const personId = viewModel.identity?.personId ?? null;
+  const autoInviteRan = useRef(false);
+
+  // The invite asked for before the account, made the moment there is one: a
+  // space named after the Casa template, already shared, with the sheet open on
+  // its link. The suggested name may already be taken — the space gets a
+  // numbered one instead of sending anybody back to pick a template, and the
+  // name is theirs to change from the card afterwards.
+  useEffect(() => {
+    // The guard is only about the run in progress: the screen stays mounted for
+    // the whole session, so asking again from the replayed walk-through has to
+    // be answered again.
+    if (!autoInvite) {
+      autoInviteRan.current = false;
+      return;
+    }
+
+    if (autoInviteRan.current) return;
+    if (!viewModel.isRestored || personId == null) return;
+
+    autoInviteRan.current = true;
+    const suggested = copy.lists.templates.home.name;
+    const taken = new Set(
+      viewModel.lists.map(list => normalizeListName(list.name)),
+    );
+    let name = suggested;
+
+    for (
+      let attempt = 2;
+      taken.has(normalizeListName(name)) && attempt < 100;
+      attempt += 1
+    ) {
+      name = `${suggested} ${attempt}`;
+    }
+
+    const created = viewModel.createList(name, templateAppearance('home'));
+
+    if (created == null) {
+      // Nothing left to guess: the editor opens on the suggested name with the
+      // share option already on, one tap from the same invite.
+      setInviteFallbackName(name);
+      setCreateShared(true);
+      setCreatingList(true);
+      onAutoInviteDone?.();
+      return;
+    }
+
+    setOpenListId(created.id);
+    markSheetPress('ShareSheet');
+    setSharingList(created);
+    viewModel.createShareLink(created.id, 'editor');
+    onAutoInviteDone?.();
+  }, [
+    autoInvite,
+    copy.lists.templates.home.name,
+    onAutoInviteDone,
+    personId,
+    viewModel,
+  ]);
 
   useEffect(() => {
     viewModel.refreshAllSharedLists();
@@ -407,9 +478,16 @@ export function ListsScreen({
       {creatingList ? (
         <ProjectEditorSheet
           copy={copy}
+          /* Coming from the walk-through the name is already suggested, so the
+             sheet opens on it instead of on the template list. */
+          initialAppearance={
+            inviteFallbackName == null ? undefined : templateAppearance('home')
+          }
+          initialName={inviteFallbackName ?? undefined}
           onCancel={() => {
             setCreatingList(false);
             setCreateShared(false);
+            setInviteFallbackName(null);
           }}
           onSubmit={(name, appearance) => {
             const created = viewModel.createList(name, appearance);
@@ -425,11 +503,12 @@ export function ListsScreen({
             }
             // A refused name keeps the sheet open, and the choice in it.
             if (created != null) setCreateShared(false);
+            if (created != null) setInviteFallbackName(null);
             return created != null;
           }}
           shareOption={{ value: createShared, onChange: setCreateShared }}
           submitLabel={copy.lists.create}
-          templates
+          templates={inviteFallbackName == null}
           title={copy.lists.newList}
         />
       ) : null}
@@ -1090,6 +1169,11 @@ const SPACING_LARGE = 24;
 const JOIN_BUTTON_HEIGHT = 48;
 const JOIN_BUTTON_GAP = 12;
 
+/** The tab column under the screen: its rows are 48 tall over the padding the
+ * bar keeps above them. Without it in the clearance the last block of an open
+ * space — the day band and its action — ends under the tabs. */
+const TAB_BAR_HEIGHT = 58;
+
 /* The whole clearance lives here, on the scroll's own content, rather than
    inside a project block: the floating action's height, the space it floats in,
    and the tab bar under it. The last line of the list — "Adicionar tarefa"
@@ -1101,6 +1185,7 @@ const styles = StyleSheet.create({
       FLOATING_ACTION_HEIGHT +
       JOIN_BUTTON_HEIGHT +
       JOIN_BUTTON_GAP +
+      TAB_BAR_HEIGHT +
       SPACING_LARGE * 2,
   },
 });

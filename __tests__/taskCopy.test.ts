@@ -59,11 +59,12 @@ describe('open task screen copy', () => {
     expect(pt.lists.dayBandTitle).not.toBe(en.lists.dayBandTitle);
   });
 
-  it('carries the same two walk-through steps in both languages', () => {
+  it('carries the same three walk-through steps in both languages', () => {
     const pt = getTaskCopy('pt-BR');
     const en = getTaskCopy('en-US');
 
-    expect(pt.onboarding.steps).toHaveLength(2);
+    // Two demos and the invite that closes the walk-through.
+    expect(pt.onboarding.steps).toHaveLength(3);
     expect(en.onboarding.steps).toHaveLength(pt.onboarding.steps.length);
 
     for (const copy of [pt, en]) {
@@ -74,6 +75,8 @@ describe('open task screen copy', () => {
       }
 
       expect(copy.onboarding.skip.length).toBeGreaterThan(0);
+      expect(copy.onboarding.invite.action.length).toBeGreaterThan(0);
+      expect(copy.onboarding.invite.later.length).toBeGreaterThan(0);
       expect(copy.onboarding.stepPosition(2, 4)).toContain('2');
       expect(copy.settings.replayOnboarding.length).toBeGreaterThan(0);
       expect(copy.settings.replayOnboardingHint.length).toBeGreaterThan(0);

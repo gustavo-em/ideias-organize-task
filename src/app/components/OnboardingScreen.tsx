@@ -22,12 +22,16 @@ import { AppMark } from './AppMark';
 import { DemoPlayer } from './onboarding/DemoPlayer';
 import {
   ONBOARDING_FRAMES_STALE,
-  onboardingDemos,
+  onboardingSlides,
 } from './onboarding/onboardingSteps';
+
+/** What the walk-through was answered with: the invite is the only answer that
+ * asks the app to do something after it closes. */
+export type OnboardingOutcome = 'invite' | 'later';
 
 interface OnboardingScreenProps {
   copy: TaskCopy;
-  onFinish: () => void;
+  onFinish: (outcome: OnboardingOutcome) => void;
 }
 
 /** The stage keeps the same height whether the demo plays or is frozen, so
@@ -49,11 +53,14 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
   const prefersReducedMotion = useReducedMotion();
 
   const steps = copy.onboarding.steps;
-  const total = Math.min(steps.length, onboardingDemos.length);
+  const total = Math.min(steps.length, onboardingSlides.length);
   const stageHeight = Math.round(
     Math.min(STAGE_MAX, Math.max(STAGE_MIN, window.height * 0.42)),
   );
   const isLast = step === total - 1;
+  // The last page asks a question instead of moving on, so it owns the bottom
+  // bar: the two answers replace the single "start" button.
+  const isInviteStep = onboardingSlides[step]?.id === 'invite';
   const width = pageWidth === 0 ? window.width : pageWidth;
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
@@ -81,7 +88,7 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
 
   const goNext = useCallback(() => {
     if (isLast) {
-      onFinish();
+      onFinish('later');
       return;
     }
 
@@ -89,6 +96,9 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
     setStep(next);
     pager.current?.scrollTo({ x: next * width, animated: true });
   }, [isLast, onFinish, step, width]);
+
+  const skip = useCallback(() => onFinish('later'), [onFinish]);
+  const invite = useCallback(() => onFinish('invite'), [onFinish]);
 
   return (
     <Cover
@@ -101,7 +111,7 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
           <Skip
             accessibilityLabel={copy.onboarding.skip}
             accessibilityRole="button"
-            onPress={onFinish}
+            onPress={skip}
             testID="onboarding-skip"
           >
             <SkipText>{copy.onboarding.skip}</SkipText>
@@ -122,13 +132,14 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
             // Cada captura tem a própria proporção: o palco encolhe até a
             // moldura do slide em vez de deixar faixa vazia sob um quadro
             // mais baixo (o letterbox do slide 2).
+            const slide = onboardingSlides[index];
             const stageInnerWidth = width - theme.spacing.large * 2;
             const slideStageHeight = Math.min(
               stageHeight,
-              Math.round(stageInnerWidth / onboardingDemos[index].aspect),
+              Math.round(stageInnerWidth / slide.aspect),
             );
             return (
-              <Page key={onboardingDemos[index].id} style={{ width }}>
+              <Page key={slide.id} style={{ width }}>
                 <Stage
                   accessible
                   accessibilityLabel={copy.onboarding.stepPosition(
@@ -138,22 +149,34 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
                   accessibilityRole="image"
                   style={{ height: slideStageHeight }}
                 >
-                  {ONBOARDING_FRAMES_STALE ? (
+                  {ONBOARDING_FRAMES_STALE || slide.id === 'invite' ? (
                     // The frames still carry the previous brand, so the stage
                     // holds the mark until they are recaptured. Same height,
-                    // so nothing under it moves.
-                    <MarkStage
-                      style={{ height: slideStageHeight }}
-                      testID={`onboarding-demo-${onboardingDemos[index].id}`}
-                    >
-                      <AppMark size={96} />
-                    </MarkStage>
+                    // so nothing under it moves. The invite page never plays:
+                    // while the frames are stale it shows the mark too, and the
+                    // still below takes over once they are recaptured.
+                    slide.id === 'invite' && !ONBOARDING_FRAMES_STALE ? (
+                      <Still
+                        accessibilityIgnoresInvertColors
+                        resizeMode="contain"
+                        source={slide.still}
+                        style={{ height: slideStageHeight }}
+                        testID="onboarding-demo-invite"
+                      />
+                    ) : (
+                      <MarkStage
+                        style={{ height: slideStageHeight }}
+                        testID={`onboarding-demo-${slide.id}`}
+                      >
+                        <AppMark size={96} />
+                      </MarkStage>
+                    )
                   ) : (
                     /* Only the demo being read plays: the other one sits on its
                       first frame instead of looping off screen. */
                     <DemoPlayer
                       active={index === step}
-                      demo={onboardingDemos[index]}
+                      demo={slide.demo}
                       height={slideStageHeight}
                       reducedMotion={prefersReducedMotion}
                     />
@@ -170,30 +193,69 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
           })}
         </Pager>
 
-        <Bottom>
-          <Dots>
-            {steps.slice(0, total).map((_, index) => (
-              <Dot
-                $active={index === step}
-                key={onboardingDemos[index].id}
-                testID={`onboarding-dot-${index}`}
-              />
-            ))}
-          </Dots>
+        {isInviteStep ? (
+          /* The question owns the bottom of the page: the answer people are
+             expected to want sits where the button always was, and the other
+             one stays right under it, as a word rather than a wall. */
+          <BottomStacked>
+            <Dots $centered>
+              {steps.slice(0, total).map((_, index) => (
+                <Dot
+                  $active={index === step}
+                  key={onboardingSlides[index].id}
+                  testID={`onboarding-dot-${index}`}
+                />
+              ))}
+            </Dots>
 
-          <Next
-            accessibilityLabel={
-              isLast ? copy.onboarding.start : copy.onboarding.next
-            }
-            accessibilityRole="button"
-            onPress={goNext}
-            testID="onboarding-next"
-          >
-            <NextText pointerEvents="none">
-              {isLast ? copy.onboarding.start : copy.onboarding.next}
-            </NextText>
-          </Next>
-        </Bottom>
+            <Invite
+              accessibilityLabel={copy.onboarding.invite.action}
+              accessibilityRole="button"
+              onPress={invite}
+              testID="onboarding-invite"
+            >
+              <NextText pointerEvents="none">
+                {copy.onboarding.invite.action}
+              </NextText>
+            </Invite>
+
+            <Later
+              accessibilityLabel={copy.onboarding.invite.later}
+              accessibilityRole="button"
+              onPress={skip}
+              testID="onboarding-invite-later"
+            >
+              <LaterText pointerEvents="none">
+                {copy.onboarding.invite.later}
+              </LaterText>
+            </Later>
+          </BottomStacked>
+        ) : (
+          <Bottom>
+            <Dots>
+              {steps.slice(0, total).map((_, index) => (
+                <Dot
+                  $active={index === step}
+                  key={onboardingSlides[index].id}
+                  testID={`onboarding-dot-${index}`}
+                />
+              ))}
+            </Dots>
+
+            <Next
+              accessibilityLabel={
+                isLast ? copy.onboarding.start : copy.onboarding.next
+              }
+              accessibilityRole="button"
+              onPress={goNext}
+              testID="onboarding-next"
+            >
+              <NextText pointerEvents="none">
+                {isLast ? copy.onboarding.start : copy.onboarding.next}
+              </NextText>
+            </Next>
+          </Bottom>
+        )}
       </Safe>
     </Cover>
   );
@@ -272,6 +334,13 @@ const MarkStage = styled.View`
   justify-content: center;
 `;
 
+/* The invite page holds a single frame — the one that already shows a link
+   ready to send. Nothing plays here. */
+const Still = styled.Image`
+  align-self: stretch;
+  width: 100%;
+`;
+
 const Title = styled.Text`
   color: ${({ theme }) => theme.colors.text};
   font-size: ${({ theme }) => theme.type.display}px;
@@ -314,8 +383,18 @@ const Bottom = styled.View`
     ${({ theme }) => theme.spacing.large}px;
 `;
 
-const Dots = styled.View`
+/* Same padding as the row above, stacked: the progress, the answer, and the
+   way out. No surface of its own — the spacing is what groups it. */
+const BottomStacked = styled.View`
+  align-items: stretch;
+  gap: ${({ theme }) => theme.spacing.medium}px;
+  padding: 0px ${({ theme }) => theme.spacing.large}px
+    ${({ theme }) => theme.spacing.large}px;
+`;
+
+const Dots = styled.View<{ $centered?: boolean }>`
   flex-direction: row;
+  justify-content: ${({ $centered }) => ($centered ? 'center' : 'flex-start')};
   gap: ${({ theme }) => theme.spacing.small - 2}px;
 `;
 
@@ -334,6 +413,27 @@ const Next = styled(PressableScale)`
   align-items: center;
   justify-content: center;
   padding: 0px 28px;
+`;
+
+const Invite = styled(PressableScale)`
+  background-color: ${({ theme }) => theme.colors.accent};
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  padding: 0px 28px;
+`;
+
+const Later = styled(PressableScale)`
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+`;
+
+const LaterText = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
 `;
 
 const NextText = styled.Text`
