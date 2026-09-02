@@ -13,6 +13,7 @@ import Animated, {
 import styled, { useTheme } from 'styled-components/native';
 
 import {
+  SPLASH_DRAW,
   SPLASH_EXIT,
   SPLASH_MARK,
   SPLASH_SETTLE,
@@ -44,12 +45,27 @@ const SUN_LAYER = require('../../../assets/brand/aluza-mark-sun.png');
  * middle instead of the image's. */
 const SUN_CENTER = { x: 0.603, y: 0.236 } as const;
 
+/** Centre of the letter's ring, measured on the ink layer: the sweep that
+ * draws the stroke pivots here, not on the image's own middle. */
+const RING_CENTER = { x: 0.306, y: 0.577 } as const;
+
+/** Where the visual mass of the whole symbol sits (weighted centroid). The
+ * rays hang off the top-right, so centring the raw image pushed the letter
+ * left of the screen's middle; this puts the mass there instead. */
+const OPTICAL_CENTER = { x: 0.3704, y: 0.5733 } as const;
+
+/** The stroke is born where the yellow tip sits — about 35° clockwise from
+ * twelve o'clock — and the hand travels counter-clockwise from there. */
+const DRAW_START_DEG = 35;
+
 export const SPLASH_TIMING = {
   /** The symbol arriving. */
   mark: SPLASH_MARK.duration,
   /** The symbol settling into its size, behind the arrival. */
   settle: SPLASH_SETTLE.duration,
   /** The sun lighting up over the letter. */
+  /** The letter drawing itself, one sweep around the ring. */
+  draw: SPLASH_DRAW.duration,
   sunDelay: SPLASH_SUN_DELAY_MS,
   sun: SPLASH_SUN.duration,
   /** The wordmark arriving under the symbol. */
@@ -80,6 +96,7 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
   const ink = isDark ? MARK_COLORS.white : MARK_COLORS.ink;
   const mark = useSharedValue(reduceMotion ? 1 : 0);
   const settle = useSharedValue(reduceMotion ? 1 : 0);
+  const draw = useSharedValue(reduceMotion ? 1 : 0);
   const sun = useSharedValue(reduceMotion ? 1 : 0);
   const wordmark = useSharedValue(reduceMotion ? 1 : 0);
   const cover = useSharedValue(1);
@@ -99,6 +116,7 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
 
     mark.value = withTiming(1, SPLASH_MARK);
     settle.value = withTiming(1, SPLASH_SETTLE);
+    draw.value = withTiming(1, SPLASH_DRAW);
     // The sun bursts a hair past its size and settles back: lit, not placed.
     sun.value = withDelay(
       SPLASH_TIMING.sunDelay,
@@ -115,10 +133,11 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
     return () => {
       cancelAnimation(mark);
       cancelAnimation(settle);
+      cancelAnimation(draw);
       cancelAnimation(sun);
       cancelAnimation(wordmark);
     };
-  }, [mark, reduceMotion, settle, sun, wordmark]);
+  }, [draw, mark, reduceMotion, settle, sun, wordmark]);
 
   useEffect(() => {
     if (isReady) {
@@ -191,6 +210,34 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
     ],
   }));
   const markHeight = markSize * MARK_ASPECT;
+  // The sweep that draws the stroke: two paper-coloured covers, one per half
+  // around the ring's centre, each swinging out counter-clockwise inside its
+  // own clipped half so the stroke appears in writing order.
+  const ringX = RING_CENTER.x * markSize;
+  const ringY = RING_CENTER.y * markHeight;
+  const wipeRadius = markSize * 0.95;
+  const leftCoverStyle = useAnimatedStyle(() => {
+    const angle = -Math.min(draw.value * 2, 1) * 180;
+
+    return {
+      transform: [
+        { translateX: wipeRadius / 2 },
+        { rotate: `${angle}deg` },
+        { translateX: -wipeRadius / 2 },
+      ],
+    };
+  });
+  const rightCoverStyle = useAnimatedStyle(() => {
+    const angle = -Math.max(draw.value * 2 - 1, 0) * 180;
+
+    return {
+      transform: [
+        { translateX: -wipeRadius / 2 },
+        { rotate: `${angle}deg` },
+        { translateX: wipeRadius / 2 },
+      ],
+    };
+  });
   // The two translations put the sun's own centre under the scale, so it
   // grows in place over the letter instead of sliding across it.
   const sunOffsetX = (SUN_CENTER.x - 0.5) * markSize;
@@ -226,18 +273,46 @@ export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
     >
       <BrandGroup>
         <MarkFrame style={markStyle}>
-          <Image
-            resizeMode="contain"
-            source={isDark ? INK_DARK : INK_LIGHT}
-            style={{ width: markSize, height: markHeight }}
-          />
-          <SunLayer style={sunStyle}>
+          <MarkShift
+            $dx={(0.5 - OPTICAL_CENTER.x) * markSize}
+            $dy={(0.5 - OPTICAL_CENTER.y) * markHeight}
+          >
             <Image
               resizeMode="contain"
-              source={SUN_LAYER}
+              source={isDark ? INK_DARK : INK_LIGHT}
               style={{ width: markSize, height: markHeight }}
             />
-          </SunLayer>
+            {reduceMotion ? null : (
+              <WipeFrame
+                $radius={wipeRadius}
+                $x={ringX}
+                $y={ringY}
+                pointerEvents="none"
+              >
+                <WipeHalf $left $radius={wipeRadius}>
+                  <WipeCover
+                    $paper={paper}
+                    $radius={wipeRadius}
+                    style={leftCoverStyle}
+                  />
+                </WipeHalf>
+                <WipeHalf $left={false} $radius={wipeRadius}>
+                  <WipeCover
+                    $paper={paper}
+                    $radius={wipeRadius}
+                    style={rightCoverStyle}
+                  />
+                </WipeHalf>
+              </WipeFrame>
+            )}
+            <SunLayer style={sunStyle}>
+              <Image
+                resizeMode="contain"
+                source={SUN_LAYER}
+                style={{ width: markSize, height: markHeight }}
+              />
+            </SunLayer>
+          </MarkShift>
         </MarkFrame>
 
         <WordmarkFrame style={wordmarkStyle}>
@@ -283,11 +358,49 @@ const MarkFrame = styled(Animated.View)`
   justify-content: center;
 `;
 
+/** Static optical correction: the symbol's mass, not its bounding box, sits
+ * on the centre of the screen. */
+const MarkShift = styled.View<{ $dx: number; $dy: number }>`
+  transform: translate(${({ $dx }) => $dx}px, ${({ $dy }) => $dy}px);
+`;
+
 /** The sun sits exactly over the letter, in its own layer. */
 const SunLayer = styled(Animated.View)`
   position: absolute;
   top: 0px;
   left: 0px;
+`;
+
+/** The wipe assembly, pre-rotated so the seam sits where the stroke is born
+ * and the sweep follows the hand. Centred on the ring, sized to cover the
+ * whole symbol. */
+const WipeFrame = styled.View<{ $radius: number; $x: number; $y: number }>`
+  position: absolute;
+  left: ${({ $x, $radius }) => $x - $radius}px;
+  top: ${({ $y, $radius }) => $y - $radius}px;
+  width: ${({ $radius }) => $radius * 2}px;
+  height: ${({ $radius }) => $radius * 2}px;
+  transform: rotate(${DRAW_START_DEG}deg);
+`;
+
+/** One clipped half of the sweep: its cover can only ever paint inside it. */
+const WipeHalf = styled.View<{ $left: boolean; $radius: number }>`
+  position: absolute;
+  left: ${({ $left, $radius }) => ($left ? 0 : $radius)}px;
+  top: 0px;
+  width: ${({ $radius }) => $radius}px;
+  height: ${({ $radius }) => $radius * 2}px;
+  overflow: hidden;
+`;
+
+/** The paper-coloured blade that swings out and reveals the stroke. */
+const WipeCover = styled(Animated.View)<{ $paper: string; $radius: number }>`
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: ${({ $radius }) => $radius}px;
+  height: ${({ $radius }) => $radius * 2}px;
+  background-color: ${({ $paper }) => $paper};
 `;
 
 const WordmarkFrame = styled(Animated.View)`

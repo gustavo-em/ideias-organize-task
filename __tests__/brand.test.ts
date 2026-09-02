@@ -29,10 +29,11 @@ describe('brand contract', () => {
     expect(SPLASH_TIMING).toEqual({
       mark: 320,
       settle: 520,
-      sunDelay: 360,
+      draw: 620,
+      sunDelay: 640,
       sun: 220,
       wordmark: 260,
-      wordmarkDelay: 820,
+      wordmarkDelay: 900,
       minVisible: 1250,
       fade: 180,
       compact: 120,
@@ -44,6 +45,8 @@ describe('brand contract', () => {
     expect(
       SPLASH_TIMING.wordmarkDelay + SPLASH_TIMING.wordmark,
     ).toBeLessThanOrEqual(SPLASH_TIMING.minVisible);
+    // The stroke finishes drawing before the sun lights over it.
+    expect(SPLASH_TIMING.draw).toBeLessThanOrEqual(SPLASH_TIMING.sunDelay);
     // The sun lights up before the wordmark answers it.
     expect(SPLASH_TIMING.sunDelay + SPLASH_TIMING.sun).toBeLessThanOrEqual(
       SPLASH_TIMING.wordmarkDelay,
