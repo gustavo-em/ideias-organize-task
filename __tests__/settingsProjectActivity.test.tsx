@@ -24,11 +24,9 @@ function renderSettings(
           appearanceMode="light"
           copy={getTaskCopy('pt-BR')}
           dayCapacity={3}
-          isAnonymous={false}
           language="pt-BR"
           onAppearanceModeChange={() => undefined}
           onDayCapacityChange={() => undefined}
-          onEditProfile={() => undefined}
           onLanguageChange={() => undefined}
           onOpenNotificationSettings={
             overrides.onOpenNotificationSettings ?? (() => undefined)
@@ -39,8 +37,6 @@ function renderSettings(
           onReplayOnboarding={() => undefined}
           onSignOut={() => undefined}
           personId={null}
-          profile={null}
-          profileSaved={false}
           projectActivityBlocked={overrides.projectActivityBlocked ?? false}
           projectActivityNotifications={
             overrides.projectActivityNotifications ?? true

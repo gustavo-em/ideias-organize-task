@@ -16,7 +16,8 @@ import { firebaseAuthAdapter } from '../features/auth/infrastructure/firebase/fi
 import { firestoreProfileAdapter } from '../features/auth/infrastructure/firebase/firestoreProfileAdapter';
 import { imagePickerAvatarAdapter } from '../features/auth/infrastructure/firebase/imagePickerAvatarAdapter';
 import { useProfileViewModel } from '../features/auth/presentation/view-models/useProfileViewModel';
-import { ProfileSheet } from '../features/auth/presentation/views/ProfileSheet';
+import { ProfileScreen } from '../features/auth/presentation/screens/ProfileScreen';
+import { AccountSection } from '../features/auth/presentation/views/AccountSection';
 import type { AuthViewModel } from '../features/auth/presentation/view-models/useAuthViewModel';
 import { systemClock } from '../features/tasks/infrastructure/clock/systemClock';
 import { systemHaptics } from '../features/tasks/infrastructure/haptics/systemHaptics';
@@ -49,6 +50,7 @@ import {
 } from '../features/tasks/presentation/views/TabGlyphs';
 import { FocusOverlay } from '../features/tasks/presentation/views/FocusOverlay';
 import { TrioCelebration } from '../features/tasks/presentation/views/TrioCelebration';
+import { SCREEN_ENTER } from './animation/motion';
 import { AppSplash } from './components/AppSplash';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { APP_VERSION } from './config/appMetadata';
@@ -105,7 +107,8 @@ function AppContent({
     user: auth.user,
     fallbackName: app.copy.tabs.you,
   });
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  // The Você tab has one place to go: the profile screen, pushed over it.
+  const [youRoute, setYouRoute] = useState<'root' | 'profile'>('root');
 
   const identity = useMemo(
     () =>
@@ -243,80 +246,118 @@ function AppContent({
     await wipeLocalSession();
   }, [auth]);
 
+  const behindProfile = youRoute === 'profile';
+  // Taking the column out of the layout is what removes it from the Android
+  // accessibility tree, but doing it on the same frame would empty the window
+  // while the profile screen is still sliding in from the right. The screen
+  // arrives first; the tab goes out from under it.
+  const [tabHidden, setTabHidden] = useState(false);
+
+  useEffect(() => {
+    if (!behindProfile) {
+      setTabHidden(false);
+      return;
+    }
+
+    const timeout = setTimeout(() => setTabHidden(true), SCREEN_ENTER.duration);
+    return () => clearTimeout(timeout);
+  }, [behindProfile]);
+
   return (
     <>
-      <Safe edges={['top']}>
-        {app.activeTab === 'today' ? (
-          <TodayScreen
-            copy={app.copy}
-            focus={focusRow}
-            language={app.language}
-            onChooseFocusDuration={chooseFocusDurationFor}
-            viewModel={tasks}
-          />
-        ) : null}
-
-        {app.activeTab === 'lists' ? (
-          <ListsScreen
-            copy={app.copy}
-            language={app.language}
-            notificationPrompt={{
-              // The ask happens where the news comes from, and only for
-              // someone who actually shares a project.
-              visible:
-                app.projectActivityNotifications &&
-                !app.hasAskedActivityPermission,
-              onEnable: activity.enableNotifications,
-              onDismiss: app.markActivityPermissionAsked,
-            }}
-            ownProfile={profile.profile}
-            viewModel={tasks}
-          />
-        ) : null}
-
-        {app.activeTab === 'you' ? (
-          <YouTab
-            contentContainerStyle={styles.youTab}
-            showsVerticalScrollIndicator={false}
-          >
-            <ProgressScreen copy={app.copy} viewModel={tasks} />
-            <SettingsScreen
-              accountCopy={getAuthCopy(app.language)}
-              appearanceMode={app.appearanceMode}
+      {/* `accessibilityViewIsModal` is iOS only, and the Android flags on a
+          wrapper still left the tab readable underneath. Taking the whole
+          column out of the layout is what actually removes it from the tree —
+          and `display: none` keeps every screen mounted, so coming back lands
+          on the same scroll instead of replaying the tab. */}
+      <View
+        accessibilityElementsHidden={behindProfile}
+        collapsable={false}
+        importantForAccessibility={
+          behindProfile ? 'no-hide-descendants' : 'auto'
+        }
+        style={tabHidden ? styles.beneathHidden : styles.beneath}
+      >
+        <Safe edges={['top']}>
+          {app.activeTab === 'today' ? (
+            <TodayScreen
               copy={app.copy}
-              dayCapacity={app.dayCapacity}
+              focus={focusRow}
               language={app.language}
-              onAppearanceModeChange={app.changeAppearanceMode}
-              onDayCapacityChange={app.changeDayCapacity}
-              onLanguageChange={app.changeLanguage}
-              onReplayOnboarding={onReplayOnboarding}
-              isAnonymous={auth.user?.isAnonymous ?? false}
-              onEditProfile={() => setIsEditingProfile(true)}
-              onSignOut={signOut}
-              personId={auth.user?.uid ?? null}
-              profile={profile.profile}
-              profileSaved={profileStatus === 'saved'}
-              projectActivityNotifications={app.projectActivityNotifications}
-              projectActivityBlocked={activity.isAllowed === false}
-              onProjectActivityNotificationsChange={activity.setEnabled}
-              onOpenNotificationSettings={activity.openSystemSettings}
-              version={APP_VERSION}
+              onChooseFocusDuration={chooseFocusDurationFor}
+              viewModel={tasks}
             />
-          </YouTab>
-        ) : null}
-      </Safe>
+          ) : null}
 
-      <BottomSafe edges={['bottom']}>
-        <TabBar
-          active={app.activeTab}
-          items={[
-            { id: 'today', label: app.copy.tabs.today, Glyph: TodayGlyph },
-            { id: 'lists', label: app.copy.tabs.lists, Glyph: ListsGlyph },
-            { id: 'you', label: app.copy.tabs.you, Glyph: YouGlyph },
-          ]}
-          onSelect={app.selectTab}
-        />
-      </BottomSafe>
+          {app.activeTab === 'lists' ? (
+            <ListsScreen
+              copy={app.copy}
+              language={app.language}
+              notificationPrompt={{
+                // The ask happens where the news comes from, and only for
+                // someone who actually shares a project.
+                visible:
+                  app.projectActivityNotifications &&
+                  !app.hasAskedActivityPermission,
+                onEnable: activity.enableNotifications,
+                onDismiss: app.markActivityPermissionAsked,
+              }}
+              ownProfile={profile.profile}
+              viewModel={tasks}
+            />
+          ) : null}
+
+          {app.activeTab === 'you' ? (
+            <YouTab
+              contentContainerStyle={styles.youTab}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Who this account is comes first: the numbers and the settings
+                are what follows it. */}
+              <AccountSection
+                copy={getAuthCopy(app.language)}
+                isAnonymous={auth.user?.isAnonymous ?? false}
+                onEditProfile={() => setYouRoute('profile')}
+                personId={auth.user?.uid ?? null}
+                profile={profile.profile}
+                profileSaved={profileStatus === 'saved'}
+                tabLabel={app.copy.tabs.you}
+              />
+              <ProgressScreen copy={app.copy} viewModel={tasks} />
+              <SettingsScreen
+                accountCopy={getAuthCopy(app.language)}
+                appearanceMode={app.appearanceMode}
+                copy={app.copy}
+                dayCapacity={app.dayCapacity}
+                language={app.language}
+                onAppearanceModeChange={app.changeAppearanceMode}
+                onDayCapacityChange={app.changeDayCapacity}
+                onLanguageChange={app.changeLanguage}
+                onReplayOnboarding={onReplayOnboarding}
+                onSignOut={signOut}
+                personId={auth.user?.uid ?? null}
+                projectActivityNotifications={app.projectActivityNotifications}
+                projectActivityBlocked={activity.isAllowed === false}
+                onProjectActivityNotificationsChange={activity.setEnabled}
+                onOpenNotificationSettings={activity.openSystemSettings}
+                version={APP_VERSION}
+              />
+            </YouTab>
+          ) : null}
+        </Safe>
+
+        <BottomSafe edges={['bottom']}>
+          <TabBar
+            active={app.activeTab}
+            items={[
+              { id: 'today', label: app.copy.tabs.today, Glyph: TodayGlyph },
+              { id: 'lists', label: app.copy.tabs.lists, Glyph: ListsGlyph },
+              { id: 'you', label: app.copy.tabs.you, Glyph: YouGlyph },
+            ]}
+            onSelect={app.selectTab}
+          />
+        </BottomSafe>
+      </View>
 
       {/* The session covers the list and the tab bar whole: a block is not one
           destination among others, it is the only thing on screen while it is
@@ -344,12 +385,14 @@ function AppContent({
         />
       )}
 
-      {isEditingProfile && auth.user != null ? (
-        <ProfileSheet
+      {/* The profile is a screen of its own, over the tab bar: naming yourself
+          is typing, and typing needs the whole window. */}
+      {youRoute === 'profile' && auth.user != null ? (
+        <ProfileScreen
           copy={getAuthCopy(app.language)}
           errorKind={profile.errorKind}
           fallbackName={app.copy.tabs.you}
-          onCancel={() => setIsEditingProfile(false)}
+          onBack={() => setYouRoute('root')}
           onChangeAvatar={profile.changeAvatar}
           onRemoveAvatar={profile.removeAvatar}
           onSubmit={profile.save}

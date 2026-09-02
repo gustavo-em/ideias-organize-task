@@ -6,8 +6,10 @@ import {
   LinearTransition,
   ReduceMotion,
   SlideInDown,
+  SlideInRight,
   SlideOutDown,
   SlideOutLeft,
+  SlideOutRight,
 } from 'react-native-reanimated';
 
 /**
@@ -230,6 +232,20 @@ export function sectionDelay(step: number): number {
 export function screenEnter() {
   return FadeInDown.duration(SCREEN_ENTER.duration)
     .easing(SCREEN_ENTER.easing)
+    .reduceMotion(ReduceMotion.System);
+}
+
+/** A screen pushed on top of the current one: it arrives from the right, the
+ * way a stack does, and leaves the same way it came. */
+export function pushEnter() {
+  return SlideInRight.duration(SCREEN_ENTER.duration)
+    .easing(SCREEN_ENTER.easing)
+    .reduceMotion(ReduceMotion.System);
+}
+
+export function pushExit() {
+  return SlideOutRight.duration(EXIT.duration)
+    .easing(EXIT.easing)
     .reduceMotion(ReduceMotion.System);
 }
 

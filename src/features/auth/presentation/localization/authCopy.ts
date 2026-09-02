@@ -68,7 +68,6 @@ export interface AuthCopy {
     removePhoto: string;
     photoAction: string;
     photoUploading: string;
-    cancel: string;
     submit: string;
     saved: string;
     errors: {
@@ -173,7 +172,6 @@ const pt: AuthCopy = {
     removePhoto: 'Remover foto',
     photoAction: 'Alterar foto de perfil',
     photoUploading: 'Enviando a foto',
-    cancel: 'Cancelar',
     submit: 'Salvar',
     saved: 'Perfil atualizado',
     errors: {
@@ -280,7 +278,6 @@ const en: AuthCopy = {
     removePhoto: 'Remove photo',
     photoAction: 'Change profile photo',
     photoUploading: 'Uploading the photo',
-    cancel: 'Cancel',
     submit: 'Save',
     saved: 'Profile updated',
     errors: {
