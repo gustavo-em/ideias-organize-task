@@ -7,41 +7,20 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:676891253849:android:5bee969304b101b828a548",
-        "android_client_info": {
-          "package_name": "com.gustavoem.ideiasorganizetask"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "676891253849-kcdo2clkkemlom6vmpeju1ng5qtnsnq4.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyAZin3FfPn74D2CdX5WrVR06H8hPjhEvqw"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "676891253849-kcdo2clkkemlom6vmpeju1ng5qtnsnq4.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
         "mobilesdk_app_id": "1:676891253849:android:fd11ef92e253716528a548",
         "android_client_info": {
           "package_name": "com.ideiasorganizetask"
         }
       },
       "oauth_client": [
+        {
+          "client_id": "676891253849-abmih5c8bn6osmmpukml3a0n6c01fpoq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ideiasorganizetask",
+            "certificate_hash": "eb60ccf9e740d2a0524f92e3c0934911151a1061"
+          }
+        },
         {
           "client_id": "676891253849-kcdo2clkkemlom6vmpeju1ng5qtnsnq4.apps.googleusercontent.com",
           "client_type": 3
