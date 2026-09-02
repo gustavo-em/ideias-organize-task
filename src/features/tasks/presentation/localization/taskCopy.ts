@@ -110,6 +110,10 @@ export interface TaskCopy {
     addTask: string;
     rename: string;
     moreActions: (name: string) => string;
+    /** The disclosure control on a project card, named by what the tap does
+     * next: closed projects offer to open, open ones offer to close. */
+    expandProject: (name: string) => string;
+    collapseProject: (name: string) => string;
     delete: string;
     deleteConfirm: (name: string) => string;
     deleteDetail: string;
@@ -387,6 +391,8 @@ const ptBR: TaskCopy = {
     addTask: 'Adicionar tarefa',
     rename: 'Editar',
     moreActions: name => `Mais ações: ${name}`,
+    expandProject: name => `Abrir projeto ${name}`,
+    collapseProject: name => `Fechar projeto ${name}`,
     delete: 'Excluir',
     deleteConfirm: name => `Excluir “${name}”?`,
     deleteDetail: 'As tarefas serão movidas para Caixa; nada será apagado.',
@@ -700,6 +706,8 @@ const enUS: TaskCopy = {
     addTask: 'Add task',
     rename: 'Edit',
     moreActions: name => `More actions: ${name}`,
+    expandProject: name => `Open project ${name}`,
+    collapseProject: name => `Close project ${name}`,
     delete: 'Delete',
     deleteConfirm: name => `Delete “${name}”?`,
     deleteDetail: 'Its tasks will move to Inbox; nothing will be deleted.',

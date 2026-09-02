@@ -1,9 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, StyleSheet } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import {
+  DISCLOSURE,
   disclosureEnter,
   fadeEnter,
   rowEnter,
@@ -31,6 +36,7 @@ import {
 import type { TasksViewModel } from '../view-models/useTasksViewModel';
 import { ConfirmDialog } from '../views/ConfirmDialog';
 import {
+  ChevronGlyph,
   LinkGlyph,
   MoreGlyph,
   PeopleGlyph,
@@ -43,6 +49,7 @@ import { ProjectEditorSheet } from '../views/ListNameSheet';
 import { MemberStack } from '../views/MemberStack';
 import { projectTone } from '../models/projectAppearance';
 import { PressableScale } from '../views/PressableScale';
+import { ProjectEmptyState } from '../views/ProjectEmptyState';
 import { QuickCaptureSheet } from '../views/QuickCaptureSheet';
 import { ScreenHeader } from '../views/ScreenHeader';
 import { SharedDayBand } from '../views/SharedDayBand';
@@ -772,6 +779,19 @@ const ProjectBlock = memo(function ProjectBlockView({
     [list.id, onRetryDay],
   );
 
+  // The chevron turns over as the project opens. `DISCLOSURE` carries
+  // `ReduceMotion.System`, so a phone asking for less movement gets the final
+  // angle straight away and the arrow still says which way it points.
+  const chevronSpin = useSharedValue(open ? 180 : 0);
+
+  useEffect(() => {
+    chevronSpin.value = withTiming(open ? 180 : 0, DISCLOSURE);
+  }, [chevronSpin, open]);
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${chevronSpin.value}deg` }],
+  }));
+
   return (
     <ListBlock entering={rowEnter(index)}>
       <ListHeader>
@@ -841,6 +861,24 @@ const ProjectBlock = memo(function ProjectBlockView({
             <MoreGlyph color="#756b56" />
           </MoreButton>
         ) : null}
+        {/* Until now nothing on the card said it opened. The chevron sits
+            where a disclosure belongs — last on the row — and carries the
+            state out loud for a screen reader. */}
+        <ChevronButton
+          accessibilityLabel={
+            open
+              ? copy.lists.collapseProject(list.name)
+              : copy.lists.expandProject(list.name)
+          }
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          onPress={handleToggleOpen}
+          testID={`list-chevron-${list.id}`}
+        >
+          <ChevronSpin style={chevronStyle}>
+            <ChevronGlyph color={theme.colors.muted} size={18} />
+          </ChevronSpin>
+        </ChevronButton>
       </ListHeader>
 
       {showingActions ? (
@@ -925,7 +963,7 @@ const ProjectBlock = memo(function ProjectBlockView({
                 ) : null}
               </GroupEmpty>
             ) : (
-              <EmptyText>{copy.lists.empty}</EmptyText>
+              <ProjectEmptyState message={copy.lists.empty} />
             )
           ) : null}
 
@@ -1050,6 +1088,21 @@ const MoreButton = styled(PressableScale)`
   justify-content: center;
   border-radius: ${({ theme }) => theme.radii.medium}px;
   margin-left: ${({ theme }) => theme.spacing.small}px;
+`;
+/* The disclosure gets its 48px as a real box rather than as hit slop: the
+   affordance people are meant to find is also the target they are meant to
+   hit, and only a real box measures as one. No ground of its own. */
+const ChevronButton = styled(PressableScale)`
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  margin-left: ${({ theme }) => theme.spacing.tiny}px;
+`;
+const ChevronSpin = styled(Animated.View)`
+  align-items: center;
+  justify-content: center;
 `;
 const ProjectBadge = styled.View<{ $tone: string }>`
   width: 32px;
