@@ -146,8 +146,8 @@ export function AgoraCard({
           <TaskCheckbox
             accessibilityLabel={task.title}
             checked={false}
-            hitSlop={11}
             onToggle={() => onToggle(task.id)}
+            size={52}
             testID={`task-checkbox-${task.id}`}
             tone="onAccent"
           />
