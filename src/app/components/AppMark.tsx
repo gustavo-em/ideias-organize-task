@@ -1,45 +1,38 @@
-import Svg, { Path, Rect } from 'react-native-svg';
+import { Image, View } from 'react-native';
+import { useTheme } from 'styled-components/native';
 
-import {
-  ALUZA_COLORS,
-  ALUZA_SUN_CENTER,
-  ALUZA_SYMBOL_INK_PATH,
-  ALUZA_SYMBOL_OUTLINE_LENGTH,
-  ALUZA_SYMBOL_SIZE,
-  ALUZA_SYMBOL_SUN_PATH,
-  ALUZA_SYMBOL_VIEWBOX,
-} from './AluzaArtwork.generated';
+import { ALUZA_COLORS } from './AluzaArtwork.generated';
 
-/** The Aluza symbol, straight from `assets/brand/aluza-symbol-primary.svg`.
- * The artwork is never redrawn or distorted: every size is a uniform scale of
- * the same view box, and every adaptation is padding around it. */
-export const MARK_GEOMETRY = {
-  viewBox: ALUZA_SYMBOL_VIEWBOX,
-  size: ALUZA_SYMBOL_SIZE,
-  /** Blank kept around the symbol, in view-box units. */
-  clearSpace: Math.round(ALUZA_SYMBOL_SIZE.width * 0.16),
-  outlineLength: ALUZA_SYMBOL_OUTLINE_LENGTH,
-  sunCenter: ALUZA_SUN_CENTER,
-  /** Share of the 108dp adaptive canvas taken by the symbol, inside the
-   * 66dp safe zone. */
-  adaptiveShare: 46 / 108,
-} as const;
+/** The Aluza symbol, cut straight from the brand board
+ * (`assets/brand/aluza-mark.png`): the artwork itself, never redrawn, and
+ * only ever scaled uniformly — no dimension of it is set on its own. */
+const MARK_LIGHT = require('../../../assets/brand/aluza-mark.png');
+/** Same artwork with the ink turned white, for dark surfaces. The sun keeps
+ * its yellow in both. */
+const MARK_DARK = require('../../../assets/brand/aluza-mark-dark.png');
+
+// Jest resolves asset modules to a stub, so the real file's proportions get
+// a safe fallback there.
+const markSource = Image.resolveAssetSource(MARK_LIGHT) ?? {
+  width: 275,
+  height: 270,
+};
 
 export const MARK_COLORS = ALUZA_COLORS;
 
-export const MARK_PATHS = {
-  ink: ALUZA_SYMBOL_INK_PATH,
-  sun: ALUZA_SYMBOL_SUN_PATH,
-} as const;
+/** Height over width of the symbol, so any size keeps its proportions. */
+export const MARK_ASPECT =
+  (markSource.height ?? 270) / (markSource.width ?? 275);
 
 interface AppMarkProps {
+  /** Width in points; the height follows the artwork's own proportions. */
   size?: number;
   /** Draws the kit's cream tile behind the symbol, as on the launcher icon. */
   withTile?: boolean;
   tileColor?: string;
   tileRadius?: number;
-  inkColor?: string;
-  sunColor?: string;
+  /** Forces one artwork; by default the theme decides. */
+  variant?: 'light' | 'dark';
 }
 
 export function AppMark({
@@ -47,25 +40,36 @@ export function AppMark({
   withTile = false,
   tileColor = ALUZA_COLORS.cream,
   tileRadius = 0.22,
-  inkColor = ALUZA_COLORS.ink,
-  sunColor = ALUZA_COLORS.sun,
+  variant,
 }: AppMarkProps) {
-  const canvas = ALUZA_SYMBOL_SIZE.width;
+  const theme = useTheme();
+  const dark =
+    (variant ?? (theme.mode === 'dark' ? 'dark' : 'light')) === 'dark';
+  const symbol = (
+    <Image
+      accessibilityRole="image"
+      resizeMode="contain"
+      source={dark ? MARK_DARK : MARK_LIGHT}
+      style={{ width: size, height: size * MARK_ASPECT }}
+    />
+  );
+
+  if (!withTile) return symbol;
+
+  const tile = size * 1.45;
 
   return (
-    <Svg height={size} viewBox={ALUZA_SYMBOL_VIEWBOX} width={size}>
-      {withTile ? (
-        <Rect
-          fill={tileColor}
-          height={canvas}
-          rx={canvas * tileRadius}
-          width={canvas}
-          x={0}
-          y={0}
-        />
-      ) : null}
-      <Path d={MARK_PATHS.ink} fill={inkColor} fillRule="evenodd" />
-      <Path d={MARK_PATHS.sun} fill={sunColor} fillRule="evenodd" />
-    </Svg>
+    <View
+      style={{
+        width: tile,
+        height: tile,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: tileColor,
+        borderRadius: tile * tileRadius,
+      }}
+    >
+      {symbol}
+    </View>
   );
 }
