@@ -32,6 +32,11 @@ const COLLECTION = 'sharedLists';
 /** Subcollection holding one document per day of a shared project. */
 const DAYS = 'days';
 
+/** A map key inside an updateMask field path. Quoted with backticks because a
+ * uid can start with a digit, and an unquoted path segment must start with a
+ * letter — the write is refused as INVALID_ARGUMENT otherwise. */
+const maskKey = (segment: string) => `\`${segment}\``;
+
 /** Only has to be unguessable enough that nobody stumbles onto a project by
  * accident — the security rule, not the token's length, is what actually
  * keeps a non-member out. */
@@ -273,7 +278,7 @@ export const firestoreShareGateway: ShareGateway = {
     // allows only its own field.
     await firestoreDocument(`${COLLECTION}/${share.token}`, {
       method: 'PATCH',
-      updateMask: [`assignments.${personId}`],
+      updateMask: [`assignments.${maskKey(personId)}`],
       fields: { assignments: { [personId]: [] } },
     }).catch(() => {
       // The person is already out of the project; a stale entry in the map
@@ -409,7 +414,7 @@ export const firestoreShareGateway: ShareGateway = {
     // what makes a member's write legal.
     await firestoreDocument(`${COLLECTION}/${share.token}`, {
       method: 'PATCH',
-      updateMask: [`assignments.${personId}`],
+      updateMask: [`assignments.${maskKey(personId)}`],
       fields: { assignments: { [personId]: [...taskIds] } },
     });
   },
@@ -422,7 +427,7 @@ export const firestoreShareGateway: ShareGateway = {
       `${COLLECTION}/${share.token}/${DAYS}/${day.dayKey}`,
       {
         method: 'PATCH',
-        updateMask: [`members.${day.personId}`],
+        updateMask: [`members.${maskKey(day.personId)}`],
         fields: {
           members: {
             [day.personId]: {
