@@ -106,3 +106,33 @@ export const onboardingDemos: readonly OnboardingDemo[] = [
     ],
   },
 ];
+
+/**
+ * The last page of the walk-through is not a demo: it asks for somebody else.
+ * It keeps the same stage as the demo before it, holding the frame that already
+ * shows an invite ready to send, so nothing on the page moves.
+ */
+export interface OnboardingInviteSlide {
+  id: 'invite';
+  aspect: number;
+  /** Held still — this page never animates. */
+  still: ImageSourcePropType;
+}
+
+export type OnboardingSlide =
+  | { id: OnboardingDemo['id']; aspect: number; demo: OnboardingDemo }
+  | OnboardingInviteSlide;
+
+/** Every page of the walk-through, in order: the two demos, then the invite. */
+export const onboardingSlides: readonly OnboardingSlide[] = [
+  ...onboardingDemos.map(demo => ({
+    id: demo.id,
+    aspect: demo.aspect,
+    demo,
+  })),
+  {
+    id: 'invite',
+    aspect: 1080 / 780,
+    still: require('../../../../assets/onboarding/shared-06.png'),
+  },
+];

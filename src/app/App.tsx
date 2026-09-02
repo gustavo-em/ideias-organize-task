@@ -52,7 +52,10 @@ import { FocusOverlay } from '../features/tasks/presentation/views/FocusOverlay'
 import { TrioCelebration } from '../features/tasks/presentation/views/TrioCelebration';
 import { SCREEN_ENTER } from './animation/motion';
 import { AppSplash } from './components/AppSplash';
-import { OnboardingScreen } from './components/OnboardingScreen';
+import {
+  OnboardingScreen,
+  type OnboardingOutcome,
+} from './components/OnboardingScreen';
 import { APP_VERSION } from './config/appMetadata';
 import { asyncStoragePreferencesStore } from './infrastructure/preferences/asyncStoragePreferencesStore';
 import { useLocalDataOwner } from './session/useLocalDataOwner';
@@ -90,12 +93,18 @@ function AppContent({
   app,
   auth,
   bus,
+  inviteIntent,
+  onInviteIntentDone,
   onReady,
   onReplayOnboarding,
 }: {
   app: AppViewModel;
   auth: AuthViewModel;
   bus: TaskEventBus;
+  /** Somebody asked to invite on the walk-through and has an account now: the
+   * space and its invite are made here, without another question. */
+  inviteIntent: boolean;
+  onInviteIntentDone: () => void;
   onReady: () => void;
   /** Reopens the walk-through from settings. The shell owns it, because the
    * same screen also covers the signed-out side. */
@@ -233,6 +242,16 @@ function AppContent({
     if (tasks.isRestored) onReady();
   }, [onReady, tasks.isRestored]);
 
+  // The answer given before the account is honoured as soon as there is one:
+  // the spaces tab is where the new space and its invite appear.
+  const selectTab = app.selectTab;
+
+  useEffect(() => {
+    if (!inviteIntent || !tasks.isRestored) return;
+
+    selectTab('lists');
+  }, [inviteIntent, selectTab, tasks.isRestored]);
+
   // Leaving the account takes this account's data off the device with it. The
   // wipe is deferred past this tick on purpose: ending the session unmounts the
   // screens, and the persistence subscriber flushes one last save on the way
@@ -291,8 +310,10 @@ function AppContent({
 
           {app.activeTab === 'lists' ? (
             <ListsScreen
+              autoInvite={inviteIntent}
               copy={app.copy}
               language={app.language}
+              onAutoInviteDone={onInviteIntentDone}
               notificationPrompt={{
                 // The ask happens where the news comes from, and only for
                 // someone who actually shares a project.
@@ -422,6 +443,9 @@ function AppShell({
   const [isOpening, setIsOpening] = useState(true);
   const [authTimedOut, setAuthTimedOut] = useState(false);
   const [isReplayingOnboarding, setIsReplayingOnboarding] = useState(false);
+  // Held in memory only: an app that dies before the account is created opens
+  // the normal way next time, with no half-finished invite waiting.
+  const [inviteIntent, setInviteIntent] = useState(false);
   const handleContentReady = useCallback(() => setIsContentReady(true), []);
   const replayOnboarding = useCallback(
     () => setIsReplayingOnboarding(true),
@@ -474,10 +498,15 @@ function AppShell({
   const isShowingOnboarding =
     isShellReady && (isReplayingOnboarding || !app.hasSeenOnboarding);
 
-  const finishOnboarding = () => {
+  // Both answers close the walk-through for good: the step is not a question
+  // anybody has to answer twice. Only the invite leaves something to do after.
+  const finishOnboarding = (outcome: OnboardingOutcome) => {
     setIsReplayingOnboarding(false);
     if (!app.hasSeenOnboarding) app.finishOnboarding();
+    if (outcome === 'invite') setInviteIntent(true);
   };
+
+  const clearInviteIntent = useCallback(() => setInviteIntent(false), []);
 
   return (
     <Root>
@@ -505,9 +534,11 @@ function AppShell({
             app={app}
             auth={auth}
             bus={bus}
+            inviteIntent={inviteIntent}
             /* One account, one mount: remounting on the uid drops the previous
                session's tasks from memory, not only from storage. */
             key={personId ?? 'anon'}
+            onInviteIntentDone={clearInviteIntent}
             onReady={handleContentReady}
             onReplayOnboarding={replayOnboarding}
           />

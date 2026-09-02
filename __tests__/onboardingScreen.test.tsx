@@ -5,6 +5,7 @@ import { OnboardingScreen } from '../src/app/components/OnboardingScreen';
 import {
   ONBOARDING_FRAMES_STALE,
   onboardingDemos,
+  onboardingSlides,
 } from '../src/app/components/onboarding/onboardingSteps';
 import { lightTheme } from '../src/app/theme/theme';
 import { getTaskCopy } from '../src/features/tasks/presentation/localization/taskCopy';
@@ -21,7 +22,7 @@ afterEach(() => {
   });
 });
 
-function renderOnboarding(onFinish: () => void) {
+function renderOnboarding(onFinish: (outcome: 'invite' | 'later') => void) {
   let tree: ReturnType<typeof create> | null = null;
 
   act(() => {
@@ -57,26 +58,68 @@ function press(node: ReactTestInstance) {
 }
 
 describe('first-run walk-through', () => {
-  it('walks the two demos and only finishes on the last one', () => {
+  it('walks the two demos and ends on the invite step', () => {
     const onFinish = jest.fn();
     const tree = renderOnboarding(onFinish);
     const next = tree.root.findByProps({ testID: 'onboarding-next' });
 
     expect(onboardingDemos).toHaveLength(2);
-    expect(getTaskCopy('pt-BR').onboarding.steps).toHaveLength(2);
-    expect(getTaskCopy('en-US').onboarding.steps).toHaveLength(2);
+    expect(onboardingSlides).toHaveLength(3);
+    expect(getTaskCopy('pt-BR').onboarding.steps).toHaveLength(3);
+    expect(getTaskCopy('en-US').onboarding.steps).toHaveLength(3);
     expect(
       tree.root.findAllByProps({ testID: 'onboarding-demo-capture' }).length,
     ).toBeGreaterThan(0);
     expect(
       tree.root.findAllByProps({ testID: 'onboarding-demo-shared' }).length,
     ).toBeGreaterThan(0);
+    expect(
+      tree.root.findAllByProps({ testID: 'onboarding-dot-2' }).length,
+    ).toBeGreaterThan(0);
 
     press(next);
     expect(onFinish).not.toHaveBeenCalled();
 
+    // The last page asks the question instead of moving on, so the single
+    // button is replaced by the two answers.
     press(next);
-    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onFinish).not.toHaveBeenCalled();
+    expect(
+      tree.root.findAllByProps({ testID: 'onboarding-next' }),
+    ).toHaveLength(0);
+    expect(
+      tree.root.findAllByProps({ testID: 'onboarding-invite' }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      tree.root.findAllByProps({ testID: 'onboarding-invite-later' }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('asks for the invite in both languages, without naming a single kind of bond', () => {
+    (['pt-BR', 'en-US'] as const).forEach(language => {
+      const copy = getTaskCopy(language);
+      const step = copy.onboarding.steps[2];
+
+      expect(copy.onboarding.invite.action.length).toBeGreaterThan(0);
+      expect(copy.onboarding.invite.later.length).toBeGreaterThan(0);
+      expect(step.body).toMatch(/família|family/i);
+      expect(step.body).toMatch(/amigos|friends/i);
+      expect(step.body).not.toMatch(/namorad|girlfriend|boyfriend/i);
+    });
+  });
+
+  it('answers the invite step with the outcome each button stands for', () => {
+    const onFinish = jest.fn();
+    const tree = renderOnboarding(onFinish);
+    const next = tree.root.findByProps({ testID: 'onboarding-next' });
+
+    press(next);
+    press(next);
+    press(tree.root.findByProps({ testID: 'onboarding-invite' }));
+    expect(onFinish).toHaveBeenLastCalledWith('invite');
+
+    press(tree.root.findByProps({ testID: 'onboarding-invite-later' }));
+    expect(onFinish).toHaveBeenLastCalledWith('later');
   });
 
   it('holds the brand mark while the frames still carry the old brand', () => {
@@ -153,6 +196,7 @@ describe('first-run walk-through', () => {
     press(skip);
 
     expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onFinish).toHaveBeenCalledWith('later');
   });
 
   it('freezes the demo on its first frame when the device asks for less motion', () => {

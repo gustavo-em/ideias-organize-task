@@ -76,7 +76,13 @@ const created: TaskList = {
   icon: 'layers',
 };
 
-function render(overrides: Partial<TasksViewModel> = {}) {
+/** Set by `render`: re-renders the mounted screen with another answer. */
+let setAutoInvite: (value: boolean) => void = () => undefined;
+
+function render(
+  overrides: Partial<TasksViewModel> = {},
+  screenProps: { autoInvite?: boolean; onAutoInviteDone?: () => void } = {},
+) {
   const viewModel = {
     nowMs: NOW,
     lists: [],
@@ -104,6 +110,7 @@ function render(overrides: Partial<TasksViewModel> = {}) {
     renderer = create(
       <ThemeProvider theme={lightTheme}>
         <ListsScreen
+          {...screenProps}
           copy={copy}
           language="pt-BR"
           ownProfile={null}
@@ -117,6 +124,30 @@ function render(overrides: Partial<TasksViewModel> = {}) {
       </ThemeProvider>,
     );
   });
+
+  // The screen stays mounted for the whole session: asking again from the
+  // replayed walk-through arrives as a new prop, not as a new mount.
+  setAutoInvite = (value: boolean) => {
+    act(() => {
+      renderer.update(
+        <ThemeProvider theme={lightTheme}>
+          <ListsScreen
+            {...screenProps}
+            autoInvite={value}
+            copy={copy}
+            language="pt-BR"
+            ownProfile={null}
+            notificationPrompt={{
+              visible: false,
+              onEnable: async () => false,
+              onDismiss: () => undefined,
+            }}
+            viewModel={viewModel}
+          />
+        </ThemeProvider>,
+      );
+    });
+  };
 
   return renderer.root;
 }
@@ -162,6 +193,111 @@ describe('creating a project that is already a group', () => {
 
     press(root, 'new-list');
     press(root, 'mock-submit');
+
+    expect(calls).toEqual([]);
+    expect(has(root, 'mock-share-sheet')).toBe(false);
+  });
+
+  it('makes the space and its invite for whoever asked on the walk-through', () => {
+    const names: string[] = [];
+    const calls: Array<[string, string]> = [];
+    const done = jest.fn();
+    const root = render(
+      {
+        isRestored: true,
+        createList: (name: string) => {
+          names.push(name);
+          return created;
+        },
+        createShareLink: (listId: string, role: string) => {
+          calls.push([listId, role]);
+        },
+      } as unknown as Partial<TasksViewModel>,
+      { autoInvite: true, onAutoInviteDone: done },
+    );
+
+    expect(names).toEqual([copy.lists.templates.home.name]);
+    expect(calls).toEqual([['lancamento', 'editor']]);
+    expect(has(root, 'mock-share-sheet')).toBe(true);
+    expect(done).toHaveBeenCalledTimes(1);
+  });
+
+  it('numbers the space when the suggested name is taken, and still shows the invite', () => {
+    const names: string[] = [];
+    const calls: Array<[string, string]> = [];
+    const home = copy.lists.templates.home.name;
+    const root = render(
+      {
+        isRestored: true,
+        lists: [
+          { id: 'casa', name: home, color: 'sun', icon: 'layers' },
+          { id: 'casa-2', name: `${home} 2`, color: 'sun', icon: 'layers' },
+        ],
+        createList: (name: string) => {
+          names.push(name);
+          return created;
+        },
+        createShareLink: (listId: string, role: string) => {
+          calls.push([listId, role]);
+        },
+      } as unknown as Partial<TasksViewModel>,
+      { autoInvite: true, onAutoInviteDone: jest.fn() },
+    );
+
+    expect(names).toEqual([`${home} 3`]);
+    expect(calls).toEqual([['lancamento', 'editor']]);
+    expect(has(root, 'mock-share-sheet')).toBe(true);
+    expect(has(root, 'mock-editor-sheet')).toBe(false);
+  });
+
+  it('answers the ask again when the walk-through is replayed in the same session', () => {
+    const names: string[] = [];
+    const done = jest.fn();
+    render(
+      {
+        isRestored: true,
+        createList: (name: string) => {
+          names.push(name);
+          return created;
+        },
+      } as unknown as Partial<TasksViewModel>,
+      { autoInvite: true, onAutoInviteDone: done },
+    );
+
+    expect(names).toHaveLength(1);
+
+    // Settings reopen the walk-through, the answer is given a second time.
+    setAutoInvite(false);
+    setAutoInvite(true);
+
+    expect(names).toHaveLength(2);
+    expect(done).toHaveBeenCalledTimes(2);
+  });
+
+  it('opens the editor instead when that space already exists', () => {
+    const done = jest.fn();
+    const root = render(
+      {
+        isRestored: true,
+        createList: () => null,
+      } as unknown as Partial<TasksViewModel>,
+      { autoInvite: true, onAutoInviteDone: done },
+    );
+
+    expect(has(root, 'mock-editor-sheet')).toBe(true);
+    expect(has(root, 'mock-share-sheet')).toBe(false);
+    expect(done).toHaveBeenCalledTimes(1);
+  });
+
+  it('does nothing on its own without that answer', () => {
+    const calls: string[] = [];
+    const root = render({
+      isRestored: true,
+      createList: () => {
+        calls.push('created');
+        return created;
+      },
+    } as unknown as Partial<TasksViewModel>);
 
     expect(calls).toEqual([]);
     expect(has(root, 'mock-share-sheet')).toBe(false);

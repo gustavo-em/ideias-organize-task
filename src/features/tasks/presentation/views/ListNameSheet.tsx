@@ -224,6 +224,9 @@ export function ProjectEditorSheet({
                 onSubmitEditing={submit}
                 placeholder={copy.lists.namePlaceholder}
                 returnKeyType="done"
+                /* A name that arrived filled in is a suggestion: typing
+                   replaces it instead of running into it. */
+                selectTextOnFocus
                 testID="list-name-field"
                 value={name}
               />
