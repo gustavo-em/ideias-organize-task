@@ -771,6 +771,12 @@ const ptBR: TaskCopy = {
         example: 'Ex.: “Pagar a internet”, hoje, no espaço Casa.',
       },
       {
+        title: 'Um espaço para cada plano',
+        body: 'A casa a dois, a viagem, o churrasco de sábado: cada plano vira um espaço, e todo mundo dentro vê as mesmas tarefas e o combinado do dia.',
+        example:
+          'Ex.: “Churras de sábado” — picanha, gelo e quem chama a galera.',
+      },
+      {
         title: 'Convide quem divide a rotina',
         body: 'Um espaço compartilhado guarda o combinado de vocês: par, família, casa, amigos. Quem abrir o link entra e vê o mesmo dia.',
         example: 'Ex.: “Casa”, com o link pronto para enviar.',
@@ -1163,6 +1169,12 @@ const enUS: TaskCopy = {
         title: 'Your tasks and your spaces',
         body: 'Jot it down in seconds, give it a date and a priority, and keep everything in spaces: home, work, travel.',
         example: 'Like “Pay the internet”, today, in the Home space.',
+      },
+      {
+        title: 'A space for every plan',
+        body: 'Home as a couple, the trip, Saturday’s barbecue: each plan becomes a space, and everyone in it sees the same tasks and the day’s agreement.',
+        example:
+          'Like “Saturday barbecue” — meat, ice, and who calls everyone.',
       },
       {
         title: 'Invite whoever shares your routine',

@@ -17,7 +17,10 @@ import styled, { useTheme } from 'styled-components/native';
 
 import type { TaskCopy } from '../../features/tasks/presentation/localization/taskCopy';
 import { PressableScale } from '../../features/tasks/presentation/views/PressableScale';
+import { useReducedMotion } from 'react-native-reanimated';
+
 import { onboardingSlides } from './onboarding/onboardingSteps';
+import { SlideShow } from './onboarding/SlideShow';
 
 /** What the walk-through was answered with: the invite is the only answer that
  * asks the app to do something after it closes. */
@@ -44,6 +47,7 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
   const window = useWindowDimensions();
   const theme = useTheme();
   const pager = useRef<ComponentRef<typeof ScrollView> | null>(null);
+  const prefersReducedMotion = useReducedMotion();
 
   const steps = copy.onboarding.steps;
   const total = Math.min(steps.length, onboardingSlides.length);
@@ -142,13 +146,23 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
                   accessibilityRole="image"
                   style={{ height: slideStageHeight }}
                 >
-                  <Still
-                    accessibilityIgnoresInvertColors
-                    resizeMode="contain"
-                    source={slide.still}
-                    style={{ height: slideStageHeight }}
-                    testID={`onboarding-demo-${slide.id}`}
-                  />
+                  {slide.frames == null ? (
+                    <Still
+                      accessibilityIgnoresInvertColors
+                      resizeMode="contain"
+                      source={slide.still}
+                      style={{ height: slideStageHeight }}
+                      testID={`onboarding-demo-${slide.id}`}
+                    />
+                  ) : (
+                    <SlideShow
+                      frames={slide.frames}
+                      height={slideStageHeight}
+                      /* Only the page being read plays: the others rest. */
+                      reducedMotion={prefersReducedMotion || index !== step}
+                      testID={`onboarding-demo-${slide.id}`}
+                    />
+                  )}
                 </Stage>
 
                 <Title>{page.title}</Title>
