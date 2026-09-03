@@ -33,9 +33,15 @@ interface OnboardingScreenProps {
 }
 
 /** The stage keeps the same height whether the demo plays or is frozen, so
- * turning motion off never moves the words under it. */
-const STAGE_MIN = 280;
-const STAGE_MAX = 400;
+ * turning motion off never moves the words under it. Bounds, not a size:
+ * every screen gets a share of its own height, clamped so a short phone
+ * still shows the words and a tablet does not blow the frame up. */
+const STAGE_MIN = 220;
+const STAGE_MAX = 460;
+
+/** Pages hold this width on wide screens (tablets, landscape), so the frame
+ * and the words stay a phone-shaped column instead of stretching. */
+const PAGE_MAX_WIDTH = 520;
 
 /**
  * The first-run walk-through: two demos of the app itself, shown before anyone
@@ -52,8 +58,12 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
 
   const steps = copy.onboarding.steps;
   const total = Math.min(steps.length, onboardingSlides.length);
+  // A short screen gives the stage a smaller share, so the title, body and
+  // call to action still fit under it; anything left over scrolls.
+  const stageShare =
+    window.height < 700 ? 0.3 : window.height < 850 ? 0.36 : 0.42;
   const stageHeight = Math.round(
-    Math.min(STAGE_MAX, Math.max(STAGE_MIN, window.height * 0.42)),
+    Math.min(STAGE_MAX, Math.max(STAGE_MIN, window.height * stageShare)),
   );
   const isLast = step === total - 1;
   // The last page asks a question instead of moving on, so it owns the bottom
@@ -134,7 +144,8 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
             // moldura do slide em vez de deixar faixa vazia sob um quadro
             // mais baixo (o letterbox do slide 2).
             const slide = onboardingSlides[index];
-            const stageInnerWidth = width - theme.spacing.large * 2;
+            const stageInnerWidth =
+              Math.min(width, PAGE_MAX_WIDTH) - theme.spacing.large * 2;
             const slideStageHeight = Math.min(
               stageHeight,
               Math.round(stageInnerWidth / slide.aspect),
@@ -150,60 +161,65 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
                 showsVerticalScrollIndicator={false}
                 style={{ width }}
               >
-                <GlowFrame style={{ width: slideStageWidth }}>
-                  <GlowHalo />
-                  <GlowRing />
-                  <Stage
-                    accessible
-                    accessibilityLabel={copy.onboarding.stepPosition(
-                      index + 1,
-                      total,
-                    )}
-                    accessibilityRole="image"
-                    style={{ height: slideStageHeight, width: slideStageWidth }}
-                  >
-                    {slide.frames == null ? (
-                      <Still
-                        accessibilityIgnoresInvertColors
-                        resizeMode="contain"
-                        source={slide.still}
-                        style={{ height: slideStageHeight }}
-                        testID={`onboarding-demo-${slide.id}`}
-                      />
-                    ) : (
-                      <SlideShow
-                        frames={slide.frames}
-                        height={slideStageHeight}
-                        /* Only the page being read plays: the others rest. */
-                        reducedMotion={prefersReducedMotion || index !== step}
-                        testID={`onboarding-demo-${slide.id}`}
-                      />
-                    )}
-                  </Stage>
-                </GlowFrame>
-
-                {slide.id === 'couple' ? (
-                  <TitleRow>
-                    <SparkShell
-                      accessibilityElementsHidden
-                      importantForAccessibility="no-hide-descendants"
+                <PageBody>
+                  <GlowFrame style={{ width: slideStageWidth }}>
+                    <GlowHalo />
+                    <GlowRing />
+                    <Stage
+                      accessible
+                      accessibilityLabel={copy.onboarding.stepPosition(
+                        index + 1,
+                        total,
+                      )}
+                      accessibilityRole="image"
+                      style={{
+                        height: slideStageHeight,
+                        width: slideStageWidth,
+                      }}
                     >
-                      <Spark
-                        autoPlay={!prefersReducedMotion}
-                        loop={!prefersReducedMotion}
-                        progress={prefersReducedMotion ? 0.5 : undefined}
-                        source={require('../../../assets/lottie/shared.json')}
-                      />
-                    </SparkShell>
-                    <Title style={titleFlex}>{page.title}</Title>
-                  </TitleRow>
-                ) : (
-                  <Title>{page.title}</Title>
-                )}
-                <Body>{page.body}</Body>
-                <Example>
-                  <ExampleText>{page.example}</ExampleText>
-                </Example>
+                      {slide.frames == null ? (
+                        <Still
+                          accessibilityIgnoresInvertColors
+                          resizeMode="contain"
+                          source={slide.still}
+                          style={{ height: slideStageHeight }}
+                          testID={`onboarding-demo-${slide.id}`}
+                        />
+                      ) : (
+                        <SlideShow
+                          frames={slide.frames}
+                          height={slideStageHeight}
+                          /* Only the page being read plays: the others rest. */
+                          reducedMotion={prefersReducedMotion || index !== step}
+                          testID={`onboarding-demo-${slide.id}`}
+                        />
+                      )}
+                    </Stage>
+                  </GlowFrame>
+
+                  {slide.id === 'couple' ? (
+                    <TitleRow>
+                      <SparkShell
+                        accessibilityElementsHidden
+                        importantForAccessibility="no-hide-descendants"
+                      >
+                        <Spark
+                          autoPlay={!prefersReducedMotion}
+                          loop={!prefersReducedMotion}
+                          progress={prefersReducedMotion ? 0.5 : undefined}
+                          source={require('../../../assets/lottie/shared.json')}
+                        />
+                      </SparkShell>
+                      <Title style={titleFlex}>{page.title}</Title>
+                    </TitleRow>
+                  ) : (
+                    <Title>{page.title}</Title>
+                  )}
+                  <Body>{page.body}</Body>
+                  <Example>
+                    <ExampleText>{page.example}</ExampleText>
+                  </Example>
+                </PageBody>
               </Page>
             );
           })}
@@ -370,6 +386,14 @@ const Page = styled.ScrollView`
   padding: 0px ${({ theme }) => theme.spacing.large}px;
 `;
 
+/* The phone-shaped column of the page: full width on a handset, capped and
+   centred on anything wider. */
+const PageBody = styled.View`
+  align-self: center;
+  width: 100%;
+  max-width: ${PAGE_MAX_WIDTH}px;
+`;
+
 /* Two soft sheets of the brand yellow behind the frame: a glow, not a box —
    what lifts the capture off the paper without inventing a new colour. */
 const GlowFrame = styled.View`
@@ -476,6 +500,9 @@ const Bottom = styled.View`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+  align-self: center;
+  width: 100%;
+  max-width: ${PAGE_MAX_WIDTH}px;
   padding: 0px ${({ theme }) => theme.spacing.large}px
     ${({ theme }) => theme.spacing.large}px;
 `;
@@ -484,6 +511,9 @@ const Bottom = styled.View`
    way out. No surface of its own — the spacing is what groups it. */
 const BottomStacked = styled.View`
   align-items: stretch;
+  align-self: center;
+  width: 100%;
+  max-width: ${PAGE_MAX_WIDTH}px;
   gap: ${({ theme }) => theme.spacing.medium}px;
   padding: 0px ${({ theme }) => theme.spacing.large}px
     ${({ theme }) => theme.spacing.large}px;
