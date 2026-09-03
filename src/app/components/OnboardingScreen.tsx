@@ -17,6 +17,7 @@ import styled, { useTheme } from 'styled-components/native';
 
 import type { TaskCopy } from '../../features/tasks/presentation/localization/taskCopy';
 import { PressableScale } from '../../features/tasks/presentation/views/PressableScale';
+import LottieView from 'lottie-react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { onboardingSlides } from './onboarding/onboardingSteps';
@@ -58,6 +59,9 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
   // The last page asks a question instead of moving on, so it owns the bottom
   // bar: the two answers replace the single "start" button.
   const isInviteStep = onboardingSlides[step]?.id === 'invite';
+  // The couple page carries its own call to action: the partner is the whole
+  // point of it, so the invite is offered right there — and again at the end.
+  const isCoupleStep = onboardingSlides[step]?.id === 'couple';
   const width = pageWidth === 0 ? window.width : pageWidth;
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
@@ -137,35 +141,56 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
             );
             return (
               <Page key={slide.id} style={{ width }}>
-                <Stage
-                  accessible
-                  accessibilityLabel={copy.onboarding.stepPosition(
-                    index + 1,
-                    total,
-                  )}
-                  accessibilityRole="image"
-                  style={{ height: slideStageHeight }}
-                >
-                  {slide.frames == null ? (
-                    <Still
-                      accessibilityIgnoresInvertColors
-                      resizeMode="contain"
-                      source={slide.still}
-                      style={{ height: slideStageHeight }}
-                      testID={`onboarding-demo-${slide.id}`}
-                    />
-                  ) : (
-                    <SlideShow
-                      frames={slide.frames}
-                      height={slideStageHeight}
-                      /* Only the page being read plays: the others rest. */
-                      reducedMotion={prefersReducedMotion || index !== step}
-                      testID={`onboarding-demo-${slide.id}`}
-                    />
-                  )}
-                </Stage>
+                <GlowFrame>
+                  <GlowHalo />
+                  <GlowRing />
+                  <Stage
+                    accessible
+                    accessibilityLabel={copy.onboarding.stepPosition(
+                      index + 1,
+                      total,
+                    )}
+                    accessibilityRole="image"
+                    style={{ height: slideStageHeight }}
+                  >
+                    {slide.frames == null ? (
+                      <Still
+                        accessibilityIgnoresInvertColors
+                        resizeMode="contain"
+                        source={slide.still}
+                        style={{ height: slideStageHeight }}
+                        testID={`onboarding-demo-${slide.id}`}
+                      />
+                    ) : (
+                      <SlideShow
+                        frames={slide.frames}
+                        height={slideStageHeight}
+                        /* Only the page being read plays: the others rest. */
+                        reducedMotion={prefersReducedMotion || index !== step}
+                        testID={`onboarding-demo-${slide.id}`}
+                      />
+                    )}
+                  </Stage>
+                </GlowFrame>
 
-                <Title>{page.title}</Title>
+                {slide.id === 'couple' ? (
+                  <TitleRow>
+                    <SparkShell
+                      accessibilityElementsHidden
+                      importantForAccessibility="no-hide-descendants"
+                    >
+                      <Spark
+                        autoPlay={!prefersReducedMotion}
+                        loop={!prefersReducedMotion}
+                        progress={prefersReducedMotion ? 0.5 : undefined}
+                        source={require('../../../assets/lottie/shared.json')}
+                      />
+                    </SparkShell>
+                    <Title style={titleFlex}>{page.title}</Title>
+                  </TitleRow>
+                ) : (
+                  <Title>{page.title}</Title>
+                )}
                 <Body>{page.body}</Body>
                 <Example>
                   <ExampleText>{page.example}</ExampleText>
@@ -175,7 +200,39 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
           })}
         </Pager>
 
-        {isInviteStep ? (
+        {isCoupleStep ? (
+          <BottomStacked>
+            <Dots $centered>
+              {steps.slice(0, total).map((_, index) => (
+                <Dot
+                  $active={index === step}
+                  key={onboardingSlides[index].id}
+                  testID={`onboarding-dot-${index}`}
+                />
+              ))}
+            </Dots>
+
+            <Invite
+              accessibilityLabel={copy.onboarding.coupleCta}
+              accessibilityRole="button"
+              onPress={invite}
+              testID="onboarding-couple-invite"
+            >
+              <NextText pointerEvents="none">
+                {copy.onboarding.coupleCta}
+              </NextText>
+            </Invite>
+
+            <Later
+              accessibilityLabel={copy.onboarding.next}
+              accessibilityRole="button"
+              onPress={goNext}
+              testID="onboarding-couple-continue"
+            >
+              <LaterText pointerEvents="none">{copy.onboarding.next}</LaterText>
+            </Later>
+          </BottomStacked>
+        ) : isInviteStep ? (
           /* The question owns the bottom of the page: the answer people are
              expected to want sits where the button always was, and the other
              one stays right under it, as a word rather than a wall. */
@@ -296,16 +353,63 @@ const Page = styled.View`
   padding: 0px ${({ theme }) => theme.spacing.large}px;
 `;
 
-/* A product frame: the capture sits inside a card with the same border as the
-   rest of the app, and nothing spills outside it. */
+/* Two soft sheets of the brand yellow behind the frame: a glow, not a box —
+   what lifts the capture off the paper without inventing a new colour. */
+const GlowFrame = styled.View`
+  align-self: stretch;
+`;
+
+const GlowHalo = styled.View`
+  position: absolute;
+  top: -14px;
+  left: -14px;
+  right: -14px;
+  bottom: -14px;
+  border-radius: 34px;
+  background-color: ${({ theme }) => theme.colors.accent};
+  opacity: 0.16;
+`;
+
+const GlowRing = styled.View`
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  right: -7px;
+  bottom: -7px;
+  border-radius: 27px;
+  background-color: ${({ theme }) => theme.colors.accent};
+  opacity: 0.38;
+`;
+
+/* A product frame: the capture sits inside a card ringed by the accent, and
+   nothing spills outside it. */
 const Stage = styled.View`
   align-items: center;
   justify-content: center;
   background-color: ${({ theme }) => theme.colors.card};
   border-radius: 20px;
-  border-width: 1px;
-  border-color: ${({ theme }) => theme.colors.border};
+  border-width: 2px;
+  border-color: ${({ theme }) => theme.colors.accent};
   overflow: hidden;
+`;
+
+const TitleRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const titleFlex = { flex: 1 } as const;
+
+const SparkShell = styled.View`
+  width: 44px;
+  height: 44px;
+  margin-top: ${({ theme }) => theme.spacing.extraLarge}px;
+`;
+
+const Spark = styled(LottieView)`
+  width: 44px;
+  height: 44px;
 `;
 
 /* Each page holds a single frame of the product itself — the task list, and

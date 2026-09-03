@@ -24,7 +24,12 @@ export const onboardingSlides: readonly OnboardingSlide[] = [
   {
     id: 'couple',
     aspect: 1080 / 1664,
-    still: require('../../../../assets/onboarding/step-casal.png'),
+    still: require('../../../../assets/onboarding/couple-01.png'),
+    frames: [
+      require('../../../../assets/onboarding/couple-01.png'),
+      require('../../../../assets/onboarding/couple-02.png'),
+      require('../../../../assets/onboarding/couple-03.png'),
+    ],
   },
   {
     id: 'tasks',

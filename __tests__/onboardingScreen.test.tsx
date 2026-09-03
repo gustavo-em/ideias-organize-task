@@ -41,7 +41,6 @@ describe('first-run walk-through', () => {
   it('shows two pages of product stills and ends on the invite step', () => {
     const onFinish = jest.fn();
     const tree = renderOnboarding(onFinish);
-    const next = tree.root.findByProps({ testID: 'onboarding-next' });
 
     expect(onboardingSlides).toHaveLength(4);
     expect(getTaskCopy('pt-BR').onboarding.steps).toHaveLength(4);
@@ -57,10 +56,12 @@ describe('first-run walk-through', () => {
       tree.root.findAllByProps({ testID: 'onboarding-dot-1' }).length,
     ).toBeGreaterThan(0);
 
-    // The last page asks the question instead of moving on, so the single
-    // button is replaced by the two answers.
+    // The couple page moves on through its own continue; then two nexts land
+    // on the invite page, where the single button is replaced by the answers.
+    press(tree.root.findByProps({ testID: 'onboarding-couple-continue' }));
+    let next = tree.root.findByProps({ testID: 'onboarding-next' });
     press(next);
-    press(next);
+    next = tree.root.findByProps({ testID: 'onboarding-next' });
     press(next);
     expect(onFinish).not.toHaveBeenCalled();
     expect(
@@ -85,10 +86,10 @@ describe('first-run walk-through', () => {
     expect(onboardingSlides[1].id).toBe('tasks');
     expect(onboardingSlides[2].id).toBe('spaces');
     expect(onboardingSlides[3].id).toBe('invite');
-    // The spaces page is the one that plays, from at least three moments of
-    // the product; the others hold still.
+    // The couple and spaces pages play, from at least three moments of the
+    // product each; the others hold still.
+    expect(onboardingSlides[0].frames?.length).toBeGreaterThanOrEqual(3);
     expect(onboardingSlides[2].frames?.length).toBeGreaterThanOrEqual(3);
-    expect(onboardingSlides[0].frames).toBeUndefined();
     expect(onboardingSlides[1].frames).toBeUndefined();
     expect(onboardingSlides[3].frames).toBeUndefined();
   });
@@ -106,14 +107,24 @@ describe('first-run walk-through', () => {
     });
   });
 
+  it('offers the partner invite right on the couple page', () => {
+    const onFinish = jest.fn();
+    const tree = renderOnboarding(onFinish);
+
+    press(tree.root.findByProps({ testID: 'onboarding-couple-invite' }));
+    expect(onFinish).toHaveBeenLastCalledWith('invite');
+
+    press(tree.root.findByProps({ testID: 'onboarding-couple-continue' }));
+    expect(onFinish).toHaveBeenCalledTimes(1);
+  });
+
   it('answers the invite step with the outcome each button stands for', () => {
     const onFinish = jest.fn();
     const tree = renderOnboarding(onFinish);
-    const next = tree.root.findByProps({ testID: 'onboarding-next' });
 
-    press(next);
-    press(next);
-    press(next);
+    press(tree.root.findByProps({ testID: 'onboarding-couple-continue' }));
+    press(tree.root.findByProps({ testID: 'onboarding-next' }));
+    press(tree.root.findByProps({ testID: 'onboarding-next' }));
     press(tree.root.findByProps({ testID: 'onboarding-invite' }));
     expect(onFinish).toHaveBeenLastCalledWith('invite');
 
