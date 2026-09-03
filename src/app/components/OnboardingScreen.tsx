@@ -144,7 +144,12 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
             // never a wide card with a band of screenshot inside it.
             const slideStageWidth = Math.round(slideStageHeight * slide.aspect);
             return (
-              <Page key={slide.id} style={{ width }}>
+              <Page
+                contentContainerStyle={pageContentStyle}
+                key={slide.id}
+                showsVerticalScrollIndicator={false}
+                style={{ width }}
+              >
                 <GlowFrame style={{ width: slideStageWidth }}>
                   <GlowHalo />
                   <GlowRing />
@@ -308,6 +313,15 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
    title, body and example — belongs to the scrollable content. */
 const pagerContentStyle = { alignItems: 'stretch' as const };
 
+/* Centred while it fits; on a shorter screen the page scrolls instead of
+   cropping the top of the frame or squeezing into the controls. */
+const pageContentStyle = {
+  flexGrow: 1,
+  justifyContent: 'center' as const,
+  paddingTop: 12,
+  paddingBottom: 16,
+};
+
 const Cover = styled.View`
   position: absolute;
   top: 0px;
@@ -351,9 +365,8 @@ const Pager = styled.ScrollView`
    over the animation, so no part of the page can be empty space outside the
    scrollable child. The block is centred, and the two lines reserved for the
    title keep the stage from jumping between steps. */
-const Page = styled.View`
+const Page = styled.ScrollView`
   height: 100%;
-  justify-content: center;
   padding: 0px ${({ theme }) => theme.spacing.large}px;
 `;
 
