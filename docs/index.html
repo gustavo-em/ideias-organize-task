@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aluza — organize a vida a dois</title>
-<meta name="description" content="Aluza é o app de listas e tarefas compartilhadas para casais e grupos. Combine, divida e acompanhe o que precisa ser feito, junto.">
+<title>Aluza — um espaço para a vida que vocês dividem</title>
+<meta name="description" content="Aluza é o app de listas e tarefas compartilhadas para casais, famílias e grupos. O dia de vocês, numa tela.">
 <style>
   :root {
     --dark: #1D1D1B;
@@ -20,7 +20,9 @@
     color: var(--dark);
   }
   a { color: inherit; }
+  img { max-width: 100%; }
 
+  /* ---------- header ---------- */
   header {
     display: flex;
     align-items: center;
@@ -30,43 +32,50 @@
     padding: 28px 24px 0;
   }
   .brand { display: flex; align-items: center; gap: 10px; }
-  .brand img { height: 32px; width: auto; display: block; }
-  .brand span { font-weight: 700; font-size: 1.25em; letter-spacing: -0.01em; }
+  .brand img { height: 30px; width: auto; display: block; }
   nav a {
     text-decoration: none;
     font-size: 0.95em;
     margin-left: 24px;
     color: var(--dark);
-    opacity: 0.7;
+    opacity: 0.65;
   }
   nav a:hover { opacity: 1; }
 
+  /* ---------- hero (yellow panel, like slide 1) ---------- */
   .hero {
+    background: var(--yellow);
+    margin: 24px 0 0;
+    padding: 72px 24px 0;
+    overflow: hidden;
+  }
+  .hero-inner {
     max-width: 1080px;
     margin: 0 auto;
-    padding: 64px 24px 40px;
     display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
-    gap: 40px;
-    align-items: center;
+    grid-template-columns: 1fr 0.85fr;
+    gap: 24px;
+    align-items: end;
+  }
+  .hero-copy { padding-bottom: 64px; }
+  .mark-burst {
+    width: 64px;
+    height: auto;
+    margin-bottom: 22px;
   }
   .hero h1 {
-    font-size: 2.6em;
-    line-height: 1.08;
+    font-size: 2.7em;
+    line-height: 1.06;
     letter-spacing: -0.02em;
-    margin: 0 0 18px;
-  }
-  .hero h1 .hl {
-    background: var(--yellow);
-    padding: 0 8px;
-    border-radius: 6px;
+    margin: 0 0 20px;
+    max-width: 11ch;
   }
   .hero p {
     font-size: 1.15em;
     line-height: 1.55;
-    opacity: 0.8;
-    max-width: 46ch;
-    margin: 0 0 28px;
+    opacity: 0.78;
+    max-width: 38ch;
+    margin: 0 0 30px;
   }
   .cta-row { display: flex; gap: 14px; flex-wrap: wrap; }
   .btn {
@@ -75,37 +84,76 @@
     gap: 8px;
     padding: 14px 22px;
     border-radius: 999px;
-    font-weight: 600;
+    font-weight: 700;
     text-decoration: none;
     font-size: 0.98em;
   }
-  .btn-primary { background: var(--dark); color: var(--white); }
-  .btn-secondary { background: transparent; color: var(--dark); border: 1.5px solid var(--dark); opacity: 0.85; }
+  .btn-dark { background: var(--dark); color: var(--white); }
+  .btn-outline { background: transparent; color: var(--dark); border: 1.5px solid var(--dark); opacity: 0.85; }
 
-  .phones {
-    display: flex;
-    justify-content: center;
-    gap: 18px;
-    perspective: 1400px;
-  }
+  .hero-phone { display: flex; justify-content: center; }
   .phone {
-    width: 168px;
-    border-radius: 26px;
+    width: 240px;
+    border-radius: 34px;
     overflow: hidden;
-    box-shadow: 0 24px 48px rgba(29,29,27,0.22);
-    border: 6px solid var(--dark);
+    border: 8px solid var(--dark);
     background: var(--dark);
-    transform: rotate(var(--tilt, 0deg));
+    box-shadow: 0 30px 60px rgba(29,29,27,0.28);
+    position: relative;
   }
   .phone img { display: block; width: 100%; height: auto; }
-  .phone.mid { width: 190px; margin-top: -18px; z-index: 2; }
-  .phone.left { --tilt: -6deg; }
-  .phone.right { --tilt: 6deg; }
+  .phone::before {
+    content: "";
+    position: absolute;
+    top: 10px; left: 50%;
+    transform: translateX(-50%);
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.35);
+    z-index: 2;
+  }
 
+  /* ---------- dark showcase panels (like slides 2-4) ---------- */
+  .panel {
+    background: var(--dark);
+    color: var(--white);
+    padding: 72px 24px 0;
+  }
+  .panel-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 0.8fr;
+    gap: 24px;
+    align-items: end;
+  }
+  .panel-copy { padding-bottom: 64px; }
+  .panel h2 {
+    font-size: 2.3em;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin: 0 0 16px;
+    max-width: 10ch;
+  }
+  .panel p {
+    font-size: 1.05em;
+    line-height: 1.55;
+    opacity: 0.68;
+    max-width: 36ch;
+    margin: 0;
+  }
+  .panel .phone {
+    width: 220px;
+    margin: 0 auto;
+    border-color: #050505;
+  }
+  .panel:nth-of-type(odd) { background: #17110A; }
+
+  /* ---------- features ---------- */
   section.features {
     max-width: 1080px;
-    margin: 40px auto 0;
-    padding: 40px 24px;
+    margin: 0 auto;
+    padding: 80px 24px 40px;
   }
   .features h2 {
     font-size: 1.7em;
@@ -135,16 +183,18 @@
   .card h3 { margin: 0 0 8px; font-size: 1.08em; }
   .card p { margin: 0; opacity: 0.72; font-size: 0.95em; line-height: 1.5; }
 
+  /* ---------- final CTA ---------- */
   .band {
     background: var(--dark);
     color: var(--white);
-    margin-top: 60px;
-    padding: 60px 24px;
+    margin-top: 20px;
+    padding: 64px 24px;
     text-align: center;
   }
-  .band h2 { font-size: 1.7em; margin: 0 0 14px; }
-  .band p { opacity: 0.75; max-width: 44ch; margin: 0 auto 28px; line-height: 1.55; }
-  .band .btn-primary { background: var(--yellow); color: var(--dark); }
+  .band .mark-burst { margin: 0 auto 20px; }
+  .band h2 { font-size: 1.8em; margin: 0 0 14px; }
+  .band p { opacity: 0.72; max-width: 44ch; margin: 0 auto 28px; line-height: 1.55; }
+  .band .btn-dark { background: var(--yellow); color: var(--dark); }
 
   footer {
     max-width: 1080px;
@@ -161,8 +211,10 @@
   footer a { text-decoration: underline; }
 
   @media (max-width: 760px) {
-    .hero { grid-template-columns: 1fr; padding-top: 40px; }
-    .hero h1 { font-size: 2em; }
+    .hero-inner, .panel-inner { grid-template-columns: 1fr; }
+    .hero-copy, .panel-copy { padding-bottom: 32px; }
+    .hero h1, .panel h2 { max-width: none; font-size: 2em; }
+    .hero-phone, .panel .phone { margin-top: 0; }
     .grid3 { grid-template-columns: 1fr; }
     nav { display: none; }
   }
@@ -172,8 +224,7 @@
 
 <header>
   <div class="brand">
-    <img src="img/aluza-symbol-primary.svg" alt="Aluza">
-    <span>Aluza</span>
+    <img src="img/aluza-logo-primary.svg" alt="Aluza">
   </div>
   <nav>
     <a href="#recursos">Recursos</a>
@@ -182,21 +233,58 @@
   </nav>
 </header>
 
-<div class="hero">
-  <div>
-    <h1>Organize a vida <span class="hl">junto</span>, não sozinho</h1>
-    <p>Aluza é o app de listas e tarefas compartilhadas para casais, famílias e grupos. Combine o que precisa ser feito, divida entre vocês e acompanhe tudo em um só lugar.</p>
-    <div class="cta-row">
-      <a class="btn btn-primary" href="#recursos">Ver recursos</a>
-      <a class="btn btn-secondary" href="mailto:gustavo.emanuel01@outlook.com">Falar com a gente</a>
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-copy">
+      <img class="mark-burst" src="img/aluza-symbol-primary.svg" alt="">
+      <h1>Um espaço para a vida que vocês dividem.</h1>
+      <p>Aluza é o app de listas e tarefas compartilhadas para casais, famílias e grupos. Combinem o que precisa ser feito, dividam entre vocês e acompanhem tudo em um só lugar.</p>
+      <div class="cta-row">
+        <a class="btn btn-dark" href="#recursos">Ver recursos</a>
+        <a class="btn btn-outline" href="mailto:gustavo.emanuel01@outlook.com">Falar com a gente</a>
+      </div>
+    </div>
+    <div class="hero-phone">
+      <div class="phone"><img src="img/couple-01.png" alt="Lista compartilhada 'Casa' no Aluza"></div>
     </div>
   </div>
-  <div class="phones">
-    <div class="phone left"><img src="img/couple-01.png" alt="Tela do Aluza mostrando lista compartilhada"></div>
-    <div class="phone mid"><img src="img/couple-02.png" alt="Tela do Aluza mostrando tarefas do dia"></div>
-    <div class="phone right"><img src="img/couple-03.png" alt="Tela do Aluza mostrando convite para grupo"></div>
+</section>
+
+<section class="panel">
+  <div class="panel-inner">
+    <div class="panel-copy">
+      <h2>O dia de vocês, numa tela.</h2>
+      <p>O que cada um levou, o que já fechou, quem está em foco. Sem “e aquilo?”.</p>
+    </div>
+    <div class="hero-phone">
+      <div class="phone"><img src="img/couple-02.png" alt="Tela do dia combinado no Aluza"></div>
+    </div>
   </div>
-</div>
+</section>
+
+<section class="panel">
+  <div class="panel-inner">
+    <div class="panel-copy">
+      <h2>Sem placar entre vocês.</h2>
+      <p>Cada um leva três. Seu progresso é seu — o espaço mostra, não compara.</p>
+    </div>
+    <div class="hero-phone">
+      <div class="phone"><img src="img/couple-03.png" alt="Progresso individual no Aluza"></div>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-inner">
+    <div class="panel-copy">
+      <h2>Serve para a casa. E para o trabalho.</h2>
+      <p>Casal, lançamento, viagem, contas. Um app, sem modo especial.</p>
+    </div>
+    <div class="hero-phone">
+      <div class="phone"><img src="img/spaces-01.png" alt="Vários espaços compartilhados no Aluza"></div>
+    </div>
+  </div>
+</section>
 
 <section class="features" id="recursos">
   <h2>Feito para fazer junto</h2>
@@ -220,9 +308,10 @@
 </section>
 
 <div class="band">
+  <img class="mark-burst" src="img/aluza-symbol-yellow-bg.svg" alt="" style="width:56px;border-radius:14px;">
   <h2>Comece a organizar hoje</h2>
   <p>Baixe o Aluza e transforme combinados soltos em uma lista que todo mundo vê.</p>
-  <a class="btn btn-primary" href="mailto:gustavo.emanuel01@outlook.com">Saiba mais</a>
+  <a class="btn btn-dark" href="mailto:gustavo.emanuel01@outlook.com">Saiba mais</a>
 </div>
 
 <footer>
