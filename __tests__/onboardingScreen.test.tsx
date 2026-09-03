@@ -42,9 +42,9 @@ describe('first-run walk-through', () => {
     const onFinish = jest.fn();
     const tree = renderOnboarding(onFinish);
 
-    expect(onboardingSlides).toHaveLength(4);
-    expect(getTaskCopy('pt-BR').onboarding.steps).toHaveLength(4);
-    expect(getTaskCopy('en-US').onboarding.steps).toHaveLength(4);
+    expect(onboardingSlides).toHaveLength(3);
+    expect(getTaskCopy('pt-BR').onboarding.steps).toHaveLength(3);
+    expect(getTaskCopy('en-US').onboarding.steps).toHaveLength(3);
     // Every page is a still of the app itself: no placeholder mark anywhere.
     onboardingSlides.forEach(slide => {
       const stills = tree.root.findAllByProps({
@@ -56,9 +56,8 @@ describe('first-run walk-through', () => {
       tree.root.findAllByProps({ testID: 'onboarding-dot-1' }).length,
     ).toBeGreaterThan(0);
 
-    // The couple page moves on through its own continue; then two nexts land
-    // on the invite page, where the single button is replaced by the answers.
-    press(tree.root.findByProps({ testID: 'onboarding-couple-continue' }));
+    // Two nexts land on the invite page, where the single button is
+    // replaced by the two answers.
     let next = tree.root.findByProps({ testID: 'onboarding-next' });
     press(next);
     next = tree.root.findByProps({ testID: 'onboarding-next' });
@@ -83,21 +82,19 @@ describe('first-run walk-through', () => {
       expect(slide.aspect).toBeLessThan(2);
     });
     expect(onboardingSlides[0].id).toBe('couple');
-    expect(onboardingSlides[1].id).toBe('tasks');
-    expect(onboardingSlides[2].id).toBe('spaces');
-    expect(onboardingSlides[3].id).toBe('invite');
+    expect(onboardingSlides[1].id).toBe('spaces');
+    expect(onboardingSlides[2].id).toBe('invite');
     // The couple and spaces pages play, from at least three moments of the
-    // product each; the others hold still.
+    // product each; the invite holds still.
     expect(onboardingSlides[0].frames?.length).toBeGreaterThanOrEqual(3);
-    expect(onboardingSlides[2].frames?.length).toBeGreaterThanOrEqual(3);
-    expect(onboardingSlides[1].frames).toBeUndefined();
-    expect(onboardingSlides[3].frames).toBeUndefined();
+    expect(onboardingSlides[1].frames?.length).toBeGreaterThanOrEqual(3);
+    expect(onboardingSlides[2].frames).toBeUndefined();
   });
 
   it('asks for the invite in both languages, without naming a single kind of bond', () => {
     (['pt-BR', 'en-US'] as const).forEach(language => {
       const copy = getTaskCopy(language);
-      const step = copy.onboarding.steps[3];
+      const step = copy.onboarding.steps[2];
 
       expect(copy.onboarding.invite.action.length).toBeGreaterThan(0);
       expect(copy.onboarding.invite.later.length).toBeGreaterThan(0);
@@ -107,22 +104,10 @@ describe('first-run walk-through', () => {
     });
   });
 
-  it('offers the partner invite right on the couple page', () => {
-    const onFinish = jest.fn();
-    const tree = renderOnboarding(onFinish);
-
-    press(tree.root.findByProps({ testID: 'onboarding-couple-invite' }));
-    expect(onFinish).toHaveBeenLastCalledWith('invite');
-
-    press(tree.root.findByProps({ testID: 'onboarding-couple-continue' }));
-    expect(onFinish).toHaveBeenCalledTimes(1);
-  });
-
   it('answers the invite step with the outcome each button stands for', () => {
     const onFinish = jest.fn();
     const tree = renderOnboarding(onFinish);
 
-    press(tree.root.findByProps({ testID: 'onboarding-couple-continue' }));
     press(tree.root.findByProps({ testID: 'onboarding-next' }));
     press(tree.root.findByProps({ testID: 'onboarding-next' }));
     press(tree.root.findByProps({ testID: 'onboarding-invite' }));

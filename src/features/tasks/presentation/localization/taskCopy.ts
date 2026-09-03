@@ -376,8 +376,6 @@ export interface TaskCopy {
     /** Announced on the scene, so the position in the walk-through is spoken
      * instead of being only a row of dots. */
     stepPosition: (step: number, total: number) => string;
-    /** The couple page's own call to action: the partner is the point. */
-    coupleCta: string;
     /** The last step asks for the one thing the app cannot do alone: somebody
      * else in the same space. Both answers close the walk-through. */
     invite: { action: string; later: string };
@@ -772,12 +770,8 @@ const ptBR: TaskCopy = {
         body: 'Planejem as tarefas da semana juntos — e deixem o app lembrar as datas de vocês: aniversário de namoro, de casamento, do par.',
       },
       {
-        title: 'Suas tarefas e seus espaços',
-        body: 'Anote em segundos, dê prazo e prioridade, e organize tudo em espaços: casa, trabalho, viagem.',
-      },
-      {
         title: 'Um espaço para cada plano',
-        body: 'A casa, a viagem, o churrasco de sábado: cada plano vira um espaço, e todo mundo dentro vê as mesmas tarefas e o combinado do dia.',
+        body: 'Anote em segundos, dê prazo e prioridade — e organize tudo em espaços: a casa, a viagem, o churrasco de sábado. Todo mundo dentro vê as mesmas tarefas e o combinado do dia.',
       },
       {
         title: 'Convide quem divide a rotina',
@@ -788,7 +782,6 @@ const ptBR: TaskCopy = {
     start: 'Começar',
     skip: 'Pular',
     stepPosition: (step, total) => `Passo ${step} de ${total}`,
-    coupleCta: 'Convidar meu par',
     invite: { action: 'Convidar alguém', later: 'Agora não' },
   },
   celebration: {
@@ -1173,12 +1166,8 @@ const enUS: TaskCopy = {
         body: 'Plan the week’s tasks together — and let the app remember your dates: dating and wedding anniversaries, each other’s birthday.',
       },
       {
-        title: 'Your tasks and your spaces',
-        body: 'Jot it down in seconds, give it a date and a priority, and keep everything in spaces: home, work, travel.',
-      },
-      {
         title: 'A space for every plan',
-        body: 'The home, the trip, Saturday’s barbecue: each plan becomes a space, and everyone in it sees the same tasks and the day’s agreement.',
+        body: 'Jot it down in seconds, give it a date and a priority — and keep everything in spaces: the home, the trip, Saturday’s barbecue. Everyone in a space sees the same tasks and the day’s agreement.',
       },
       {
         title: 'Invite whoever shares your routine',
@@ -1189,7 +1178,6 @@ const enUS: TaskCopy = {
     start: 'Start',
     skip: 'Skip',
     stepPosition: (step, total) => `Step ${step} of ${total}`,
-    coupleCta: 'Invite my other half',
     invite: { action: 'Invite someone', later: 'Not now' },
   },
   celebration: {
