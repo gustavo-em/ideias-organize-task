@@ -376,6 +376,8 @@ export interface TaskCopy {
     /** Announced on the scene, so the position in the walk-through is spoken
      * instead of being only a row of dots. */
     stepPosition: (step: number, total: number) => string;
+    /** The couple page's own call to action: the partner is the point. */
+    coupleCta: string;
     /** The last step asks for the one thing the app cannot do alone: somebody
      * else in the same space. Both answers close the walk-through. */
     invite: { action: string; later: string };
@@ -791,6 +793,7 @@ const ptBR: TaskCopy = {
     start: 'Começar',
     skip: 'Pular',
     stepPosition: (step, total) => `Passo ${step} de ${total}`,
+    coupleCta: 'Convidar meu par',
     invite: { action: 'Convidar alguém', later: 'Agora não' },
   },
   celebration: {
@@ -1196,6 +1199,7 @@ const enUS: TaskCopy = {
     start: 'Start',
     skip: 'Skip',
     stepPosition: (step, total) => `Step ${step} of ${total}`,
+    coupleCta: 'Invite my other half',
     invite: { action: 'Invite someone', later: 'Not now' },
   },
   celebration: {
