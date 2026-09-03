@@ -43,9 +43,9 @@ describe('first-run walk-through', () => {
     const tree = renderOnboarding(onFinish);
     const next = tree.root.findByProps({ testID: 'onboarding-next' });
 
-    expect(onboardingSlides).toHaveLength(3);
-    expect(getTaskCopy('pt-BR').onboarding.steps).toHaveLength(3);
-    expect(getTaskCopy('en-US').onboarding.steps).toHaveLength(3);
+    expect(onboardingSlides).toHaveLength(4);
+    expect(getTaskCopy('pt-BR').onboarding.steps).toHaveLength(4);
+    expect(getTaskCopy('en-US').onboarding.steps).toHaveLength(4);
     // Every page is a still of the app itself: no placeholder mark anywhere.
     onboardingSlides.forEach(slide => {
       const stills = tree.root.findAllByProps({
@@ -59,6 +59,7 @@ describe('first-run walk-through', () => {
 
     // The last page asks the question instead of moving on, so the single
     // button is replaced by the two answers.
+    press(next);
     press(next);
     press(next);
     expect(onFinish).not.toHaveBeenCalled();
@@ -80,20 +81,22 @@ describe('first-run walk-through', () => {
       expect(slide.aspect).toBeGreaterThan(0.4);
       expect(slide.aspect).toBeLessThan(2);
     });
-    expect(onboardingSlides[0].id).toBe('tasks');
-    expect(onboardingSlides[1].id).toBe('spaces');
-    expect(onboardingSlides[2].id).toBe('invite');
-    // The middle page is the one that plays, from at least three moments of
-    // the product; first and last hold still.
-    expect(onboardingSlides[1].frames?.length).toBeGreaterThanOrEqual(3);
+    expect(onboardingSlides[0].id).toBe('couple');
+    expect(onboardingSlides[1].id).toBe('tasks');
+    expect(onboardingSlides[2].id).toBe('spaces');
+    expect(onboardingSlides[3].id).toBe('invite');
+    // The spaces page is the one that plays, from at least three moments of
+    // the product; the others hold still.
+    expect(onboardingSlides[2].frames?.length).toBeGreaterThanOrEqual(3);
     expect(onboardingSlides[0].frames).toBeUndefined();
-    expect(onboardingSlides[2].frames).toBeUndefined();
+    expect(onboardingSlides[1].frames).toBeUndefined();
+    expect(onboardingSlides[3].frames).toBeUndefined();
   });
 
   it('asks for the invite in both languages, without naming a single kind of bond', () => {
     (['pt-BR', 'en-US'] as const).forEach(language => {
       const copy = getTaskCopy(language);
-      const step = copy.onboarding.steps[2];
+      const step = copy.onboarding.steps[3];
 
       expect(copy.onboarding.invite.action.length).toBeGreaterThan(0);
       expect(copy.onboarding.invite.later.length).toBeGreaterThan(0);
@@ -108,6 +111,7 @@ describe('first-run walk-through', () => {
     const tree = renderOnboarding(onFinish);
     const next = tree.root.findByProps({ testID: 'onboarding-next' });
 
+    press(next);
     press(next);
     press(next);
     press(tree.root.findByProps({ testID: 'onboarding-invite' }));

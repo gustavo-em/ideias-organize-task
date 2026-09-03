@@ -10,7 +10,7 @@
 import type { ImageSourcePropType } from 'react-native';
 
 export interface OnboardingSlide {
-  id: 'tasks' | 'spaces' | 'invite';
+  id: 'couple' | 'tasks' | 'spaces' | 'invite';
   /** Width over height of the artwork, so the stage takes the frame's own
    * proportions instead of leaving a letterbox under it. */
   aspect: number;
@@ -21,6 +21,11 @@ export interface OnboardingSlide {
 }
 
 export const onboardingSlides: readonly OnboardingSlide[] = [
+  {
+    id: 'couple',
+    aspect: 1080 / 1664,
+    still: require('../../../../assets/onboarding/step-casal.png'),
+  },
   {
     id: 'tasks',
     aspect: 1080 / 1704,
