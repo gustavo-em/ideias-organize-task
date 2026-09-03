@@ -35,7 +35,7 @@ interface OnboardingScreenProps {
 /** The stage keeps the same height whether the demo plays or is frozen, so
  * turning motion off never moves the words under it. */
 const STAGE_MIN = 280;
-const STAGE_MAX = 380;
+const STAGE_MAX = 400;
 
 /**
  * The first-run walk-through: two demos of the app itself, shown before anyone
@@ -139,9 +139,13 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
               stageHeight,
               Math.round(stageInnerWidth / slide.aspect),
             );
+            // The capture is a whole phone screen, so the frame takes the
+            // phone's own proportions: a small handset in the page's middle,
+            // never a wide card with a band of screenshot inside it.
+            const slideStageWidth = Math.round(slideStageHeight * slide.aspect);
             return (
               <Page key={slide.id} style={{ width }}>
-                <GlowFrame>
+                <GlowFrame style={{ width: slideStageWidth }}>
                   <GlowHalo />
                   <GlowRing />
                   <Stage
@@ -151,7 +155,7 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
                       total,
                     )}
                     accessibilityRole="image"
-                    style={{ height: slideStageHeight }}
+                    style={{ height: slideStageHeight, width: slideStageWidth }}
                   >
                     {slide.frames == null ? (
                       <Still
@@ -356,7 +360,7 @@ const Page = styled.View`
 /* Two soft sheets of the brand yellow behind the frame: a glow, not a box —
    what lifts the capture off the paper without inventing a new colour. */
 const GlowFrame = styled.View`
-  align-self: stretch;
+  align-self: center;
 `;
 
 const GlowHalo = styled.View`
