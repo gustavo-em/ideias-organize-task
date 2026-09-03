@@ -393,6 +393,9 @@ const LineTitle = styled.Text<{ $done: boolean }>`
 
 const RenameField = styled.TextInput.attrs(({ theme }) => ({
   placeholderTextColor: theme.colors.muted,
+  // The caret and selection speak the brand, not the platform default teal.
+  cursorColor: theme.colors.accent,
+  selectionColor: theme.colors.accent,
 }))`
   flex: 1;
   min-width: 0px;
@@ -431,6 +434,9 @@ const ComposerRow = styled.View`
 
 const AddField = styled.TextInput.attrs(({ theme }) => ({
   placeholderTextColor: theme.colors.muted,
+  // The caret and selection speak the brand, not the platform default teal.
+  cursorColor: theme.colors.accent,
+  selectionColor: theme.colors.accent,
 }))`
   flex: 1;
   min-width: 0px;

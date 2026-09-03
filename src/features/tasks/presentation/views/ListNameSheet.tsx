@@ -508,6 +508,9 @@ const Hint = styled.Text`
 
 const Field = styled.TextInput.attrs(({ theme }) => ({
   placeholderTextColor: theme.colors.muted,
+  // The caret and selection speak the brand, not the platform default teal.
+  cursorColor: theme.colors.accent,
+  selectionColor: theme.colors.accent,
 }))`
   border: 2px solid ${({ theme }) => theme.colors.accent};
   border-radius: ${({ theme }) => theme.radii.medium}px;

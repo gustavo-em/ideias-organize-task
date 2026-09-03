@@ -369,7 +369,7 @@ export interface TaskCopy {
     promptDismiss: string;
   };
   onboarding: {
-    steps: readonly { title: string; body: string; example: string }[];
+    steps: readonly { title: string; body: string }[];
     next: string;
     start: string;
     skip: string;
@@ -770,23 +770,18 @@ const ptBR: TaskCopy = {
       {
         title: 'A vida a dois, combinada',
         body: 'Planejem as tarefas da semana juntos — e deixem o app lembrar as datas de vocês: aniversário de namoro, de casamento, do par.',
-        example: 'Ex.: lembrete anual “Aniversário de namoro”.',
       },
       {
         title: 'Suas tarefas e seus espaços',
         body: 'Anote em segundos, dê prazo e prioridade, e organize tudo em espaços: casa, trabalho, viagem.',
-        example: 'Ex.: “Pagar a internet”, hoje, no espaço Casa.',
       },
       {
         title: 'Um espaço para cada plano',
-        body: 'A casa a dois, a viagem, o churrasco de sábado: cada plano vira um espaço, e todo mundo dentro vê as mesmas tarefas e o combinado do dia.',
-        example:
-          'Ex.: “Churras de sábado” — picanha, gelo e quem chama a galera.',
+        body: 'A casa, a viagem, o churrasco de sábado: cada plano vira um espaço, e todo mundo dentro vê as mesmas tarefas e o combinado do dia.',
       },
       {
         title: 'Convide quem divide a rotina',
-        body: 'Um espaço compartilhado guarda o combinado de vocês: par, família, casa, amigos. Quem abrir o link entra e vê o mesmo dia.',
-        example: 'Ex.: “Casa”, com o link pronto para enviar.',
+        body: 'Um espaço compartilhado guarda o combinado de vocês: família, casa, amigos. Quem abrir o link entra e vê o mesmo dia.',
       },
     ],
     next: 'Continuar',
@@ -1176,23 +1171,18 @@ const enUS: TaskCopy = {
       {
         title: 'Life together, agreed on',
         body: 'Plan the week’s tasks together — and let the app remember your dates: dating and wedding anniversaries, each other’s birthday.',
-        example: 'Like a yearly reminder “Dating anniversary”.',
       },
       {
         title: 'Your tasks and your spaces',
         body: 'Jot it down in seconds, give it a date and a priority, and keep everything in spaces: home, work, travel.',
-        example: 'Like “Pay the internet”, today, in the Home space.',
       },
       {
         title: 'A space for every plan',
-        body: 'Home as a couple, the trip, Saturday’s barbecue: each plan becomes a space, and everyone in it sees the same tasks and the day’s agreement.',
-        example:
-          'Like “Saturday barbecue” — meat, ice, and who calls everyone.',
+        body: 'The home, the trip, Saturday’s barbecue: each plan becomes a space, and everyone in it sees the same tasks and the day’s agreement.',
       },
       {
         title: 'Invite whoever shares your routine',
-        body: 'A shared space holds what you agreed on: the two of you, family, housemates, friends. Whoever opens the link joins and sees the same day.',
-        example: 'Like “Home”, with the link ready to send.',
+        body: 'A shared space holds what you agreed on: family, housemates, friends. Whoever opens the link joins and sees the same day.',
       },
     ],
     next: 'Continue',

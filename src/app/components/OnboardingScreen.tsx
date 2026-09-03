@@ -17,6 +17,7 @@ import styled, { useTheme } from 'styled-components/native';
 
 import type { TaskCopy } from '../../features/tasks/presentation/localization/taskCopy';
 import { PressableScale } from '../../features/tasks/presentation/views/PressableScale';
+import { PixelRatio } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
@@ -62,9 +63,14 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
   // call to action still fit under it; anything left over scrolls.
   const stageShare =
     window.height < 700 ? 0.3 : window.height < 850 ? 0.36 : 0.42;
+  // On a short screen the floor itself gives way: a fixed 220dp minimum was
+  // eating the whole "short screen" budget and cropping the words instead.
+  const stageFloor = Math.min(STAGE_MIN, Math.round(window.height * 0.28));
   const stageHeight = Math.round(
-    Math.min(STAGE_MAX, Math.max(STAGE_MIN, window.height * stageShare)),
+    Math.min(STAGE_MAX, Math.max(stageFloor, window.height * stageShare)),
   );
+  const fontScale = PixelRatio.getFontScale();
+  const titleSize = window.width < 380 ? 28 : theme.type.display;
   const isLast = step === total - 1;
   // The last page asks a question instead of moving on, so it owns the bottom
   // bar: the two answers replace the single "start" button.
@@ -119,14 +125,18 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
     >
       <Safe edges={['top', 'bottom']}>
         <Top>
-          <Skip
-            accessibilityLabel={copy.onboarding.skip}
-            accessibilityRole="button"
-            onPress={skip}
-            testID="onboarding-skip"
-          >
-            <SkipText>{copy.onboarding.skip}</SkipText>
-          </Skip>
+          {/* The last page already offers the same exit as its own answer;
+              two ways out with different names read as two features. */}
+          {isInviteStep ? null : (
+            <Skip
+              accessibilityLabel={copy.onboarding.skip}
+              accessibilityRole="button"
+              onPress={skip}
+              testID="onboarding-skip"
+            >
+              <SkipText>{copy.onboarding.skip}</SkipText>
+            </Skip>
+          )}
         </Top>
 
         <Pager
@@ -137,6 +147,7 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
           pagingEnabled
           ref={pager}
           showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
           testID="onboarding-pager"
         >
           {steps.slice(0, total).map((page, index) => {
@@ -164,7 +175,6 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
                 <PageBody>
                   <GlowFrame style={{ width: slideStageWidth }}>
                     <GlowHalo />
-                    <GlowRing />
                     <Stage
                       accessible
                       accessibilityLabel={copy.onboarding.stepPosition(
@@ -195,11 +205,8 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
                         />
                       )}
                     </Stage>
-                  </GlowFrame>
-
-                  {slide.id === 'couple' ? (
-                    <TitleRow>
-                      <SparkShell
+                    {slide.id === 'couple' ? (
+                      <SparkBadge
                         accessibilityElementsHidden
                         importantForAccessibility="no-hide-descendants"
                       >
@@ -209,16 +216,22 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
                           progress={prefersReducedMotion ? 0.5 : undefined}
                           source={require('../../../assets/lottie/shared.json')}
                         />
-                      </SparkShell>
-                      <Title style={titleFlex}>{page.title}</Title>
-                    </TitleRow>
-                  ) : (
-                    <Title>{page.title}</Title>
-                  )}
-                  <Body>{page.body}</Body>
-                  <Example>
-                    <ExampleText>{page.example}</ExampleText>
-                  </Example>
+                      </SparkBadge>
+                    ) : null}
+                  </GlowFrame>
+
+                  <Title
+                    style={{
+                      fontSize: titleSize,
+                      lineHeight: (titleSize + 4) * fontScale,
+                      minHeight: (titleSize + 4) * 2 * fontScale,
+                    }}
+                  >
+                    {page.title}
+                  </Title>
+                  <Body style={{ lineHeight: 23 * fontScale }}>
+                    {page.body}
+                  </Body>
                 </PageBody>
               </Page>
             );
@@ -295,8 +308,10 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
             </Later>
           </BottomStacked>
         ) : (
-          <Bottom>
-            <Dots>
+          /* Same shape as every other page: the primary button never moves
+             or changes width between steps. */
+          <BottomStacked>
+            <Dots $centered>
               {steps.slice(0, total).map((_, index) => (
                 <Dot
                   $active={index === step}
@@ -306,7 +321,7 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
               ))}
             </Dots>
 
-            <Next
+            <Invite
               accessibilityLabel={
                 isLast ? copy.onboarding.start : copy.onboarding.next
               }
@@ -317,8 +332,8 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
               <NextText pointerEvents="none">
                 {isLast ? copy.onboarding.start : copy.onboarding.next}
               </NextText>
-            </Next>
-          </Bottom>
+            </Invite>
+          </BottomStacked>
         )}
       </Safe>
     </Cover>
@@ -411,17 +426,6 @@ const GlowHalo = styled.View`
   opacity: 0.16;
 `;
 
-const GlowRing = styled.View`
-  position: absolute;
-  top: -7px;
-  left: -7px;
-  right: -7px;
-  bottom: -7px;
-  border-radius: 27px;
-  background-color: ${({ theme }) => theme.colors.accent};
-  opacity: 0.38;
-`;
-
 /* A product frame: the capture sits inside a card ringed by the accent, and
    nothing spills outside it. */
 const Stage = styled.View`
@@ -434,18 +438,14 @@ const Stage = styled.View`
   overflow: hidden;
 `;
 
-const TitleRow = styled.View`
-  flex-direction: row;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.small}px;
-`;
-
-const titleFlex = { flex: 1 } as const;
-
-const SparkShell = styled.View`
+/* Floats over the halo's top-right corner: alive, but never pushing the
+   text column out of alignment. */
+const SparkBadge = styled.View`
+  position: absolute;
+  top: -18px;
+  right: -14px;
   width: 44px;
   height: 44px;
-  margin-top: ${({ theme }) => theme.spacing.extraLarge}px;
 `;
 
 const Spark = styled(LottieView)`
@@ -479,34 +479,6 @@ const Body = styled.Text`
   margin-top: ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const Example = styled.View`
-  align-self: flex-start;
-  background-color: ${({ theme }) => theme.colors.card};
-  border-width: 1px;
-  border-color: ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.radii.pill}px;
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
-  padding: ${({ theme }) => theme.spacing.small}px
-    ${({ theme }) => theme.spacing.medium}px;
-`;
-
-const ExampleText = styled.Text`
-  color: ${({ theme }) => theme.colors.accentInk};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 700;
-`;
-
-const Bottom = styled.View`
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  align-self: center;
-  width: 100%;
-  max-width: ${PAGE_MAX_WIDTH}px;
-  padding: 0px ${({ theme }) => theme.spacing.large}px
-    ${({ theme }) => theme.spacing.large}px;
-`;
-
 /* Same padding as the row above, stacked: the progress, the answer, and the
    way out. No surface of its own — the spacing is what groups it. */
 const BottomStacked = styled.View`
@@ -531,15 +503,6 @@ const Dot = styled.View<{ $active: boolean }>`
   border-radius: ${({ theme }) => theme.radii.pill}px;
   background-color: ${({ theme, $active }) =>
     $active ? theme.colors.accent : theme.colors.border};
-`;
-
-const Next = styled(PressableScale)`
-  background-color: ${({ theme }) => theme.colors.accent};
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  min-height: 48px;
-  align-items: center;
-  justify-content: center;
-  padding: 0px 28px;
 `;
 
 const Invite = styled(PressableScale)`
