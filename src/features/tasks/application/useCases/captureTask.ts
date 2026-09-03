@@ -1,3 +1,4 @@
+import { clampRemindDays } from '../../domain/DeadlineReminder';
 import { isCaptureUsable, parseCapture } from '../../domain/QuickCapture';
 import { addSubtask, type Subtask } from '../../domain/Subtask';
 import type { Task, TaskPriority } from '../../domain/Task';
@@ -28,6 +29,9 @@ export interface CaptureOverrides {
   priority?: TaskPriority;
   dueAtMs?: number | null;
   listId?: string | null;
+  /** How many days before the deadline to say something. Only meaningful with
+   * a date: without one there is nothing to count back from. */
+  remindDaysBefore?: number | null;
   /** A list can only be born from an explicit UI action, never from a guessed
    * `#name` in the task text. */
   newListName?: string;
@@ -78,6 +82,8 @@ export function captureTask(
     [],
   );
 
+  const dueAtMs =
+    overrides.dueAtMs === undefined ? draft.dueAtMs : overrides.dueAtMs;
   const task: Task = {
     id: createId(nowMs),
     title: draft.title,
@@ -86,8 +92,14 @@ export function captureTask(
         ? explicitList?.id ?? newList?.id ?? existingList?.id ?? INBOX_LIST_ID
         : chosenListId ?? INBOX_LIST_ID,
     priority: overrides.priority ?? draft.priority,
-    dueAtMs:
-      overrides.dueAtMs === undefined ? draft.dueAtMs : overrides.dueAtMs,
+    dueAtMs,
+    // Asked for in the sheet, and only kept when the date it counts back from
+    // leaves room for it.
+    remindDaysBefore: clampRemindDays(
+      dueAtMs,
+      overrides.remindDaysBefore ?? null,
+      nowMs,
+    ),
     estimatedMinutes: draft.estimatedMinutes,
     createdAtMs: nowMs,
     completedAtMs: null,

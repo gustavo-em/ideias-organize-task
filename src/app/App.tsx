@@ -169,6 +169,7 @@ function AppContent({
     groupStreakStore: asyncStorageGroupStreakStore,
     clipboard: systemClipboard,
     identity,
+    language: app.language,
     dayCapacity: app.dayCapacity,
     onRemoteProject: activity.onRemoteProject,
   });

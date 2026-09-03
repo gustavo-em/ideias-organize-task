@@ -86,6 +86,40 @@ export function TagGlyph({ color, size = 13 }: GlyphProps) {
   );
 }
 
+/**
+ * Saying something before a deadline arrives.
+ *
+ * Outline only, at the same stroke as the calendar it stands next to: the
+ * reminder is a companion to the date, not a warning about it. Nothing is
+ * filled, so it never reads as an alarm going off.
+ */
+export function BellGlyph({ color, size = 13 }: GlyphProps) {
+  return (
+    <Svg height={size} viewBox="0 0 16 16" width={size}>
+      <Path
+        d="M3.4 11.2c.9-.9 1.2-1.7 1.2-3.1V7.3a3.4 3.4 0 0 1 6.8 0v.8c0 1.4.3 2.2 1.2 3.1Z"
+        fill="none"
+        stroke={color}
+        strokeLinejoin="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M6.6 13.1a1.6 1.6 0 0 0 2.8 0"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M8 2.6v1.3"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+    </Svg>
+  );
+}
+
 /** Time passing, for a task that has been sitting untouched. It is not a
  * deadline, so it must not wear the calendar. */
 export function ClockGlyph({ color, size = 13 }: GlyphProps) {

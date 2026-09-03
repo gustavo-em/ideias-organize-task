@@ -548,6 +548,7 @@ export function ListsScreen({
             priority: editingTask.priority,
             dueAtMs: editingTask.dueAtMs,
             listId: editingTask.listId,
+            remindDaysBefore: editingTask.remindDaysBefore,
             subtasks: editingTask.subtasks,
           }}
           language={language}

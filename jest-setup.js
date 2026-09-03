@@ -85,18 +85,35 @@ jest.mock('lottie-react-native', () => {
   };
 });
 
-jest.mock('@notifee/react-native', () => ({
-  __esModule: true,
-  AndroidImportance: { DEFAULT: 3 },
-  AuthorizationStatus: { DENIED: 0, AUTHORIZED: 1, PROVISIONAL: 2 },
-  default: {
-    createChannel: jest.fn(async () => 'project-activity'),
-    displayNotification: jest.fn(async () => undefined),
-    getNotificationSettings: jest.fn(async () => ({ authorizationStatus: 1 })),
-    openNotificationSettings: jest.fn(async () => undefined),
-    requestPermission: jest.fn(async () => ({ authorizationStatus: 1 })),
-  },
-}));
+jest.mock('@notifee/react-native', () => {
+  // Scheduled reminders live here, so a test can read what the phone would be
+  // holding instead of guessing from the calls.
+  const triggers = new Map();
+
+  return {
+    __esModule: true,
+    AndroidImportance: { DEFAULT: 3 },
+    AuthorizationStatus: { DENIED: 0, AUTHORIZED: 1, PROVISIONAL: 2 },
+    TriggerType: { TIMESTAMP: 0, INTERVAL: 1 },
+    __triggers: triggers,
+    default: {
+      createChannel: jest.fn(async () => 'project-activity'),
+      displayNotification: jest.fn(async () => undefined),
+      getNotificationSettings: jest.fn(async () => ({
+        authorizationStatus: 1,
+      })),
+      openNotificationSettings: jest.fn(async () => undefined),
+      requestPermission: jest.fn(async () => ({ authorizationStatus: 1 })),
+      createTriggerNotification: jest.fn(async (notification, trigger) => {
+        triggers.set(notification.id, { notification, trigger });
+      }),
+      getTriggerNotificationIds: jest.fn(async () => [...triggers.keys()]),
+      cancelTriggerNotifications: jest.fn(async ids => {
+        for (const id of ids) triggers.delete(id);
+      }),
+    },
+  };
+});
 
 jest.mock('react-native-background-fetch', () => ({
   __esModule: true,
