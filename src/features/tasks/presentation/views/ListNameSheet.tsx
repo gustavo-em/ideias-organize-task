@@ -547,10 +547,9 @@ const IconOption = styled(PressableScale)<{ $selected: boolean }>`
   justify-content: center;
   border: 1px solid
     ${({ theme, $selected }) =>
-      $selected ? theme.colors.accentInk : theme.colors.border};
+      $selected ? theme.colors.accent : theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  background-color: ${({ theme, $selected }) =>
-    $selected ? theme.colors.cardElevated : theme.colors.card};
+  background-color: ${({ theme }) => theme.colors.card};
 `;
 
 const ShareRow = styled(PressableScale)`
@@ -627,7 +626,7 @@ const TemplateCard = styled(PressableScale)<{
   border-width: ${({ $focused }) => ($focused ? 2 : 1)}px;
   border-style: ${({ $blank }) => ($blank ? 'dashed' : 'solid')};
   border-color: ${({ theme, $focused }) =>
-    $focused ? theme.colors.accentInk : theme.colors.border};
+    $focused ? theme.colors.accent : theme.colors.border};
   background-color: ${({ theme, $blank }) =>
     $blank ? theme.colors.background : theme.colors.card};
 `;

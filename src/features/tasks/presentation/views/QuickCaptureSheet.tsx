@@ -1085,9 +1085,9 @@ const RecurrenceOption = styled(PressableScale)<{ $active: boolean }>`
   border-radius: ${({ theme }) => theme.radii.medium}px;
   border: 1px solid
     ${({ theme, $active }) =>
-      $active ? theme.colors.accentInk : theme.colors.border};
+      $active ? theme.colors.accent : theme.colors.border};
   background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.cardElevated : 'transparent'};
+    $active ? theme.colors.card : 'transparent'};
 `;
 
 const RecurrenceText = styled.Text<{ $active: boolean }>`
@@ -1176,9 +1176,9 @@ const ChipBase = styled(PressableScale)`
 const DateChip = styled(ChipBase)<{ $open: boolean; $set: boolean }>`
   border-radius: ${({ theme }) => theme.radii.small}px;
   border-color: ${({ theme, $open, $set }) =>
-    $open || $set ? theme.colors.accentInk : theme.colors.border};
+    $open || $set ? theme.colors.accent : theme.colors.border};
   background-color: ${({ theme, $open }) =>
-    $open ? theme.colors.cardElevated : 'transparent'};
+    $open ? theme.colors.card : 'transparent'};
 `;
 
 /** The only chip that carries colour, because priority is the only one of the
@@ -1203,9 +1203,9 @@ const PriorityChip = styled(ChipBase)<{
 const ListChip = styled(ChipBase)<{ $open: boolean }>`
   border-radius: ${({ theme }) => theme.radii.pill}px;
   border-color: ${({ theme, $open }) =>
-    $open ? theme.colors.accentInk : theme.colors.border};
+    $open ? theme.colors.accent : theme.colors.border};
   background-color: ${({ theme, $open }) =>
-    $open ? theme.colors.cardElevated : 'transparent'};
+    $open ? theme.colors.card : 'transparent'};
 `;
 
 const ChipText = styled.Text.attrs(buttonTextAttrs)<{
@@ -1288,10 +1288,9 @@ const SyntaxToggle = styled(PressableScale)<{ $open: boolean }>`
   justify-content: center;
   border-radius: ${({ theme }) => theme.radii.pill}px;
   border: 1px solid
-    ${({ theme, $open }) =>
-      $open ? theme.colors.accentInk : theme.colors.border};
+    ${({ theme, $open }) => ($open ? theme.colors.accent : theme.colors.border)};
   background-color: ${({ theme, $open }) =>
-    $open ? theme.colors.cardElevated : 'transparent'};
+    $open ? theme.colors.card : 'transparent'};
 `;
 
 const SyntaxToggleText = styled.Text.attrs(buttonTextAttrs)<{
