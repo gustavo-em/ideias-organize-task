@@ -766,6 +766,11 @@ const ptBR: TaskCopy = {
   onboarding: {
     steps: [
       {
+        title: 'A vida a dois, combinada',
+        body: 'Planejem as tarefas da semana juntos — e deixem o app lembrar as datas de vocês: aniversário de namoro, de casamento, do par.',
+        example: 'Ex.: lembrete anual “Aniversário de namoro”.',
+      },
+      {
         title: 'Suas tarefas e seus espaços',
         body: 'Anote em segundos, dê prazo e prioridade, e organize tudo em espaços: casa, trabalho, viagem.',
         example: 'Ex.: “Pagar a internet”, hoje, no espaço Casa.',
@@ -1165,6 +1170,11 @@ const enUS: TaskCopy = {
   },
   onboarding: {
     steps: [
+      {
+        title: 'Life together, agreed on',
+        body: 'Plan the week’s tasks together — and let the app remember your dates: dating and wedding anniversaries, each other’s birthday.',
+        example: 'Like a yearly reminder “Dating anniversary”.',
+      },
       {
         title: 'Your tasks and your spaces',
         body: 'Jot it down in seconds, give it a date and a priority, and keep everything in spaces: home, work, travel.',
