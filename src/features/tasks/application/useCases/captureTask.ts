@@ -1,7 +1,12 @@
 import { clampRemindDays } from '../../domain/DeadlineReminder';
 import { isCaptureUsable, parseCapture } from '../../domain/QuickCapture';
 import { addSubtask, type Subtask } from '../../domain/Subtask';
-import type { Task, TaskPriority } from '../../domain/Task';
+import type {
+  ReminderRecurrence,
+  Task,
+  TaskKind,
+  TaskPriority,
+} from '../../domain/Task';
 import type { TaskEvent, UseCaseResult } from '../../domain/TaskEvent';
 import {
   createList,
@@ -39,6 +44,11 @@ export interface CaptureOverrides {
    * subtasks: the identifiers are minted here, with the task itself, so a
    * draft that was cancelled never leaves anything behind. */
   subtaskTitles?: readonly string[];
+  /** Task or reminder, chosen in the sheet. A reminder carries none of the
+   * work fields: no priority to speak of, no estimate, no steps. */
+  kind?: TaskKind;
+  /** How often a reminder comes back. Ignored while capturing a task. */
+  recurrence?: ReminderRecurrence;
 }
 
 /**
@@ -84,6 +94,10 @@ export function captureTask(
 
   const dueAtMs =
     overrides.dueAtMs === undefined ? draft.dueAtMs : overrides.dueAtMs;
+  // A reminder is a date that comes back, so without one there is nothing to
+  // remind about: the item is kept as the task it looks like rather than saved
+  // as something that can never speak.
+  const isReminderItem = overrides.kind === 'reminder' && dueAtMs != null;
   const task: Task = {
     id: createId(nowMs),
     title: draft.title,
@@ -91,21 +105,21 @@ export function captureTask(
       chosenListId === undefined
         ? explicitList?.id ?? newList?.id ?? existingList?.id ?? INBOX_LIST_ID
         : chosenListId ?? INBOX_LIST_ID,
-    priority: overrides.priority ?? draft.priority,
+    priority: isReminderItem ? 'medium' : overrides.priority ?? draft.priority,
     dueAtMs,
     // Asked for in the sheet, and only kept when the date it counts back from
     // leaves room for it.
-    remindDaysBefore: clampRemindDays(
-      dueAtMs,
-      overrides.remindDaysBefore ?? null,
-      nowMs,
-    ),
-    estimatedMinutes: draft.estimatedMinutes,
+    remindDaysBefore: isReminderItem
+      ? null
+      : clampRemindDays(dueAtMs, overrides.remindDaysBefore ?? null, nowMs),
+    estimatedMinutes: isReminderItem ? null : draft.estimatedMinutes,
     createdAtMs: nowMs,
     completedAtMs: null,
     // Written with the task or added later, from the task itself. Either way
     // the task lands complete: one capture, one event.
-    subtasks,
+    subtasks: isReminderItem ? [] : subtasks,
+    kind: isReminderItem ? 'reminder' : 'task',
+    ...(isReminderItem ? { recurrence: overrides.recurrence ?? 'once' } : {}),
   };
 
   const tasks = [task, ...workspace.tasks];

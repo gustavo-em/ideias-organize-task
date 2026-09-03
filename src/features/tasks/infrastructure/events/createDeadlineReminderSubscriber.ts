@@ -3,6 +3,7 @@ import type { TaskEventBus } from '../../domain/TaskEvent';
 import type { Workspace } from '../../domain/Workspace';
 import type { AppLanguage } from '../../presentation/localization/taskCopy';
 import { syncDeadlineReminders } from '../notifications/notifeeDeadlineScheduler';
+import { syncReminderAlerts } from '../notifications/notifeeReminderScheduler';
 
 interface DeadlineReminderDependencies {
   language: AppLanguage;
@@ -11,6 +12,8 @@ interface DeadlineReminderDependencies {
    * row should reach the notification centre once. */
   debounceMs?: number;
   sync?: typeof syncDeadlineReminders;
+  /** Same sweep, for the reminders: one commit re-states both sets. */
+  syncReminders?: typeof syncReminderAlerts;
 }
 
 const DEFAULT_DEBOUNCE_MS = 600;
@@ -31,6 +34,7 @@ export function createDeadlineReminderSubscriber(
     now,
     debounceMs = DEFAULT_DEBOUNCE_MS,
     sync = syncDeadlineReminders,
+    syncReminders = syncReminderAlerts,
   } = dependencies;
 
   let pending: Workspace | null = null;
@@ -43,7 +47,11 @@ export function createDeadlineReminderSubscriber(
     if (workspace == null) return;
 
     pending = null;
-    sync(workspace.tasks, now(), language).catch(() => undefined);
+
+    const atMs = now();
+
+    sync(workspace.tasks, atMs, language).catch(() => undefined);
+    syncReminders(workspace.tasks, atMs, language).catch(() => undefined);
   }
 
   const unsubscribe = bus.on('workspace.committed', event => {

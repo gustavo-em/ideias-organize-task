@@ -99,6 +99,7 @@ import { createPersistenceSubscriber } from '../../infrastructure/events/createP
 import { createDeadlineReminderSubscriber } from '../../infrastructure/events/createDeadlineReminderSubscriber';
 import { createSharePushSubscriber } from '../../infrastructure/events/createSharePushSubscriber';
 import { syncDeadlineReminders } from '../../infrastructure/notifications/notifeeDeadlineScheduler';
+import { syncReminderAlerts } from '../../infrastructure/notifications/notifeeReminderScheduler';
 import { createUsageSubscriber } from '../../infrastructure/events/createUsageSubscriber';
 import { createId } from '../../../../shared/identity/createId';
 import type { AppLanguage } from '../localization/taskCopy';
@@ -299,6 +300,12 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     if (restored == null) return;
 
     syncDeadlineReminders(current.current.tasks, clock.now(), language).catch(
+      () => undefined,
+    );
+    // Reminders are re-armed on the same pass: their alerts are a handful of
+    // timestamps held ahead, so opening the app is what refills the ones that
+    // already fired.
+    syncReminderAlerts(current.current.tasks, clock.now(), language).catch(
       () => undefined,
     );
 

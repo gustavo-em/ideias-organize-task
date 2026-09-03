@@ -21,10 +21,17 @@ import {
   renameSubtask,
   type Subtask,
 } from '../../domain/Subtask';
-import type { TaskPriority } from '../../domain/Task';
+import {
+  reminderRecurrences,
+  type ReminderRecurrence,
+  type TaskKind,
+  type TaskPriority,
+} from '../../domain/Task';
+import { nextOccurrenceAtMs } from '../../domain/Reminder';
 import { findListByName, type TaskList } from '../../domain/TaskList';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
 import { CalendarPanel } from './CalendarPanel';
+import { formatDateLabel } from '../models/dateLabel';
 import {
   BellGlyph,
   CalendarGlyph,
@@ -77,6 +84,13 @@ export interface SheetSubject {
   remindDaysBefore?: number | null;
   /** The steps inside it. Only editing has them: capture stays one field. */
   subtasks: readonly Subtask[];
+  /** Task or reminder, so reopening one shows the type it was saved as. */
+  kind?: TaskKind;
+  /** How often a reminder comes back. */
+  recurrence?: ReminderRecurrence;
+  /** True for a task already ticked. The type cannot be changed there: turning
+   * finished work into memory would quietly take back what it paid. */
+  completed?: boolean;
 }
 
 interface QuickCaptureSheetProps {
@@ -152,7 +166,6 @@ export function QuickCaptureSheet({
   const [typed, setTyped] = useState(editing?.title ?? '');
   const input = useRef<ComponentRef<typeof Field>>(null);
   const draft = useMemo(() => parseCapture(typed, nowMs), [nowMs, typed]);
-  const canSave = typed.trim().length > 0;
   // The sheet rides the keyboard on the UI thread. `KeyboardAvoidingView` is
   // not enough here: the app draws edge to edge, so the window never shrinks
   // and the sheet would sit behind the keys.
@@ -218,6 +231,17 @@ export function QuickCaptureSheet({
   // on its way.
   const pendingSubtaskText = useRef('');
 
+  // Task or reminder, chosen before anything else: the two are written with
+  // different fields, and the sheet says which one it is showing.
+  const [kind, setKind] = useState<TaskKind>(editing?.kind ?? 'task');
+  const [recurrence, setRecurrence] = useState<ReminderRecurrence>(
+    editing?.recurrence ?? 'once',
+  );
+  const isReminderKind = kind === 'reminder';
+  /** Changing the type on a finished task is not offered: the points it paid
+   * are already spent, and memory has nothing to un-tick. */
+  const canChooseKind = !isEditing || editing?.completed !== true;
+
   // Null is a decision here ("no reminder"), so the state carries the task's
   // own answer from the start and never guesses one.
   const [remindDaysBefore, setRemindDaysBefore] = useState<number | null>(
@@ -242,6 +266,15 @@ export function QuickCaptureSheet({
   const defaultDueAtMs = isEditing ? null : endOfDay(nowMs);
   const dueAtMs =
     dueOverride === undefined ? draft.dueAtMs ?? defaultDueAtMs : dueOverride;
+  // When this reminder next speaks, given the date on the chip and the
+  // recurrence below it. Shown while writing, not only while editing: the
+  // answer is what makes "todo ano" mean something.
+  const nextAlertAtMs = isReminderKind
+    ? nextOccurrenceAtMs(dueAtMs, recurrence, nowMs)
+    : null;
+  // A reminder is a date that comes back, so it cannot be saved without one.
+  const canSave =
+    typed.trim().length > 0 && (!isReminderKind || dueAtMs != null);
   const isUsingDefaultDue =
     dueOverride === undefined && draft.dueAtMs == null && dueAtMs != null;
   const typedList = findListByName(lists, draft.listName);
@@ -310,8 +343,8 @@ export function QuickCaptureSheet({
 
   // A chip that already carries an answer shows itself, expanded or not: what
   // the text was understood as is never hidden behind a disclosure.
-  const showDate = expanded || dueAtMs != null;
-  const showPriority = expanded || priorityChosen;
+  const showDate = isReminderKind || expanded || dueAtMs != null;
+  const showPriority = !isReminderKind && (expanded || priorityChosen);
   const showList =
     expanded ||
     listId != null ||
@@ -319,13 +352,14 @@ export function QuickCaptureSheet({
     (listOverride === undefined && draft.listName != null);
   // Nothing to count back from means nothing to offer: a task with no date
   // never carries the control, and the smallest layer never does either.
-  const showReminder = dueAtMs != null && (expanded || remindDays != null);
+  const showReminder =
+    !isReminderKind && dueAtMs != null && (expanded || remindDays != null);
   const showChips =
     showDate ||
     showPriority ||
     showList ||
     showReminder ||
-    estimateMinutes != null;
+    (!isReminderKind && estimateMinutes != null);
 
   useEffect(() => {
     // The keyboard is the point of this screen; opening it is not the user's
@@ -430,8 +464,14 @@ export function QuickCaptureSheet({
     onSubmit(
       typed,
       {
-        ...(isEditing || subtaskTitles.length === 0 ? {} : { subtaskTitles }),
-        ...(priorityOverride == null ? {} : { priority: priorityOverride }),
+        kind,
+        ...(isReminderKind ? { recurrence } : {}),
+        ...(isEditing || isReminderKind || subtaskTitles.length === 0
+          ? {}
+          : { subtaskTitles }),
+        ...(priorityOverride == null || isReminderKind
+          ? {}
+          : { priority: priorityOverride }),
         ...(dueOverride === undefined
           ? // Saving without touching the date keeps the day the chip has been
             // showing all along: today.
@@ -441,7 +481,7 @@ export function QuickCaptureSheet({
           : { dueAtMs: dueOverride }),
         // Always stated, so turning a reminder off is as much a decision as
         // turning it on. The use case is what keeps it inside the date.
-        remindDaysBefore: remindDays,
+        remindDaysBefore: isReminderKind ? null : remindDays,
         ...(newListName == null && listOverride === undefined
           ? {}
           : newListName == null
@@ -476,6 +516,42 @@ export function QuickCaptureSheet({
           style={floor}
         >
           <Grabber />
+
+          {/* What is being written, before what it says: a task is work with a
+              priority and steps, a reminder is a date that comes back. Two
+              options, one tap, always in the same place. */}
+          {canChooseKind ? (
+            <KindRow accessibilityRole="radiogroup">
+              <KindOption
+                $active={!isReminderKind}
+                accessibilityLabel={copy.capture.kind.task}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: !isReminderKind }}
+                onPress={() => setKind('task')}
+                testID="capture-kind-task"
+              >
+                <KindText $active={!isReminderKind}>
+                  {copy.capture.kind.task}
+                </KindText>
+              </KindOption>
+              <KindOption
+                $active={isReminderKind}
+                accessibilityLabel={copy.capture.kind.reminder}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isReminderKind }}
+                onPress={() => {
+                  setKind('reminder');
+                  setPanel('none');
+                }}
+                testID="capture-kind-reminder"
+              >
+                <KindText $active={isReminderKind}>
+                  {copy.capture.kind.reminder}
+                </KindText>
+              </KindOption>
+            </KindRow>
+          ) : null}
+
           <Field
             accessibilityLabel={copy.capture.placeholder}
             autoCorrect={false}
@@ -615,6 +691,46 @@ export function QuickCaptureSheet({
             </Chips>
           ) : null}
 
+          {/* How often it comes back, and when it next speaks. Four answers,
+              all on screen: a reminder has no fifth one to hide behind a
+              disclosure. */}
+          {isReminderKind ? (
+            <Recurrence layout={sectionLayout()}>
+              <RecurrenceOptions>
+                {reminderRecurrences.map(option => {
+                  const active = option === recurrence;
+
+                  return (
+                    <RecurrenceOption
+                      $active={active}
+                      accessibilityLabel={copy.capture.recurrence[option]}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: active }}
+                      key={option}
+                      onPress={() => setRecurrence(option)}
+                      testID={`reminder-recurrence-${option}`}
+                    >
+                      <RecurrenceText $active={active}>
+                        {copy.capture.recurrence[option]}
+                      </RecurrenceText>
+                    </RecurrenceOption>
+                  );
+                })}
+              </RecurrenceOptions>
+              <NextAlert testID="capture-next-alert">
+                {nextAlertAtMs == null
+                  ? dueAtMs == null
+                    ? copy.capture.reminderNeedsDate
+                    : // A one-off whose day has passed: the date is there, and
+                      // it simply has nothing left to say.
+                      copy.reminderItem.noNext
+                  : copy.capture.nextAlert(
+                      formatDateLabel(nextAlertAtMs, language, nowMs),
+                    )}
+              </NextAlert>
+            </Recurrence>
+          ) : null}
+
           <Controls>
             <MoreToggle
               accessibilityLabel={
@@ -632,7 +748,7 @@ export function QuickCaptureSheet({
               </MoreToggleText>
             </MoreToggle>
 
-            {isEditing ? null : (
+            {isEditing || isReminderKind ? null : (
               <SyntaxToggle
                 $open={panel === 'syntax'}
                 accessibilityLabel={copy.capture.syntaxTitle}
@@ -740,6 +856,7 @@ export function QuickCaptureSheet({
               stands below the chips and above the hint, and nothing inside it
               opens a list of its own. */}
           {isEditing &&
+          !isReminderKind &&
           editing != null &&
           onAddSubtask != null &&
           onRenameSubtask != null &&
@@ -759,7 +876,7 @@ export function QuickCaptureSheet({
           {/* The same block while the task is still being written. It belongs
               to the second layer: the sheet opens on one field, and only
               "Mais opções" brings the steps into view. */}
-          {!isEditing && expanded ? (
+          {!isEditing && expanded && !isReminderKind ? (
             <SubtaskList
               copy={copy}
               mode="draft"
@@ -790,7 +907,7 @@ export function QuickCaptureSheet({
 
           {/* Who took it, for a task inside a shared project. Nothing is
               reserved for it anywhere else. */}
-          {isEditing && assignment != null ? (
+          {isEditing && !isReminderKind && assignment != null ? (
             <TaskAssignSection assignment={assignment} copy={copy} />
           ) : null}
 
@@ -817,7 +934,7 @@ export function QuickCaptureSheet({
                 </Delete>
               ) : null}
 
-              {isEditing && onFocus != null ? (
+              {isEditing && !isReminderKind && onFocus != null ? (
                 <FocusAction
                   accessibilityLabel={copy.focus.action}
                   accessibilityRole="button"
@@ -909,6 +1026,72 @@ const Sheet = styled(Animated.View)`
      shallower on the keys. */
   padding: ${({ theme }) => theme.spacing.medium}px
     ${({ theme }) => theme.spacing.large}px 0px;
+`;
+
+/* The same "pick one of these" language the list and lead-time panels use:
+   48 tall, an outline when chosen, no new shape invented for two options. */
+const KindRow = styled.View`
+  flex-direction: row;
+  gap: ${({ theme }) => theme.spacing.small - 2}px;
+  margin-bottom: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const KindOption = styled(PressableScale)<{ $active: boolean }>`
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  border: 1px solid
+    ${({ theme, $active }) =>
+      $active ? theme.colors.accentInk : theme.colors.border};
+  background-color: ${({ theme, $active }) =>
+    $active ? theme.colors.cardElevated : 'transparent'};
+`;
+
+const KindText = styled.Text<{ $active: boolean }>`
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: ${({ $active }) => ($active ? 800 : 500)};
+  color: ${({ theme, $active }) =>
+    $active ? theme.colors.text : theme.colors.mutedStrong};
+`;
+
+const Recurrence = styled(Animated.View)`
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+  gap: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const RecurrenceOptions = styled.View`
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: ${({ theme }) => theme.spacing.small - 2}px;
+`;
+
+const RecurrenceOption = styled(PressableScale)<{ $active: boolean }>`
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  border: 1px solid
+    ${({ theme, $active }) =>
+      $active ? theme.colors.accentInk : theme.colors.border};
+  background-color: ${({ theme, $active }) =>
+    $active ? theme.colors.cardElevated : 'transparent'};
+`;
+
+const RecurrenceText = styled.Text<{ $active: boolean }>`
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: ${({ $active }) => ($active ? 800 : 500)};
+  color: ${({ theme, $active }) =>
+    $active ? theme.colors.text : theme.colors.mutedStrong};
+`;
+
+/* A statement about the reminder, in the quietest ink on the sheet. */
+const NextAlert = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.caption}px;
 `;
 
 const Grabber = styled.View`

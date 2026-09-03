@@ -2,7 +2,9 @@ import { clampRemindDays } from '../../domain/DeadlineReminder';
 import {
   findTask,
   replaceTask,
+  type ReminderRecurrence,
   type Task,
+  type TaskKind,
   type TaskPriority,
 } from '../../domain/Task';
 import type { TaskEvent, UseCaseResult } from '../../domain/TaskEvent';
@@ -27,6 +29,11 @@ export interface TaskEdit {
    * reminder. Kept inside what the deadline allows, so pulling a date closer
    * cannot leave a reminder pointing at the past. */
   remindDaysBefore?: number | null;
+  /** Task or reminder. Changing it keeps the title, the date and the space,
+   * and drops what the other kind has no room for. */
+  kind?: TaskKind;
+  /** How often a reminder comes back. Ignored on a task. */
+  recurrence?: ReminderRecurrence;
 }
 
 /** Longest title kept, matching what capture allows. */
@@ -53,6 +60,16 @@ export function editTask(
       ? task.remindDaysBefore ?? null
       : edit.remindDaysBefore;
 
+  // A reminder is a date that comes back: asked for without one, the item
+  // stays the task it already was.
+  const kind: TaskKind =
+    (edit.kind ?? task.kind ?? 'task') === 'reminder' && dueAtMs != null
+      ? 'reminder'
+      : 'task';
+  const isReminderItem = kind === 'reminder';
+  const recurrence: ReminderRecurrence =
+    edit.recurrence ?? task.recurrence ?? 'once';
+
   // A title erased to nothing is a slip, not an instruction: the old one stays.
   const next: Task = {
     ...task,
@@ -61,15 +78,34 @@ export function editTask(
     dueAtMs,
     // A deadline moved closer takes the reminder with it: what no longer fits
     // becomes the earliest day that does, and a deadline removed removes it.
-    remindDaysBefore: clampRemindDays(dueAtMs, askedDays, nowMs),
+    remindDaysBefore: isReminderItem
+      ? null
+      : clampRemindDays(dueAtMs, askedDays, nowMs),
     listId:
       edit.listId === undefined ? task.listId : edit.listId ?? INBOX_LIST_ID,
+    kind,
+    // Turning something into a reminder empties what memory has no use for:
+    // the steps, who took it, the estimate and any completion it carried.
+    ...(isReminderItem
+      ? {
+          recurrence,
+          subtasks: [],
+          assignedIds: [],
+          estimatedMinutes: null,
+          completedAtMs: null,
+          completedBy: null,
+        }
+      : // Back to work: the recurrence goes with the reminder it belonged to,
+        // rather than travelling on as a field nothing reads.
+        { recurrence: undefined }),
   };
 
   const unchanged =
     next.title === task.title &&
     next.priority === task.priority &&
     next.dueAtMs === task.dueAtMs &&
+    next.kind === (task.kind ?? 'task') &&
+    (next.recurrence ?? null) === (task.recurrence ?? null) &&
     // A task written before reminders existed has no field at all, and "no
     // field" and "no reminder" are the same answer: comparing them raw made
     // every old task look edited by the act of opening it.

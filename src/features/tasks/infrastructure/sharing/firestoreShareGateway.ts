@@ -56,6 +56,11 @@ function taskToRecord(task: Task): Record<string, unknown> {
     createdAtMs: task.createdAtMs,
     completedAtMs: task.completedAtMs,
     completedBy: task.completedBy ?? null,
+    // What the item is, and how often it comes back. Written for everybody, so
+    // a reminder pulled by another member stays a reminder there. A client
+    // built before this reads both as unknown fields and simply ignores them.
+    kind: task.kind ?? 'task',
+    recurrence: task.recurrence ?? null,
     // Steps ride inside the task, on the same document and the same
     // last-write-wins rule: whoever may edit the content may edit them.
     subtasks: task.subtasks.map(subtask => ({

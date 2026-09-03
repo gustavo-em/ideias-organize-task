@@ -7,6 +7,7 @@ import {
 import {
   findTask,
   isCompleted,
+  isReminder,
   replaceTask,
   taskWeight,
   withCompletion,
@@ -32,7 +33,9 @@ export function toggleTask(
 ): UseCaseResult {
   const task = findTask(workspace.tasks, taskId);
 
-  if (task == null) return { workspace, events: [] };
+  // A reminder has nothing to tick: it is memory, not work. The row draws no
+  // box, and this is the same answer for anything that reaches here anyway.
+  if (task == null || isReminder(task)) return { workspace, events: [] };
 
   const weight = taskWeight(task);
   const inTrio = workspace.trio.taskIds.includes(task.id);

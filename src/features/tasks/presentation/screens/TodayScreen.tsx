@@ -208,7 +208,11 @@ export function TodayScreen({
     isDeadlineLens &&
     !isFullyEmpty &&
     (agoraSection == null || agoraSection.tasks.length === 0);
-  const nextTask = isCaughtUpToday ? restSections[0]?.tasks[0] ?? null : null;
+  // "Próxima" is about work. A reminder is not the next thing to do, so the
+  // band looks past its section for one.
+  const nextTask = isCaughtUpToday
+    ? restSections.find(section => section.id !== 'reminders')?.tasks[0] ?? null
+    : null;
 
   function listInfoOf(task: Task) {
     const list =
@@ -411,6 +415,7 @@ export function TodayScreen({
                       }
                       index={index}
                       key={task.id}
+                      language={language}
                       lens={grouping}
                       // The inbox is passed like any other list. Hiding it
                       // left the fact column blank on exactly the tasks that
@@ -462,6 +467,9 @@ export function TodayScreen({
             listId: editingTask.listId,
             remindDaysBefore: editingTask.remindDaysBefore,
             subtasks: editingTask.subtasks,
+            kind: editingTask.kind,
+            recurrence: editingTask.recurrence,
+            completed: editingTask.completedAtMs != null,
           }}
           language={language}
           lists={viewModel.lists}
@@ -527,6 +535,7 @@ export function TodayScreen({
 interface HomeTaskRowProps {
   copy: TaskCopy;
   index: number;
+  language: AppLanguage;
   lens: HomeGrouping;
   listColor: ListColor | null;
   listIcon: ProjectIcon | null;
@@ -549,6 +558,7 @@ interface HomeTaskRowProps {
 const HomeTaskRow = memo(function HomeTaskRowView({
   copy,
   index,
+  language,
   lens,
   listColor,
   listIcon,
@@ -571,6 +581,7 @@ const HomeTaskRow = memo(function HomeTaskRowView({
       copy={copy}
       focus={focus}
       index={index}
+      language={language}
       lens={lens}
       listColor={listColor}
       listIcon={listIcon}

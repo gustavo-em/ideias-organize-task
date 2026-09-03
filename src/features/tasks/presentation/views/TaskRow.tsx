@@ -3,15 +3,22 @@ import styled, { useTheme } from 'styled-components/native';
 
 import { useRenderCount } from '../../../../app/perf/sheetPerf';
 import { daysBetween } from '../../domain/Day';
-import { isCompleted, taskWeight, type Task } from '../../domain/Task';
+import { nextReminderAtMs, recurrenceOf } from '../../domain/Reminder';
+import {
+  isCompleted,
+  isReminder,
+  taskWeight,
+  type Task,
+} from '../../domain/Task';
 import type { ListColor, ProjectIcon } from '../../domain/TaskList';
 import { rowEnter, rowExit, rowLayout } from '../../../../app/animation/motion';
-import type { TaskCopy } from '../localization/taskCopy';
+import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
+import { formatDateLabel } from '../models/dateLabel';
 import type { HomeGrouping } from '../models/homeSections';
 import { rowFact } from '../models/rowFact';
 import { projectTone } from '../models/projectAppearance';
 import { describeTask, taskFacts } from '../models/taskMeta';
-import { ProjectGlyph } from './FieldGlyphs';
+import { BellGlyph, ProjectGlyph } from './FieldGlyphs';
 import { FocusDot, focusStatusText, minutesLeft } from './FocusDot';
 import { PressableScale } from './PressableScale';
 import { TaskCheckbox } from './TaskCheckbox';
@@ -19,6 +26,8 @@ import { TaskCheckbox } from './TaskCheckbox';
 interface TaskRowProps {
   task: Task;
   copy: TaskCopy;
+  /** Only used to write the date a reminder next speaks on. */
+  language: AppLanguage;
   listName: string | null;
   listColor: ListColor | null;
   listIcon: ProjectIcon | null;
@@ -58,6 +67,7 @@ export interface FocusRowState {
 export function TaskRow({
   task,
   copy,
+  language,
   listName,
   listColor,
   listIcon,
@@ -71,6 +81,20 @@ export function TaskRow({
 }: TaskRowProps) {
   useRenderCount('TaskRow');
   const theme = useTheme();
+
+  if (isReminder(task)) {
+    return (
+      <ReminderRow
+        copy={copy}
+        index={index}
+        language={language}
+        nowMs={nowMs}
+        onEdit={onEdit}
+        task={task}
+      />
+    );
+  }
+
   const done = isCompleted(task);
   const facts = taskFacts(task, nowMs, copy, listName);
   const fact = rowFact({
@@ -167,6 +191,77 @@ export function TaskRow({
   );
 }
 
+/**
+ * A reminder, on the same line as everything else.
+ *
+ * No box to tick: there is nothing to finish, and drawing a disabled checkbox
+ * would be offering a control that refuses. The bell says which kind of item
+ * this is at a glance, and the right-hand slot says when it next speaks — the
+ * same slot the deadline uses on a task, in the same quiet ink.
+ */
+function ReminderRow({
+  copy,
+  index,
+  language,
+  nowMs,
+  onEdit,
+  task,
+}: {
+  copy: TaskCopy;
+  index: number;
+  language: AppLanguage;
+  nowMs: number;
+  onEdit?: () => void;
+  task: Task;
+}) {
+  const theme = useTheme();
+  const nextAtMs = nextReminderAtMs(task, nowMs);
+  const when =
+    nextAtMs == null
+      ? copy.reminderItem.noNext
+      : copy.reminderItem.next(formatDateLabel(nextAtMs, language, nowMs));
+  const howOften = copy.capture.recurrence[recurrenceOf(task)];
+
+  return (
+    <Row entering={rowEnter(index)} exiting={rowExit()} layout={rowLayout()}>
+      {/* Decorative: the kind is spoken in the label below, and a second
+          announcement would only repeat it. */}
+      <Glyph
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+        pointerEvents="none"
+      >
+        <BellGlyph color={theme.colors.mutedStrong} size={18} />
+      </Glyph>
+
+      <Main
+        accessibilityLabel={`${copy.reminderItem.a11yKind}. ${task.title}. ${howOften}. ${when}`}
+        accessibilityRole="button"
+        disabled={onEdit == null}
+        /* Opening the sheet is the row's only action, and the text alone is
+           20dp tall. The slop covers the row's own padding, so the whole line
+           answers without a single pixel being redrawn. */
+        hitSlop={{ bottom: 14, left: 0, right: 0, top: 14 }}
+        onPress={onEdit}
+        scaleTo={0.99}
+        testID={`reminder-${task.id}`}
+      >
+        <Title $done={false} numberOfLines={1}>
+          {task.title}
+        </Title>
+      </Main>
+
+      <Fact>
+        <FactText $tone="mutedStrong" $weight={500}>
+          {nextAtMs == null
+            ? copy.reminderItem.noNext
+            : formatDateLabel(nextAtMs, language, nowMs)}
+        </FactText>
+      </Fact>
+    </Row>
+  );
+}
+
 /** The block, shown where the fact used to be. */
 function FocusPill({
   copy,
@@ -200,6 +295,15 @@ const Row = styled(Animated.View)`
   align-items: center;
   gap: ${({ theme }) => theme.spacing.small + 5}px;
   padding: ${({ theme }) => theme.spacing.medium - 1}px 0px;
+`;
+
+/* Exactly the footprint the checkbox leaves, so a list of tasks and reminders
+   keeps one left edge. */
+const Glyph = styled.View`
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
 `;
 
 const Main = styled(PressableScale)`

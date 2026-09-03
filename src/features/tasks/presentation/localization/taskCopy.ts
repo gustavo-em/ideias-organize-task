@@ -90,6 +90,40 @@ export interface TaskCopy {
       blockedHint: string;
       openSettings: string;
     };
+    /** What kind of item is being written: work to finish, or something to be
+     * reminded of from time to time. */
+    kind: {
+      label: string;
+      task: string;
+      reminder: string;
+    };
+    /** How often a reminder comes back, chosen on the reminder itself. */
+    recurrence: {
+      label: string;
+      once: string;
+      weekly: string;
+      monthly: string;
+      yearly: string;
+    };
+    /** When this reminder next speaks, shown while it is being written or
+     * changed. */
+    nextAlert: (date: string) => string;
+    /** A reminder needs a date to come back on, said as a fact about the
+     * reminder and never as something the person got wrong. */
+    reminderNeedsDate: string;
+  };
+  /** Something to be remembered from time to time: a birthday, a bill. Never
+   * work, so it is never open, never late and never worth points. */
+  reminderItem: {
+    /** Heading of the section the reminders live in. */
+    sectionTitle: string;
+    /** Said first by a screen reader, so the row is never mistaken for a task
+     * whose box went missing. */
+    a11yKind: string;
+    /** What the row shows on the right: the next time it speaks. */
+    next: (date: string) => string;
+    /** For a one-off whose day has passed: it has nothing left to say. */
+    noNext: string;
   };
   /** The steps inside one task. Only ever seen while editing a task: capture
    * stays one field. */
@@ -439,6 +473,26 @@ const ptBR: TaskCopy = {
       blockedHint: 'Notificações desativadas no sistema.',
       openSettings: 'Abrir ajustes',
     },
+    kind: {
+      label: 'Tipo',
+      task: 'Tarefa',
+      reminder: 'Lembrete',
+    },
+    recurrence: {
+      label: 'Quando repetir',
+      once: 'Uma vez',
+      weekly: 'Toda semana',
+      monthly: 'Todo mês',
+      yearly: 'Todo ano',
+    },
+    nextAlert: date => `Próximo aviso: ${date}`,
+    reminderNeedsDate: 'Um lembrete precisa de uma data.',
+  },
+  reminderItem: {
+    sectionTitle: 'Lembretes',
+    a11yKind: 'Lembrete',
+    next: date => `avisa ${date}`,
+    noNext: 'sem próximo aviso',
   },
   subtasks: {
     title: 'Subtarefas',
@@ -826,6 +880,26 @@ const enUS: TaskCopy = {
       blockedHint: 'Notifications are turned off in the system.',
       openSettings: 'Open settings',
     },
+    kind: {
+      label: 'Type',
+      task: 'Task',
+      reminder: 'Reminder',
+    },
+    recurrence: {
+      label: 'How often',
+      once: 'Once',
+      weekly: 'Every week',
+      monthly: 'Every month',
+      yearly: 'Every year',
+    },
+    nextAlert: date => `Next alert: ${date}`,
+    reminderNeedsDate: 'A reminder needs a date.',
+  },
+  reminderItem: {
+    sectionTitle: 'Reminders',
+    a11yKind: 'Reminder',
+    next: date => `alerts ${date}`,
+    noNext: 'no next alert',
   },
   subtasks: {
     title: 'Subtasks',
