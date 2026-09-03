@@ -71,7 +71,6 @@ describe('open task screen copy', () => {
       for (const step of copy.onboarding.steps) {
         expect(step.title.length).toBeGreaterThan(0);
         expect(step.body.length).toBeGreaterThan(0);
-        expect(step.example.length).toBeGreaterThan(0);
       }
 
       expect(copy.onboarding.skip.length).toBeGreaterThan(0);

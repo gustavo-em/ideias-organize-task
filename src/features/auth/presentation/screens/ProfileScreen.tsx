@@ -572,6 +572,9 @@ const FieldLabel = styled.Text`
 
 const Field = styled.TextInput.attrs(({ theme }) => ({
   placeholderTextColor: theme.colors.muted,
+  // The caret and selection speak the brand, not the platform default teal.
+  cursorColor: theme.colors.accent,
+  selectionColor: theme.colors.accent,
 }))<{ $invalid?: boolean }>`
   border: 2px solid
     ${({ theme, $invalid }) =>
@@ -606,6 +609,9 @@ const HandlePrefix = styled.Text`
 
 const HandleInput = styled.TextInput.attrs(({ theme }) => ({
   placeholderTextColor: theme.colors.muted,
+  // The caret and selection speak the brand, not the platform default teal.
+  cursorColor: theme.colors.accent,
+  selectionColor: theme.colors.accent,
 }))`
   flex: 1;
   color: ${({ theme }) => theme.colors.text};

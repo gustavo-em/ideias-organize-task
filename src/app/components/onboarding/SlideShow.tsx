@@ -30,14 +30,17 @@ export function SlideShow({
   testID,
 }: SlideShowProps) {
   const [index, setIndex] = useState(0);
+  // Until the loop has advanced once there is no "previous" frame: mounting
+  // the last one under the first flashed the end of the demo on entry.
+  const [hasLooped, setHasLooped] = useState(false);
 
   useEffect(() => {
     if (reducedMotion || frames.length < 2) return;
 
-    const timer = setInterval(
-      () => setIndex(previous => (previous + 1) % frames.length),
-      HOLD_MS + FADE_MS,
-    );
+    const timer = setInterval(() => {
+      setHasLooped(true);
+      setIndex(previous => (previous + 1) % frames.length);
+    }, HOLD_MS + FADE_MS);
     return () => clearInterval(timer);
   }, [frames.length, reducedMotion]);
 
@@ -45,11 +48,13 @@ export function SlideShow({
 
   return (
     <Frame style={{ height }} testID={testID}>
-      <Still
-        resizeMode="contain"
-        source={frames[previous]}
-        style={{ height }}
-      />
+      {hasLooped ? (
+        <Still
+          resizeMode="contain"
+          source={frames[previous]}
+          style={{ height }}
+        />
+      ) : null}
       <Overlay
         entering={FadeIn.duration(reducedMotion ? 0 : FADE_MS)}
         key={index}

@@ -167,7 +167,11 @@ const Label = styled.Text`
   margin-bottom: ${({ theme }) => theme.spacing.small}px;
 `;
 
-const Input = styled.TextInput`
+const Input = styled.TextInput.attrs(({ theme }) => ({
+  // The caret and selection speak the brand, not the platform default teal.
+  cursorColor: theme.colors.accent,
+  selectionColor: theme.colors.accent,
+}))`
   min-height: 48px;
   border-radius: ${({ theme }) => theme.radii.medium}px;
   border: 1px solid ${({ theme }) => theme.colors.border};
