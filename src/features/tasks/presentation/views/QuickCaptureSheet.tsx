@@ -1043,6 +1043,8 @@ const KindRow = styled.View`
   margin-bottom: ${({ theme }) => theme.spacing.small}px;
 `;
 
+/* The chosen kind speaks the same language as the field under it: white card
+   with the accent ring, not a tinted fill. */
 const KindOption = styled(PressableScale)<{ $active: boolean }>`
   flex: 1;
   align-items: center;
@@ -1050,11 +1052,11 @@ const KindOption = styled(PressableScale)<{ $active: boolean }>`
   min-height: 48px;
   padding: 0px ${({ theme }) => theme.spacing.medium}px;
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  border: 1px solid
+  border: 2px solid
     ${({ theme, $active }) =>
-      $active ? theme.colors.accentInk : theme.colors.border};
+      $active ? theme.colors.accent : theme.colors.border};
   background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.cardElevated : 'transparent'};
+    $active ? theme.colors.card : 'transparent'};
 `;
 
 const KindText = styled.Text<{ $active: boolean }>`
