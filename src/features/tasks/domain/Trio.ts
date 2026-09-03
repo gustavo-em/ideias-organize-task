@@ -4,6 +4,7 @@ import {
   isDueToday,
   isOpen,
   isOverdue,
+  isReminder,
   taskWeight,
   type Task,
 } from './Task';
@@ -119,8 +120,17 @@ export function refreshTrio(
 ): TrioSelection {
   const today = startOfDay(nowMs);
   const byId = new Map(tasks.map(task => [task.id, task]));
+  // A slot holds work. Something deleted leaves the trio, and so does a task
+  // turned into a reminder: it can no longer be ticked, so leaving it in would
+  // hold the day open on a slot nobody can close.
   const kept =
-    trio.dayMs === today ? trio.taskIds.filter(id => byId.has(id)) : [];
+    trio.dayMs === today
+      ? trio.taskIds.filter(id => {
+          const task = byId.get(id);
+
+          return task != null && !isReminder(task);
+        })
+      : [];
   const openCount = tasks.filter(isOpen).length;
   const missing = slotsFor(capacity, openCount) - kept.length;
 
@@ -152,9 +162,11 @@ export function trioTasks(
 ): readonly Task[] {
   const byId = new Map(tasks.map(task => [task.id, task]));
 
+  // Same answer as `refreshTrio`: a reminder is not work, so it is not in the
+  // day even while a stale selection still names it.
   return trio.taskIds
     .map(id => byId.get(id))
-    .filter((task): task is Task => task != null);
+    .filter((task): task is Task => task != null && !isReminder(task));
 }
 
 export function trioDoneCount(

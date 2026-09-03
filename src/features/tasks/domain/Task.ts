@@ -11,6 +11,24 @@ export const taskPriorities = ['low', 'medium', 'high'] as const;
 
 export type TaskPriority = (typeof taskPriorities)[number];
 
+/** What an item *is*. A task is work, and closing it is the point; a reminder
+ * is memory, and there is nothing to close. Absent on everything written
+ * before reminders existed, which reads as a task. */
+export const taskKinds = ['task', 'reminder'] as const;
+
+export type TaskKind = (typeof taskKinds)[number];
+
+/** How often a reminder comes back. Only meaningful on a reminder, and then
+ * always alongside `dueAtMs`, which is the date it counts from. */
+export const reminderRecurrences = [
+  'once',
+  'weekly',
+  'monthly',
+  'yearly',
+] as const;
+
+export type ReminderRecurrence = (typeof reminderRecurrences)[number];
+
 export interface Task {
   id: string;
   title: string;
@@ -38,6 +56,12 @@ export interface Task {
   /** The steps inside it, at most one level deep. Empty for a task nobody
    * broke down, and empty for anything written before this existed. */
   subtasks: readonly Subtask[];
+  /** Task or reminder. Absent means task: everything written before reminders
+   * existed is work, and reading it as anything else would silently take those
+   * items out of the count. */
+  kind?: TaskKind;
+  /** How often a reminder comes back. Ignored on a task. */
+  recurrence?: ReminderRecurrence;
 }
 
 /**
@@ -70,8 +94,20 @@ export function isCompleted(task: Task): boolean {
   return task.completedAtMs != null;
 }
 
+/** Memory rather than work: a birthday, a bill that comes back every month. */
+export function isReminder(task: Task): boolean {
+  return task.kind === 'reminder';
+}
+
+/**
+ * Open work: not finished, and a task in the first place.
+ *
+ * A reminder is never open, and this single answer is what keeps it out of the
+ * count of open items, out of the trio, out of the streak and out of the
+ * points — none of those places needs to know reminders exist.
+ */
 export function isOpen(task: Task): boolean {
-  return task.completedAtMs == null;
+  return task.completedAtMs == null && !isReminder(task);
 }
 
 export function isOverdue(task: Task, nowMs: number): boolean {
@@ -208,6 +244,19 @@ export function sanitizeRemindDays(value: unknown): number | null {
   return days >= MIN_REMIND_DAYS && days <= MAX_REMIND_DAYS ? days : null;
 }
 
+/** What the stored item is, read as untrusted input. A reminder without a date
+ * has nothing to come back on, so it is read as the task it looks like rather
+ * than dropped. */
+export function sanitizeKind(value: unknown, dueAtMs: number | null): TaskKind {
+  return value === 'reminder' && dueAtMs != null ? 'reminder' : 'task';
+}
+
+export function sanitizeRecurrence(value: unknown): ReminderRecurrence {
+  return reminderRecurrences.includes(value as ReminderRecurrence)
+    ? (value as ReminderRecurrence)
+    : 'once';
+}
+
 function sanitizeTimestamp(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -233,6 +282,9 @@ export function sanitizeTasks(value: unknown): Task[] {
     if (title == null || id == null || seen.has(id)) continue;
 
     seen.add(id);
+    const dueAtMs = sanitizeTimestamp(candidate.dueAtMs);
+    const kind = sanitizeKind(candidate.kind, dueAtMs);
+
     tasks.push({
       id,
       title,
@@ -240,7 +292,7 @@ export function sanitizeTasks(value: unknown): Task[] {
       priority: taskPriorities.includes(candidate.priority as TaskPriority)
         ? (candidate.priority as TaskPriority)
         : 'medium',
-      dueAtMs: sanitizeTimestamp(candidate.dueAtMs),
+      dueAtMs,
       estimatedMinutes:
         typeof candidate.estimatedMinutes === 'number' &&
         Number.isFinite(candidate.estimatedMinutes) &&
@@ -257,7 +309,11 @@ export function sanitizeTasks(value: unknown): Task[] {
       assignedIds: sanitizeAssignedIds(candidate.assignedIds),
       // Absent on everything written before subtasks existed, which is not a
       // reason to drop the task: it simply has no steps.
-      subtasks: sanitizeSubtasks(candidate.subtasks),
+      subtasks: kind === 'reminder' ? [] : sanitizeSubtasks(candidate.subtasks),
+      kind,
+      ...(kind === 'reminder'
+        ? { recurrence: sanitizeRecurrence(candidate.recurrence) }
+        : {}),
     });
   }
 

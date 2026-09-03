@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react';
-import type { AccessibilityRole, StyleProp, ViewStyle } from 'react-native';
+import type {
+  AccessibilityRole,
+  Insets,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
 import { Pressable, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -73,8 +78,10 @@ interface PressableScaleProps {
   };
   style?: StyleProp<ViewStyle>;
   /** Widens the touch area past the drawn one, for controls small enough that
-   * a fingertip covers them entirely. */
-  hitSlop?: number;
+   * a fingertip covers them entirely. A number widens every side; the object
+   * form widens only the ones named, which is what a row needs when the space
+   * to grow into is above and below rather than left and right. */
+  hitSlop?: number | Insets;
   /** How far it sinks. Bigger controls move less: the same 4% on a full-width
    * card reads as the screen wobbling. */
   scaleTo?: number;

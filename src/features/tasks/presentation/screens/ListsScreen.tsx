@@ -15,7 +15,8 @@ import {
 } from '../../../../app/animation/motion';
 import { markSheetPress, useRenderCount } from '../../../../app/perf/sheetPerf';
 import { endOfDay, isSameDay } from '../../domain/Day';
-import { isCompleted, isOpen, type Task } from '../../domain/Task';
+import { sortedReminders } from '../../domain/Reminder';
+import { isCompleted, isOpen, isReminder, type Task } from '../../domain/Task';
 import { dayKeyOf, type SharedMemberDay } from '../../domain/SharedMemberDay';
 import {
   canEdit,
@@ -53,9 +54,11 @@ import { PressableScale } from '../views/PressableScale';
 import { ProjectEmptyState } from '../views/ProjectEmptyState';
 import { QuickCaptureSheet } from '../views/QuickCaptureSheet';
 import { ScreenHeader } from '../views/ScreenHeader';
+import { SectionHeader } from '../views/SectionHeader';
 import { SharedDayBand } from '../views/SharedDayBand';
 import { ShareSheet } from '../views/ShareSheet';
 import { TaskCard } from '../views/TaskCard';
+import { TaskRow } from '../views/TaskRow';
 
 interface ListsScreenProps {
   /** Somebody asked for an invite on the walk-through and has just signed in:
@@ -86,6 +89,10 @@ const EMPTY_DAY_RECORDS: readonly SharedMemberDay[] = [];
 const EMPTY_DAY_TASK_IDS: readonly string[] = [];
 const EMPTY_ASSIGNEES: readonly ListMember[] = [];
 const EMPTY_ASSIGNED_IDS: readonly string[] = [];
+
+/** A heading that never collapses still asks for a handler, and a reminder row
+ * has nothing to tick. */
+const noop = () => undefined;
 const EMPTY_DAY_ENTRIES: ReturnType<typeof sharedDay> = [];
 
 function memberFor(list: TaskList, id: string | null): ListMember | null {
@@ -415,6 +422,7 @@ export function ListsScreen({
             dayTaskIds={viewModel.dayTaskIds ?? EMPTY_DAY_TASK_IDS}
             index={index}
             key={list.id}
+            language={language}
             list={list}
             nowMs={viewModel.nowMs}
             onCapture={openCapture}
@@ -550,6 +558,9 @@ export function ListsScreen({
             listId: editingTask.listId,
             remindDaysBefore: editingTask.remindDaysBefore,
             subtasks: editingTask.subtasks,
+            kind: editingTask.kind,
+            recurrence: editingTask.recurrence,
+            completed: editingTask.completedAtMs != null,
           }}
           language={language}
           lists={viewModel.lists}
@@ -558,6 +569,12 @@ export function ListsScreen({
             viewModel.addTaskSubtask(editingTask.id, title)
           }
           onCancel={() => setEditing(null)}
+          onDelete={() => {
+            const subject = editing;
+
+            setEditing(null);
+            setDeleting(subject);
+          }}
           onDeleteSubtask={subtaskId =>
             viewModel.deleteTaskSubtask(editingTask.id, subtaskId)
           }
@@ -814,6 +831,7 @@ interface ProjectBlockProps {
    * merely carrying today's date. */
   dayTaskIds: readonly string[];
   index: number;
+  language: AppLanguage;
   list: TaskList;
   nowMs: number;
   status: SharedDayStatus;
@@ -848,6 +866,7 @@ const ProjectBlock = memo(function ProjectBlockView({
   dayRecords,
   dayTaskIds,
   index,
+  language,
   list,
   nowMs,
   status,
@@ -872,7 +891,18 @@ const ProjectBlock = memo(function ProjectBlockView({
   const theme = useTheme();
   useRenderCount('ProjectBlock');
 
-  const done = tasks.filter(isCompleted).length;
+  // Reminders live in the space but are not its work: they are kept out of the
+  // count, out of the bar and out of "all done", and listed under their own
+  // heading at the end.
+  const workTasks = useMemo(
+    () => tasks.filter(task => !isReminder(task)),
+    [tasks],
+  );
+  const reminders = useMemo(
+    () => sortedReminders(tasks, nowMs),
+    [nowMs, tasks],
+  );
+  const done = workTasks.filter(isCompleted).length;
   const shared = list.share != null;
   const role = shared
     ? list.share!.members.find(member => member.personId === personId)?.role ??
@@ -968,12 +998,12 @@ const ProjectBlock = memo(function ProjectBlockView({
           {isViewer ? (
             <ReadOnlyTag>{copy.lists.readOnlyTag}</ReadOnlyTag>
           ) : null}
-          <Count>{copy.lists.progress(done, tasks.length)}</Count>
+          <Count>{copy.lists.progress(done, workTasks.length)}</Count>
           <Track>
             <Fill
               style={{
                 width: `${
-                  tasks.length === 0 ? 0 : (done / tasks.length) * 100
+                  workTasks.length === 0 ? 0 : (done / workTasks.length) * 100
                 }%`,
               }}
             />
@@ -1111,13 +1141,13 @@ const ProjectBlock = memo(function ProjectBlockView({
             )
           ) : null}
 
-          {tasks.length > 0 && shared && done === tasks.length ? (
+          {workTasks.length > 0 && shared && done === workTasks.length ? (
             <AllDoneBanner>
               <AllDoneText>{copy.lists.groupAllDone}</AllDoneText>
             </AllDoneBanner>
           ) : null}
 
-          {tasks.map((task, taskIndex) => (
+          {workTasks.map((task, taskIndex) => (
             <ProjectTask
               copy={copy}
               index={taskIndex}
@@ -1134,6 +1164,41 @@ const ProjectBlock = memo(function ProjectBlockView({
               task={task}
             />
           ))}
+
+          {/* Memory, at the end of the work. One heading, a rule and air —
+              never a box around rows that already sit on the space's card. */}
+          {reminders.length === 0 ? null : (
+            <Reminders>
+              <SectionHeader
+                collapseHint={copy.today.collapse}
+                collapsible={false}
+                count={reminders.length}
+                countLabel={copy.today.taskCount(reminders.length)}
+                expandHint={copy.today.expand}
+                expanded
+                onToggle={noop}
+                title={copy.reminderItem.sectionTitle}
+              />
+              {reminders.map((reminder, reminderIndex) => (
+                <TaskRow
+                  copy={copy}
+                  index={reminderIndex}
+                  key={reminder.id}
+                  language={language}
+                  lens="deadline"
+                  listColor={null}
+                  listIcon={null}
+                  listName={null}
+                  nowMs={nowMs}
+                  onEdit={isViewer ? undefined : () => onEditTask(reminder)}
+                  onToggle={noop}
+                  sectionId="reminders"
+                  task={reminder}
+                />
+              ))}
+            </Reminders>
+          )}
+
           {isViewer ? null : (
             <AddTaskButton
               accessibilityLabel={
@@ -1443,6 +1508,12 @@ const InviteHighlightText = styled.Text`
   font-size: ${({ theme }) => theme.type.label}px;
   font-weight: 800;
 `;
+/* Air above the heading is the whole separation: the rows keep sitting on the
+   space's own surface, with no second card drawn around them. */
+const Reminders = styled.View`
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+`;
+
 const AllDoneBanner = styled.View`
   padding: ${({ theme }) => theme.spacing.small + 4}px 0px;
 `;
