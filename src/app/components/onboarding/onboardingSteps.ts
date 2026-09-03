@@ -23,7 +23,7 @@ export interface OnboardingSlide {
 export const onboardingSlides: readonly OnboardingSlide[] = [
   {
     id: 'couple',
-    aspect: 1080 / 1664,
+    aspect: 1080 / 2127,
     still: require('../../../../assets/onboarding/couple-01.png'),
     frames: [
       require('../../../../assets/onboarding/couple-01.png'),
@@ -33,12 +33,12 @@ export const onboardingSlides: readonly OnboardingSlide[] = [
   },
   {
     id: 'tasks',
-    aspect: 1080 / 1704,
+    aspect: 1080 / 2127,
     still: require('../../../../assets/onboarding/step-tarefas.png'),
   },
   {
     id: 'spaces',
-    aspect: 1080 / 1664,
+    aspect: 1080 / 2127,
     still: require('../../../../assets/onboarding/spaces-01.png'),
     frames: [
       require('../../../../assets/onboarding/spaces-01.png'),
@@ -48,7 +48,7 @@ export const onboardingSlides: readonly OnboardingSlide[] = [
   },
   {
     id: 'invite',
-    aspect: 1080 / 830,
+    aspect: 1080 / 2127,
     still: require('../../../../assets/onboarding/step-convite.png'),
   },
 ];
