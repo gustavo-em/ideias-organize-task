@@ -19,8 +19,8 @@ def loadEnv() {
 }
 
 def env = loadEnv()
-def versionCode = (env.VERSIONCODE ?: "1").toInteger()
-def versionName = env.VERSIONNAME ?: "1.0"
+def appVersionCode = (env.VERSIONCODE ?: "1").toInteger()
+def appVersionName = env.VERSIONNAME ?: "1.0"
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -102,8 +102,8 @@ android {
         applicationId "com.ideiasorganizetask"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode versionCode
-        versionName versionName
+        versionCode appVersionCode
+        versionName appVersionName
     }
     signingConfigs {
         debug {
