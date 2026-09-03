@@ -3,14 +3,14 @@
  *
  * Each page holds a single still — a real screenshot of this app, captured on
  * a device — so what the walk-through shows is the product itself and not an
- * illustration of it. The task list with the day's card; then a shared space
- * living its day — the spaces page loops through three moments of a
- * "Churras de sábado"; then the invite sheet, link ready to send.
+ * illustration of it. The couple's page loops through planning together;
+ * the spaces page loops through three moments of a "Churras de sábado";
+ * then the invite sheet, link ready to send.
  */
 import type { ImageSourcePropType } from 'react-native';
 
 export interface OnboardingSlide {
-  id: 'couple' | 'tasks' | 'spaces' | 'invite';
+  id: 'couple' | 'spaces' | 'invite';
   /** Width over height of the artwork, so the stage takes the frame's own
    * proportions instead of leaving a letterbox under it. */
   aspect: number;
@@ -30,11 +30,6 @@ export const onboardingSlides: readonly OnboardingSlide[] = [
       require('../../../../assets/onboarding/couple-02.png'),
       require('../../../../assets/onboarding/couple-03.png'),
     ],
-  },
-  {
-    id: 'tasks',
-    aspect: 1080 / 2127,
-    still: require('../../../../assets/onboarding/step-tarefas.png'),
   },
   {
     id: 'spaces',

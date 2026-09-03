@@ -75,9 +75,6 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
   // The last page asks a question instead of moving on, so it owns the bottom
   // bar: the two answers replace the single "start" button.
   const isInviteStep = onboardingSlides[step]?.id === 'invite';
-  // The couple page carries its own call to action: the partner is the whole
-  // point of it, so the invite is offered right there — and again at the end.
-  const isCoupleStep = onboardingSlides[step]?.id === 'couple';
   const width = pageWidth === 0 ? window.width : pageWidth;
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
@@ -238,39 +235,7 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
           })}
         </Pager>
 
-        {isCoupleStep ? (
-          <BottomStacked>
-            <Dots $centered>
-              {steps.slice(0, total).map((_, index) => (
-                <Dot
-                  $active={index === step}
-                  key={onboardingSlides[index].id}
-                  testID={`onboarding-dot-${index}`}
-                />
-              ))}
-            </Dots>
-
-            <Invite
-              accessibilityLabel={copy.onboarding.coupleCta}
-              accessibilityRole="button"
-              onPress={invite}
-              testID="onboarding-couple-invite"
-            >
-              <NextText pointerEvents="none">
-                {copy.onboarding.coupleCta}
-              </NextText>
-            </Invite>
-
-            <Later
-              accessibilityLabel={copy.onboarding.next}
-              accessibilityRole="button"
-              onPress={goNext}
-              testID="onboarding-couple-continue"
-            >
-              <LaterText pointerEvents="none">{copy.onboarding.next}</LaterText>
-            </Later>
-          </BottomStacked>
-        ) : isInviteStep ? (
+        {isInviteStep ? (
           /* The question owns the bottom of the page: the answer people are
              expected to want sits where the button always was, and the other
              one stays right under it, as a word rather than a wall. */
