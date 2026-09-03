@@ -113,7 +113,7 @@ export const lightTheme: AppTheme = {
     // Near-neutral paper with a trace of warmth, a step down from white. A card
     // only reads as a card when the sheet under it is not the same colour as
     // the card, and a neutral ground lets the accent be the only yellow.
-    background: '#FAF6E9',
+    background: '#FEFBF0',
     card: '#FFFFFF',
     // A pale yellow for selected and support surfaces: present enough to be
     // read as a state, quiet enough that the accent keeps ownership of the
