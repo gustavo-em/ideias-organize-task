@@ -3,6 +3,25 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 apply plugin: "com.google.gms.google-services"
 
+// Load environment variables from .env file
+def loadEnv() {
+    def envFile = file("${rootDir}/.env")
+    def env = [:]
+    if (envFile.exists()) {
+        envFile.eachLine { line ->
+            if (line && !line.startsWith('#') && line.contains('=')) {
+                def (key, value) = line.split('=', 2)
+                env[key.trim()] = value.trim()
+            }
+        }
+    }
+    return env
+}
+
+def env = loadEnv()
+def versionCode = (env.VERSIONCODE ?: "1").toInteger()
+def versionName = env.VERSIONNAME ?: "1.0"
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -83,8 +102,8 @@ android {
         applicationId "com.ideiasorganizetask"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode versionCode
+        versionName versionName
     }
     signingConfigs {
         debug {
