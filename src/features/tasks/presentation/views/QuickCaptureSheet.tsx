@@ -1056,7 +1056,7 @@ const KindOption = styled(PressableScale)<{ $active: boolean }>`
     ${({ theme, $active }) =>
       $active ? theme.colors.accent : theme.colors.border};
   background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.card : 'transparent'};
+    $active ? theme.colors.cardElevated : 'transparent'};
 `;
 
 const KindText = styled.Text<{ $active: boolean }>`
@@ -1087,7 +1087,7 @@ const RecurrenceOption = styled(PressableScale)<{ $active: boolean }>`
     ${({ theme, $active }) =>
       $active ? theme.colors.accent : theme.colors.border};
   background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.card : 'transparent'};
+    $active ? theme.colors.cardElevated : 'transparent'};
 `;
 
 const RecurrenceText = styled.Text<{ $active: boolean }>`
@@ -1178,7 +1178,7 @@ const DateChip = styled(ChipBase)<{ $open: boolean; $set: boolean }>`
   border-color: ${({ theme, $open, $set }) =>
     $open || $set ? theme.colors.accent : theme.colors.border};
   background-color: ${({ theme, $open }) =>
-    $open ? theme.colors.card : 'transparent'};
+    $open ? theme.colors.cardElevated : 'transparent'};
 `;
 
 /** The only chip that carries colour, because priority is the only one of the
@@ -1205,7 +1205,7 @@ const ListChip = styled(ChipBase)<{ $open: boolean }>`
   border-color: ${({ theme, $open }) =>
     $open ? theme.colors.accent : theme.colors.border};
   background-color: ${({ theme, $open }) =>
-    $open ? theme.colors.card : 'transparent'};
+    $open ? theme.colors.cardElevated : 'transparent'};
 `;
 
 const ChipText = styled.Text.attrs(buttonTextAttrs)<{
@@ -1290,7 +1290,7 @@ const SyntaxToggle = styled(PressableScale)<{ $open: boolean }>`
   border: 1px solid
     ${({ theme, $open }) => ($open ? theme.colors.accent : theme.colors.border)};
   background-color: ${({ theme, $open }) =>
-    $open ? theme.colors.card : 'transparent'};
+    $open ? theme.colors.cardElevated : 'transparent'};
 `;
 
 const SyntaxToggleText = styled.Text.attrs(buttonTextAttrs)<{

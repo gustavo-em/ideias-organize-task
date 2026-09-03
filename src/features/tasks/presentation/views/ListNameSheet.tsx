@@ -549,7 +549,8 @@ const IconOption = styled(PressableScale)<{ $selected: boolean }>`
     ${({ theme, $selected }) =>
       $selected ? theme.colors.accent : theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  background-color: ${({ theme }) => theme.colors.card};
+  background-color: ${({ theme, $selected }) =>
+    $selected ? theme.colors.cardElevated : theme.colors.card};
 `;
 
 const ShareRow = styled(PressableScale)`
