@@ -2,21 +2,13 @@ import { act, create, type ReactTestInstance } from 'react-test-renderer';
 import { ThemeProvider } from 'styled-components/native';
 
 import { OnboardingScreen } from '../src/app/components/OnboardingScreen';
-import {
-  ONBOARDING_FRAMES_STALE,
-  onboardingDemos,
-  onboardingSlides,
-} from '../src/app/components/onboarding/onboardingSteps';
+import { onboardingSlides } from '../src/app/components/onboarding/onboardingSteps';
 import { lightTheme } from '../src/app/theme/theme';
 import { getTaskCopy } from '../src/features/tasks/presentation/localization/taskCopy';
-
-const reanimated = require('react-native-reanimated');
 
 const mounted: ReturnType<typeof create>[] = [];
 
 afterEach(() => {
-  // The demos loop for as long as they are on screen: leaving one mounted would
-  // keep animating after the test ended.
   act(() => {
     while (mounted.length > 0) mounted.pop()?.unmount();
   });
@@ -36,18 +28,6 @@ function renderOnboarding(onFinish: (outcome: 'invite' | 'later') => void) {
   const rendered = tree as unknown as ReturnType<typeof create>;
   mounted.push(rendered);
 
-  // The ring only knows where the button is after the stage is measured, so the
-  // tests measure it the way the device would.
-  act(() => {
-    onboardingDemos.forEach(demo => {
-      rendered.root
-        .findAllByProps({ testID: `onboarding-demo-${demo.id}` })
-        .forEach(stage => {
-          stage.props.onLayout?.({ nativeEvent: { layout: { width: 360 } } });
-        });
-    });
-  });
-
   return rendered;
 }
 
@@ -58,27 +38,25 @@ function press(node: ReactTestInstance) {
 }
 
 describe('first-run walk-through', () => {
-  it('walks the two demos and ends on the invite step', () => {
+  it('shows two pages of product stills and ends on the invite step', () => {
     const onFinish = jest.fn();
     const tree = renderOnboarding(onFinish);
     const next = tree.root.findByProps({ testID: 'onboarding-next' });
 
-    expect(onboardingDemos).toHaveLength(2);
-    expect(onboardingSlides).toHaveLength(3);
-    expect(getTaskCopy('pt-BR').onboarding.steps).toHaveLength(3);
-    expect(getTaskCopy('en-US').onboarding.steps).toHaveLength(3);
+    expect(onboardingSlides).toHaveLength(2);
+    expect(getTaskCopy('pt-BR').onboarding.steps).toHaveLength(2);
+    expect(getTaskCopy('en-US').onboarding.steps).toHaveLength(2);
+    // Every page is a still of the app itself: no placeholder mark anywhere.
+    onboardingSlides.forEach(slide => {
+      const stills = tree.root.findAllByProps({
+        testID: `onboarding-demo-${slide.id}`,
+      });
+      expect(stills.length).toBeGreaterThan(0);
+      expect(stills[0].props.source).toBe(slide.still);
+    });
     expect(
-      tree.root.findAllByProps({ testID: 'onboarding-demo-capture' }).length,
+      tree.root.findAllByProps({ testID: 'onboarding-dot-1' }).length,
     ).toBeGreaterThan(0);
-    expect(
-      tree.root.findAllByProps({ testID: 'onboarding-demo-shared' }).length,
-    ).toBeGreaterThan(0);
-    expect(
-      tree.root.findAllByProps({ testID: 'onboarding-dot-2' }).length,
-    ).toBeGreaterThan(0);
-
-    press(next);
-    expect(onFinish).not.toHaveBeenCalled();
 
     // The last page asks the question instead of moving on, so the single
     // button is replaced by the two answers.
@@ -95,10 +73,21 @@ describe('first-run walk-through', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('keeps each still in its own proportions', () => {
+    // The stage height comes from the frame's aspect, never from stretching
+    // the artwork: a wrong ratio here letterboxes or crops the product shot.
+    onboardingSlides.forEach(slide => {
+      expect(slide.aspect).toBeGreaterThan(0.4);
+      expect(slide.aspect).toBeLessThan(2);
+    });
+    expect(onboardingSlides[0].id).toBe('tasks');
+    expect(onboardingSlides[1].id).toBe('invite');
+  });
+
   it('asks for the invite in both languages, without naming a single kind of bond', () => {
     (['pt-BR', 'en-US'] as const).forEach(language => {
       const copy = getTaskCopy(language);
-      const step = copy.onboarding.steps[2];
+      const step = copy.onboarding.steps[1];
 
       expect(copy.onboarding.invite.action.length).toBeGreaterThan(0);
       expect(copy.onboarding.invite.later.length).toBeGreaterThan(0);
@@ -114,60 +103,11 @@ describe('first-run walk-through', () => {
     const next = tree.root.findByProps({ testID: 'onboarding-next' });
 
     press(next);
-    press(next);
     press(tree.root.findByProps({ testID: 'onboarding-invite' }));
     expect(onFinish).toHaveBeenLastCalledWith('invite');
 
     press(tree.root.findByProps({ testID: 'onboarding-invite-later' }));
     expect(onFinish).toHaveBeenLastCalledWith('later');
-  });
-
-  it('holds the brand mark while the frames still carry the old brand', () => {
-    // Recapturing flips the flag; until then no screenshot of the previous
-    // brand reaches the walk-through.
-    if (!ONBOARDING_FRAMES_STALE) return;
-
-    const tree = renderOnboarding(jest.fn());
-
-    onboardingDemos.forEach(demo => {
-      expect(
-        tree.root.findAllByProps({ testID: `onboarding-demo-${demo.id}` })
-          .length,
-      ).toBeGreaterThan(0);
-      expect(
-        tree.root.findAllByProps({ testID: `onboarding-frame-${demo.id}-0` })
-          .length,
-      ).toBe(0);
-    });
-  });
-
-  it('plays every demo from real screenshots, with a ring on the tapped button', () => {
-    if (ONBOARDING_FRAMES_STALE) return;
-
-    const tree = renderOnboarding(jest.fn());
-
-    onboardingDemos.forEach(demo => {
-      const rings = demo.frames.filter(frame => frame.tap !== undefined);
-      expect(demo.frames.length).toBeGreaterThanOrEqual(6);
-      expect(demo.frames.length).toBeLessThanOrEqual(10);
-      expect(rings.length).toBeGreaterThanOrEqual(3);
-
-      demo.frames.forEach((frame, index) => {
-        expect(
-          tree.root.findAllByProps({
-            testID: `onboarding-frame-${demo.id}-${index}`,
-          }).length,
-        ).toBeGreaterThan(0);
-
-        if (frame.tap !== undefined) {
-          expect(
-            tree.root.findAllByProps({
-              testID: `onboarding-tap-${demo.id}-${index}`,
-            }).length,
-          ).toBeGreaterThan(0);
-        }
-      });
-    });
   });
 
   it('follows a swipe with the dots', () => {
@@ -191,45 +131,10 @@ describe('first-run walk-through', () => {
     const onFinish = jest.fn();
     const tree = renderOnboarding(onFinish);
 
-    press(tree.root.findByProps({ testID: 'onboarding-next' }));
     const skip = tree.root.findByProps({ testID: 'onboarding-skip' });
     press(skip);
 
     expect(onFinish).toHaveBeenCalledTimes(1);
     expect(onFinish).toHaveBeenCalledWith('later');
-  });
-
-  it('freezes the demo on its first frame when the device asks for less motion', () => {
-    const spy = jest
-      .spyOn(reanimated, 'useReducedMotion')
-      .mockReturnValue(true);
-
-    try {
-      const tree = renderOnboarding(jest.fn());
-      const stillStage = tree.root.findByProps({
-        testID: 'onboarding-demo-capture',
-      });
-      // The stage keeps its height, so the words under it never move.
-      const still = stillStage.props.style.height;
-
-      spy.mockReturnValue(false);
-      const moving = renderOnboarding(jest.fn()).root.findByProps({
-        testID: 'onboarding-demo-capture',
-      }).props.style.height;
-
-      expect(still).toBe(moving);
-      expect(still).toBeGreaterThanOrEqual(280);
-      expect(still).toBeLessThanOrEqual(380);
-
-      // The ring of the first frame stays on screen, without the pulse.
-      if (!ONBOARDING_FRAMES_STALE) {
-        expect(
-          tree.root.findAllByProps({ testID: 'onboarding-tap-capture-0' })
-            .length,
-        ).toBeGreaterThan(0);
-      }
-    } finally {
-      spy.mockRestore();
-    }
   });
 });

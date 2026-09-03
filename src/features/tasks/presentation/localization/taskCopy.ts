@@ -766,19 +766,14 @@ const ptBR: TaskCopy = {
   onboarding: {
     steps: [
       {
-        title: 'Anotar leva segundos',
-        body: 'Toque em Nova tarefa, escreva e ajuste data, prioridade e espaço na mesma folha.',
-        example: 'Ex.: “Renovar o seguro”, amanhã, no espaço Casa nova.',
-      },
-      {
-        title: 'Espaços que você divide',
-        body: 'Abra um espaço compartilhado, envie o convite e acompanhe o combinado do dia no mesmo lugar.',
-        example: 'Ex.: “Casa nova”, com o link de convite pronto.',
+        title: 'Suas tarefas e seus espaços',
+        body: 'Anote em segundos, dê prazo e prioridade, e organize tudo em espaços: casa, trabalho, viagem.',
+        example: 'Ex.: “Pagar a internet”, hoje, no espaço Casa.',
       },
       {
         title: 'Convide quem divide a rotina',
-        body: 'Um espaço compartilhado guarda o combinado de vocês: par, família, casa, amigos. Quem entra vê o mesmo dia.',
-        example: 'Ex.: “Casa”, com o link pronto.',
+        body: 'Um espaço compartilhado guarda o combinado de vocês: par, família, casa, amigos. Quem abrir o link entra e vê o mesmo dia.',
+        example: 'Ex.: “Casa”, com o link pronto para enviar.',
       },
     ],
     next: 'Continuar',
@@ -1165,20 +1160,14 @@ const enUS: TaskCopy = {
   onboarding: {
     steps: [
       {
-        title: 'Capture takes seconds',
-        body: 'Tap New task, type it, then set date, priority and space in the same sheet.',
-        example:
-          'Like “Renew the insurance”, tomorrow, in the New place space.',
-      },
-      {
-        title: 'Spaces you share',
-        body: 'Open a shared space, send the invite and follow the day’s agreement in one place.',
-        example: 'Like “New place”, with the invite link ready.',
+        title: 'Your tasks and your spaces',
+        body: 'Jot it down in seconds, give it a date and a priority, and keep everything in spaces: home, work, travel.',
+        example: 'Like “Pay the internet”, today, in the Home space.',
       },
       {
         title: 'Invite whoever shares your routine',
-        body: 'A shared space holds what you agreed on: the two of you, family, housemates, friends. Whoever joins sees the same day.',
-        example: 'Like “Home”, with the link ready.',
+        body: 'A shared space holds what you agreed on: the two of you, family, housemates, friends. Whoever opens the link joins and sees the same day.',
+        example: 'Like “Home”, with the link ready to send.',
       },
     ],
     next: 'Continue',

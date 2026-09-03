@@ -12,18 +12,12 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import { useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import styled, { useTheme } from 'styled-components/native';
 
 import type { TaskCopy } from '../../features/tasks/presentation/localization/taskCopy';
 import { PressableScale } from '../../features/tasks/presentation/views/PressableScale';
-import { AppMark } from './AppMark';
-import { DemoPlayer } from './onboarding/DemoPlayer';
-import {
-  ONBOARDING_FRAMES_STALE,
-  onboardingSlides,
-} from './onboarding/onboardingSteps';
+import { onboardingSlides } from './onboarding/onboardingSteps';
 
 /** What the walk-through was answered with: the invite is the only answer that
  * asks the app to do something after it closes. */
@@ -50,7 +44,6 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
   const window = useWindowDimensions();
   const theme = useTheme();
   const pager = useRef<ComponentRef<typeof ScrollView> | null>(null);
-  const prefersReducedMotion = useReducedMotion();
 
   const steps = copy.onboarding.steps;
   const total = Math.min(steps.length, onboardingSlides.length);
@@ -149,38 +142,13 @@ export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
                   accessibilityRole="image"
                   style={{ height: slideStageHeight }}
                 >
-                  {ONBOARDING_FRAMES_STALE || slide.id === 'invite' ? (
-                    // The frames still carry the previous brand, so the stage
-                    // holds the mark until they are recaptured. Same height,
-                    // so nothing under it moves. The invite page never plays:
-                    // while the frames are stale it shows the mark too, and the
-                    // still below takes over once they are recaptured.
-                    slide.id === 'invite' && !ONBOARDING_FRAMES_STALE ? (
-                      <Still
-                        accessibilityIgnoresInvertColors
-                        resizeMode="contain"
-                        source={slide.still}
-                        style={{ height: slideStageHeight }}
-                        testID="onboarding-demo-invite"
-                      />
-                    ) : (
-                      <MarkStage
-                        style={{ height: slideStageHeight }}
-                        testID={`onboarding-demo-${slide.id}`}
-                      >
-                        <AppMark size={96} />
-                      </MarkStage>
-                    )
-                  ) : (
-                    /* Only the demo being read plays: the other one sits on its
-                      first frame instead of looping off screen. */
-                    <DemoPlayer
-                      active={index === step}
-                      demo={slide.demo}
-                      height={slideStageHeight}
-                      reducedMotion={prefersReducedMotion}
-                    />
-                  )}
+                  <Still
+                    accessibilityIgnoresInvertColors
+                    resizeMode="contain"
+                    source={slide.still}
+                    style={{ height: slideStageHeight }}
+                    testID={`onboarding-demo-${slide.id}`}
+                  />
                 </Stage>
 
                 <Title>{page.title}</Title>
@@ -326,16 +294,8 @@ const Stage = styled.View`
   overflow: hidden;
 `;
 
-/* Stands in for a demo while its frames still carry the previous brand. */
-const MarkStage = styled.View`
-  flex: 1;
-  align-self: stretch;
-  align-items: center;
-  justify-content: center;
-`;
-
-/* The invite page holds a single frame — the one that already shows a link
-   ready to send. Nothing plays here. */
+/* Each page holds a single frame of the product itself — the task list, and
+   the invite sheet with the link ready to send. Nothing plays. */
 const Still = styled.Image`
   align-self: stretch;
   width: 100%;
