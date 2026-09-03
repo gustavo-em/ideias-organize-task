@@ -98,7 +98,7 @@ const Option = styled(PressableScale)<{ $active: boolean }>`
     ${({ theme, $active }) =>
       $active ? theme.colors.accent : theme.colors.border};
   background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.card : 'transparent'};
+    $active ? theme.colors.cardElevated : 'transparent'};
 `;
 
 const OptionText = styled.Text<{ $active: boolean }>`
