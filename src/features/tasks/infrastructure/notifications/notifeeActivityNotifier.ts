@@ -21,7 +21,7 @@ export const ACTIVITY_CHANNEL_ID = 'project-activity';
  * facts fit in the tray; ten are a wall nobody reads. */
 const MAX_INDIVIDUAL = 3;
 
-async function ensureChannel(language: AppLanguage): Promise<string> {
+export async function ensureChannel(language: AppLanguage): Promise<string> {
   const copy = getActivityNotificationCopy(language);
 
   // Creating an existing channel updates its name only: Android owns the

@@ -71,6 +71,25 @@ export interface TaskCopy {
     today: string;
     tomorrow: string;
     minutes: (value: number) => string;
+    /** Saying something before the deadline, chosen on the task itself. Only
+     * ever seen on a task that has a date to count back from. */
+    reminder: {
+      /** Names the control for a screen reader, whatever it currently says. */
+      label: string;
+      off: string;
+      on: (days: number) => string;
+      noReminder: string;
+      daysBefore: (days: number) => string;
+      /** What the chip itself says when the deadline leaves no room: short
+       * enough for a chip, and the same fact as `tooLateHint`. */
+      noLeadTime: string;
+      /** A deadline today or already past leaves no room to warn early. */
+      tooLateHint: string;
+      /** The phone was told no. Says what is off, never what the person did
+       * wrong. */
+      blockedHint: string;
+      openSettings: string;
+    };
   };
   /** The steps inside one task. Only ever seen while editing a task: capture
    * stays one field. */
@@ -405,6 +424,21 @@ const ptBR: TaskCopy = {
     tomorrow: 'amanhã',
     minutes: value =>
       value >= 60 ? `${Math.round(value / 60)} h` : `${value} min`,
+    reminder: {
+      label: 'Aviso antes do prazo',
+      off: 'sem aviso',
+      on: days =>
+        days === 1 ? 'aviso 1 dia antes' : `aviso ${days} dias antes`,
+      noReminder: 'Não avisar',
+      // Impresso no chip: o substantivo fica, senão "2 dias" some no meio da
+      // faixa entre "5/9" e "prioridade média" sem dizer do que se trata.
+      daysBefore: days =>
+        days === 1 ? 'Aviso · 1 dia' : `Aviso · ${days} dias`,
+      noLeadTime: 'sem antecedência',
+      tooLateHint: 'Sem antecedência possível para este prazo.',
+      blockedHint: 'Notificações desativadas no sistema.',
+      openSettings: 'Abrir ajustes',
+    },
   },
   subtasks: {
     title: 'Subtarefas',
@@ -779,6 +813,19 @@ const enUS: TaskCopy = {
     tomorrow: 'tomorrow',
     minutes: value =>
       value >= 60 ? `${Math.round(value / 60)} h` : `${value} min`,
+    reminder: {
+      label: 'Reminder before the due date',
+      off: 'no reminder',
+      on: days =>
+        days === 1 ? 'reminder 1 day before' : `reminder ${days} days before`,
+      noReminder: 'No reminder',
+      daysBefore: days =>
+        days === 1 ? 'Reminder · 1 day' : `Reminder · ${days} days`,
+      noLeadTime: 'no lead time',
+      tooLateHint: 'No lead time available for this due date.',
+      blockedHint: 'Notifications are turned off in the system.',
+      openSettings: 'Open settings',
+    },
   },
   subtasks: {
     title: 'Subtasks',

@@ -96,9 +96,12 @@ import {
 } from '../../domain/Workspace';
 import { createFeedbackSubscriber } from '../../infrastructure/events/createFeedbackSubscriber';
 import { createPersistenceSubscriber } from '../../infrastructure/events/createPersistenceSubscriber';
+import { createDeadlineReminderSubscriber } from '../../infrastructure/events/createDeadlineReminderSubscriber';
 import { createSharePushSubscriber } from '../../infrastructure/events/createSharePushSubscriber';
+import { syncDeadlineReminders } from '../../infrastructure/notifications/notifeeDeadlineScheduler';
 import { createUsageSubscriber } from '../../infrastructure/events/createUsageSubscriber';
 import { createId } from '../../../../shared/identity/createId';
+import type { AppLanguage } from '../localization/taskCopy';
 
 export interface TasksDependencies {
   bus: TaskEventBus;
@@ -121,6 +124,9 @@ export interface TasksDependencies {
     /** The avatar the other members see, published with the name. */
     photoURL: string | null;
   } | null;
+  /** Which language a deadline reminder is written in when it reaches the
+   * tray, since it is scheduled long before the app is opened again. */
+  language?: AppLanguage;
   /** How many tasks the day commits to, from the person's own settings. */
   dayCapacity?: number;
   /** Called with every shared project that comes back from a pull, before
@@ -175,6 +181,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     groupStreakStore,
     clipboard,
     identity,
+    language = 'pt-BR',
     dayCapacity = DEFAULT_DAY_CAPACITY,
     onRemoteProject,
   } = dependencies;
@@ -284,6 +291,22 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
       restored,
     });
   }, [bus, listStore, progressStore, restored, taskStore, trioStore]);
+
+  // What the phone is holding is restated from the tasks themselves, both once
+  // on the way in — the app may have been closed while a date moved — and after
+  // every commit.
+  useEffect(() => {
+    if (restored == null) return;
+
+    syncDeadlineReminders(current.current.tasks, clock.now(), language).catch(
+      () => undefined,
+    );
+
+    return createDeadlineReminderSubscriber(bus, {
+      language,
+      now: () => clock.now(),
+    });
+  }, [bus, clock, language, restored]);
 
   useEffect(() => {
     if (restored == null || identity == null) return;

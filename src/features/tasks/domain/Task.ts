@@ -20,6 +20,11 @@ export interface Task {
   dueAtMs: number | null;
   /** What the person expects it to cost, used by the focus timer. */
   estimatedMinutes: number | null;
+  /** How many whole days before the deadline the phone should say something,
+   * or null for a task nobody asked to be reminded about. Only meaningful
+   * alongside `dueAtMs`. Absent on everything written before reminders
+   * existed, which is not a reason to drop the task: it simply warns nobody. */
+  remindDaysBefore?: number | null;
   createdAtMs: number;
   completedAtMs: number | null;
   /** uid of whoever closed it, for a shared project's task list. Null for an
@@ -50,6 +55,12 @@ export const TASK_WEIGHT: Record<TaskPriority, number> = {
 
 /** Longest title kept, so one pasted paragraph cannot break every list row. */
 const MAX_TITLE_LENGTH = 140;
+
+/** A reminder is measured in whole days, never in hours, and never further out
+ * than a week: past that it stops being "the deadline is coming" and becomes
+ * one more thing in the tray. */
+export const MIN_REMIND_DAYS = 1;
+export const MAX_REMIND_DAYS = 7;
 
 export function taskWeight(task: Task): number {
   return TASK_WEIGHT[task.priority];
@@ -186,6 +197,17 @@ export function withoutAssignee(task: Task, personId: string): Task {
     : task;
 }
 
+/** How far ahead a reminder may be asked for, read as untrusted input:
+ * anything that is not a whole number of days inside the allowed range is
+ * nobody asking for a reminder at all. */
+export function sanitizeRemindDays(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+
+  const days = Math.round(value);
+
+  return days >= MIN_REMIND_DAYS && days <= MAX_REMIND_DAYS ? days : null;
+}
+
 function sanitizeTimestamp(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -225,6 +247,7 @@ export function sanitizeTasks(value: unknown): Task[] {
         candidate.estimatedMinutes > 0
           ? Math.round(candidate.estimatedMinutes)
           : null,
+      remindDaysBefore: sanitizeRemindDays(candidate.remindDaysBefore),
       createdAtMs: sanitizeTimestamp(candidate.createdAtMs) ?? 0,
       completedAtMs: sanitizeTimestamp(candidate.completedAtMs),
       completedBy:

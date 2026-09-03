@@ -10,6 +10,10 @@ import styled, { useTheme } from 'styled-components/native';
 import { useSheetOpenTrace } from '../../../../app/perf/sheetPerf';
 import type { CaptureOverrides } from '../../application/useCases/captureTask';
 import { daysBetween, endOfDay } from '../../domain/Day';
+import {
+  clampRemindDays,
+  reminderDayOptions,
+} from '../../domain/DeadlineReminder';
 import { parseCapture } from '../../domain/QuickCapture';
 import {
   addSubtask,
@@ -22,6 +26,7 @@ import { findListByName, type TaskList } from '../../domain/TaskList';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
 import { CalendarPanel } from './CalendarPanel';
 import {
+  BellGlyph,
   CalendarGlyph,
   ChevronGlyph,
   PlayGlyph,
@@ -31,6 +36,11 @@ import {
   TrashGlyph,
 } from './FieldGlyphs';
 import { ListPanel } from './ListPanel';
+import {
+  openSystemNotificationSettings,
+  requestActivityPermission,
+} from '../../infrastructure/notifications/notifeeActivityNotifier';
+import { ReminderPanel } from './ReminderPanel';
 import { projectTone } from '../models/projectAppearance';
 import {
   buttonTextAttrs,
@@ -62,6 +72,9 @@ export interface SheetSubject {
   priority: TaskPriority;
   dueAtMs: number | null;
   listId: string | null;
+  /** How many days before the deadline it warns, or null for a task nobody
+   * asked to be reminded about. */
+  remindDaysBefore?: number | null;
   /** The steps inside it. Only editing has them: capture stays one field. */
   subtasks: readonly Subtask[];
 }
@@ -205,8 +218,17 @@ export function QuickCaptureSheet({
   // on its way.
   const pendingSubtaskText = useRef('');
 
+  // Null is a decision here ("no reminder"), so the state carries the task's
+  // own answer from the start and never guesses one.
+  const [remindDaysBefore, setRemindDaysBefore] = useState<number | null>(
+    editing?.remindDaysBefore ?? null,
+  );
+  // Set once the phone has said no, which is final on Android: the choice is
+  // still saved, and the panel says what is switched off.
+  const [isReminderBlocked, setIsReminderBlocked] = useState(false);
+
   const [panel, setPanel] = useState<
-    'none' | 'date' | 'list' | 'listNew' | 'syntax'
+    'none' | 'date' | 'list' | 'listNew' | 'syntax' | 'reminder'
   >('none');
   // The sheet opens on its smallest layer: a field and two ways in. Editing is
   // the exception — the chips are the whole point of reopening a task. This is
@@ -260,6 +282,32 @@ export function QuickCaptureSheet({
           dueOverride === undefined && draft.hasTimeOfDay,
         );
 
+  // Only the lead times this deadline actually leaves room for. A date today
+  // or already past leaves none, and the chip says so instead of offering the
+  // past.
+  const reminderOptions = reminderDayOptions(dueAtMs, nowMs);
+  // A deadline pulled closer takes the reminder with it, on screen and on
+  // save: the chip never shows a lead time the date cannot hold.
+  const remindDays = clampRemindDays(dueAtMs, remindDaysBefore, nowMs);
+  // A deadline today has no room for a warning ahead of it, so the chip says
+  // that outright instead of offering a switch that cannot be turned on.
+  //
+  // Printed and spoken part ways here on purpose: the bell beside the words
+  // already says "reminder", so the chip prints only the lead time and fits on
+  // the row, while the screen reader still hears the whole sentence.
+  const reminderLabel =
+    reminderOptions.length === 0
+      ? copy.capture.reminder.noLeadTime
+      : remindDays == null
+      ? copy.capture.reminder.off
+      : copy.capture.reminder.daysBefore(remindDays);
+  const reminderSpokenLabel =
+    reminderOptions.length === 0
+      ? copy.capture.reminder.noLeadTime
+      : remindDays == null
+      ? copy.capture.reminder.off
+      : copy.capture.reminder.on(remindDays);
+
   // A chip that already carries an answer shows itself, expanded or not: what
   // the text was understood as is never hidden behind a disclosure.
   const showDate = expanded || dueAtMs != null;
@@ -269,8 +317,15 @@ export function QuickCaptureSheet({
     listId != null ||
     newListName != null ||
     (listOverride === undefined && draft.listName != null);
+  // Nothing to count back from means nothing to offer: a task with no date
+  // never carries the control, and the smallest layer never does either.
+  const showReminder = dueAtMs != null && (expanded || remindDays != null);
   const showChips =
-    showDate || showPriority || showList || estimateMinutes != null;
+    showDate ||
+    showPriority ||
+    showList ||
+    showReminder ||
+    estimateMinutes != null;
 
   useEffect(() => {
     // The keyboard is the point of this screen; opening it is not the user's
@@ -304,7 +359,7 @@ export function QuickCaptureSheet({
 
   /** Date and list have more answers than a tap can cycle through, so each
    * opens its own panel. The keyboard steps aside to make room for it. */
-  function openPanel(next: 'date' | 'list') {
+  function openPanel(next: 'date' | 'list' | 'reminder') {
     setPanel(current => {
       const opening = current !== next;
 
@@ -312,6 +367,34 @@ export function QuickCaptureSheet({
 
       return opening ? next : 'none';
     });
+  }
+
+  /**
+   * Choosing when to be warned, and only then asking the phone for permission.
+   *
+   * The question is asked at the moment it means something — never on a cold
+   * start — and a refusal does not undo the choice: the reminder is kept, the
+   * panel says notifications are off, and the phone starts holding it as soon
+   * as the person turns them back on.
+   */
+  function chooseReminder(days: number | null) {
+    setRemindDaysBefore(days);
+
+    if (days == null) {
+      setIsReminderBlocked(false);
+      setPanel('none');
+      return;
+    }
+
+    requestActivityPermission()
+      .then(granted => {
+        setIsReminderBlocked(!granted);
+        // A refusal keeps the panel open, because that is where the way back
+        // is; a yes has nothing left to say and the panel closes.
+        if (granted)
+          setPanel(current => (current === 'reminder' ? 'none' : current));
+      })
+      .catch(() => setIsReminderBlocked(true));
   }
 
   /** Collapsing takes the whole layer down with it: a calendar left open over
@@ -356,6 +439,9 @@ export function QuickCaptureSheet({
             ? { dueAtMs }
             : {}
           : { dueAtMs: dueOverride }),
+        // Always stated, so turning a reminder off is as much a decision as
+        // turning it on. The use case is what keeps it inside the date.
+        remindDaysBefore: remindDays,
         ...(newListName == null && listOverride === undefined
           ? {}
           : newListName == null
@@ -411,10 +497,7 @@ export function QuickCaptureSheet({
                 coloured attention mark, a list is a dot with a
                 name. Nothing here is a generic pill any more. */}
               {showDate ? (
-                <Animated.View
-                  entering={disclosureEnter()}
-                  exiting={fadeExit()}
-                >
+                <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
                   <DateChip
                     $open={panel === 'date'}
                     $set={dueAtMs != null}
@@ -436,14 +519,43 @@ export function QuickCaptureSheet({
                       {dateLabel}
                     </ChipText>
                   </DateChip>
-                </Animated.View>
+                </ChipSlot>
+              ) : null}
+
+              {showReminder ? (
+                <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
+                  <DateChip
+                    $open={panel === 'reminder'}
+                    $set={remindDays != null}
+                    accessibilityLabel={`${copy.capture.reminder.label}: ${reminderSpokenLabel}`}
+                    accessibilityRole="button"
+                    accessibilityState={{
+                      disabled: reminderOptions.length === 0,
+                      expanded: panel === 'reminder',
+                      selected: remindDays != null,
+                    }}
+                    disabled={reminderOptions.length === 0}
+                    onPress={() => openPanel('reminder')}
+                    testID="capture-chip-reminder"
+                  >
+                    <ChipGlyph>
+                      <BellGlyph
+                        color={
+                          remindDays == null
+                            ? theme.colors.muted
+                            : theme.colors.accentInk
+                        }
+                      />
+                    </ChipGlyph>
+                    <ChipText $color={remindDays == null ? 'muted' : 'accent'}>
+                      {reminderLabel}
+                    </ChipText>
+                  </DateChip>
+                </ChipSlot>
               ) : null}
 
               {showPriority ? (
-                <Animated.View
-                  entering={disclosureEnter()}
-                  exiting={fadeExit()}
-                >
+                <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
                   <PriorityChip
                     $chosen={priorityChosen}
                     $tone={priority}
@@ -464,14 +576,11 @@ export function QuickCaptureSheet({
                       {copy.capture.priority[priority]}
                     </PriorityText>
                   </PriorityChip>
-                </Animated.View>
+                </ChipSlot>
               ) : null}
 
               {showList ? (
-                <Animated.View
-                  entering={disclosureEnter()}
-                  exiting={fadeExit()}
-                >
+                <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
                   <ListChip
                     $open={panel === 'list'}
                     accessibilityLabel={listLabel}
@@ -493,18 +602,15 @@ export function QuickCaptureSheet({
                       {listLabel}
                     </ChipText>
                   </ListChip>
-                </Animated.View>
+                </ChipSlot>
               ) : null}
 
               {estimateMinutes == null ? null : (
-                <Animated.View
-                  entering={disclosureEnter()}
-                  exiting={fadeExit()}
-                >
+                <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
                   <ListChip $open={false} accessibilityLabel={estimateLabel}>
                     <ChipText $color="muted">{estimateLabel}</ChipText>
                   </ListChip>
-                </Animated.View>
+                </ChipSlot>
               )}
             </Chips>
           ) : null}
@@ -557,6 +663,19 @@ export function QuickCaptureSheet({
                 setPanel('none');
               }}
               selectedMs={dueAtMs}
+            />
+          ) : null}
+
+          {panel === 'reminder' ? (
+            <ReminderPanel
+              blocked={isReminderBlocked}
+              copy={copy}
+              onOpenSettings={() => {
+                openSystemNotificationSettings().catch(() => undefined);
+              }}
+              onSelect={chooseReminder}
+              options={reminderOptions}
+              selected={remindDays}
             />
           ) : null}
 
@@ -822,7 +941,9 @@ const Chips = styled(Animated.ScrollView).attrs(({ theme }) => ({
   contentContainerStyle: {
     alignItems: 'center' as const,
     gap: theme.spacing.small - 2,
-    paddingRight: theme.spacing.small,
+    // Room past the last chip, so whatever ends the row stops short of the
+    // edge instead of being read as cut off by it.
+    paddingRight: theme.spacing.large,
   },
 }))`
   flex-grow: 0;
@@ -834,6 +955,14 @@ const Chips = styled(Animated.ScrollView).attrs(({ theme }) => ({
   margin-top: ${({ theme }) => theme.spacing.small + 4}px;
 `;
 
+/* Each chip's own slot in the scrolling row. It has to refuse to shrink as
+   firmly as the chip inside it does: a slot that gives way squeezes the chip
+   it holds, however wide that chip asked to be. */
+const ChipSlot = styled(Animated.View)`
+  flex-shrink: 0;
+  flex-grow: 0;
+`;
+
 /** Shared skeleton. What differs between the three is deliberate, and lives
  * in the components below. */
 const ChipBase = styled(PressableScale)`
@@ -841,6 +970,11 @@ const ChipBase = styled(PressableScale)`
   align-items: center;
   justify-content: center;
   gap: 6px;
+  /* The row is a scroller, so a chip keeps its own width and the row slides.
+     Without this the last chip was squeezed into a three-pixel sliver against
+     the right edge — a target nobody can hit and a label nobody can read. */
+  flex-shrink: 0;
+  flex-grow: 0;
   min-height: 48px;
   padding: 0px ${({ theme }) => theme.spacing.medium}px;
   border-width: 1px;
