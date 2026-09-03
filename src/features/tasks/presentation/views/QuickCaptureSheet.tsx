@@ -732,21 +732,28 @@ export function QuickCaptureSheet({
           ) : null}
 
           <Controls>
-            <MoreToggle
-              accessibilityLabel={
-                expanded ? copy.capture.lessOptions : copy.capture.moreOptions
-              }
-              accessibilityRole="button"
-              accessibilityState={{ expanded }}
-              onPress={toggleExpanded}
-              scaleTo={0.96}
-              testID="capture-more"
-            >
-              <ChevronGlyph color={theme.colors.mutedStrong} up={expanded} />
-              <MoreToggleText>
-                {expanded ? copy.capture.lessOptions : copy.capture.moreOptions}
-              </MoreToggleText>
-            </MoreToggle>
+            {/* A reminder has nothing extra to disclose — every control it
+                owns is already on screen, so the toggle would expand into
+                nothing. */}
+            {isReminderKind ? null : (
+              <MoreToggle
+                accessibilityLabel={
+                  expanded ? copy.capture.lessOptions : copy.capture.moreOptions
+                }
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+                onPress={toggleExpanded}
+                scaleTo={0.96}
+                testID="capture-more"
+              >
+                <ChevronGlyph color={theme.colors.mutedStrong} up={expanded} />
+                <MoreToggleText>
+                  {expanded
+                    ? copy.capture.lessOptions
+                    : copy.capture.moreOptions}
+                </MoreToggleText>
+              </MoreToggle>
+            )}
 
             {isEditing || isReminderKind ? null : (
               <SyntaxToggle
