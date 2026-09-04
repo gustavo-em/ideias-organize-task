@@ -5,7 +5,9 @@
     <color name="brand_sun">#FFC107</color>
     <color name="brand_ink">#1D1D1B</color>
     <color name="brand_cream">#F6F3EC</color>
-    <color name="brand_launch_background">#F6F3EC</color>
+    <!-- Sol whatever the phone is set to: the icon opens into the splash,
+         and a cream or near-black frame in between reads as a flash. -->
+    <color name="brand_launch_background">#FFC63D</color>
     <!-- The launcher icon keeps its light background in both appearances. -->
     <!-- O chão do ícone é o Sol da marca: tocar no ícone e ver a splash
          tem de ser o mesmo gesto continuando. -->

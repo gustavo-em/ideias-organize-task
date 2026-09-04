@@ -1,7 +1,10 @@
 import { darkTheme, lightTheme } from '../src/app/theme/theme';
-import { MARK_ASPECT, MARK_COLORS } from '../src/app/components/AppMark';
+import {
+  ALUZA_MARK_OPEN_AT,
+  ALUZA_MARK_RAY_CENTERS,
+  ALUZA_MARK_RAY_PATHS,
+} from '../src/app/components/AluzaMark.generated';
 import { SPLASH_TIMING } from '../src/app/components/AppSplash';
-import { WORDMARK_RATIO } from '../src/app/components/AppWordmark';
 import { APP_NAME } from '../src/app/config/appMetadata';
 
 describe('brand contract', () => {
@@ -9,23 +12,39 @@ describe('brand contract', () => {
     expect(APP_NAME).toBe('Aluza');
   });
 
-  it('keeps the board artwork in its own proportions', () => {
-    // The symbol is a bitmap cut from the brand board: any size is a uniform
-    // scale of this aspect, so no dimension is ever set on its own.
-    expect(MARK_ASPECT).toBeGreaterThan(0.9);
-    expect(MARK_ASPECT).toBeLessThan(1.1);
-    // Width follows the artwork's ratio: the letters are never stretched.
-    expect(WORDMARK_RATIO).toBeGreaterThan(1.8);
-    expect(WORDMARK_RATIO).toBeLessThan(3.2);
+  it('lands the opening on the mark it is drawn from', () => {
+    // The three rows fly onto the three rays. When the mark was redrawn and
+    // these centres were still the old hand-measured ones, the rows parked
+    // beside the letter instead of becoming it — and nothing looked broken.
+    expect(ALUZA_MARK_RAY_PATHS).toHaveLength(3);
+    expect(ALUZA_MARK_RAY_CENTERS).toHaveLength(3);
+
+    for (const centre of ALUZA_MARK_RAY_CENTERS) {
+      // Inside the frame, and in the quadrant the light lives in: up and to
+      // the right of the letter.
+      expect(centre.x).toBeGreaterThan(0.5);
+      expect(centre.x).toBeLessThan(1);
+      expect(centre.y).toBeGreaterThan(0);
+      expect(centre.y).toBeLessThan(0.5);
+    }
+
+    // Drawn in the order the opening lands them: clockwise, from the highest.
+    expect(ALUZA_MARK_RAY_CENTERS[0].y).toBeLessThan(
+      ALUZA_MARK_RAY_CENTERS[1].y,
+    );
+    expect(ALUZA_MARK_RAY_CENTERS[1].y).toBeLessThan(
+      ALUZA_MARK_RAY_CENTERS[2].y,
+    );
+
+    // The opening grows out of the letter's bowl, which is left of centre and
+    // below the middle — never out of the middle of the picture.
+    expect(ALUZA_MARK_OPEN_AT.x).toBeGreaterThan(0.2);
+    expect(ALUZA_MARK_OPEN_AT.x).toBeLessThan(0.5);
+    expect(ALUZA_MARK_OPEN_AT.y).toBeGreaterThan(0.45);
+    expect(ALUZA_MARK_OPEN_AT.y).toBeLessThan(0.75);
   });
 
-  it('keeps the kit palette and the launch timing bounds', () => {
-    expect(MARK_COLORS).toMatchObject({
-      ink: '#1D1D1B',
-      sun: '#FFC107',
-      cream: '#F6F3EC',
-      white: '#FFFFFF',
-    });
+  it('keeps the launch timing bounds', () => {
     expect(SPLASH_TIMING).toEqual({
       total: 1560,
       letterOpen: 530,

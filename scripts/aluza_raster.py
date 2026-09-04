@@ -1,30 +1,12 @@
 #!/usr/bin/env python3
-"""Generates every brand artefact from the official Aluza kit.
+"""Turning path geometry into pictures: rasteriser, PNG writers, path maths.
 
-Single source of truth: assets/brand/aluza-symbol-primary.svg and
-assets/brand/aluza-logo-primary.svg. The symbol is never redrawn, stretched or
-recoloured here; it is only smoothed out of its tracing grid, scaled uniformly
-and padded.
+This was the whole brand pipeline while the mark lived as an auto-traced kit
+that had to be smoothed before it could be drawn. That kit is gone and so is
+the pipeline; what was worth keeping is the machinery below, which
+`generate-aluza-mark.py` uses to draw the current source.
 
-Why the smoothing stage exists: the kit SVGs were auto-traced from raster
-artwork, so every contour is a polygon whose vertices sit on a 4 unit grid of
-the 872 unit drawing. That staircase is geometry, not rasterisation, and it is
-what shows up as a jagged edge on the launcher icon and on the splash. The
-`smooth` stage removes the staircase and nothing else: the resulting curve is
-asserted to stay within `MAX_DEVIATION` units of the traced polygon, to keep
-its area within `MAX_AREA_DRIFT`, and to keep the exact kit proportion.
-
-No raster is ever an input here, and no bitmap is ever rescaled: every PNG is
-rasterised from the vector geometry at its exact target size.
-
-Outputs:
-  src/app/components/AluzaArtwork.generated.ts   paths, view boxes, lengths
-  android/.../drawable/ic_launcher_foreground.xml
-  android/.../drawable/ic_launcher_monochrome.xml
-  android/.../drawable{,-night}/launch_mark.xml, splash_icon.xml
-  android/.../mipmap-*/ic_launcher.png, ic_launcher_round.png
-
-Run: python3 scripts/generate-aluza-brand.py
+Nothing here knows what the mark looks like. Keep it that way.
 """
 
 from __future__ import annotations
@@ -503,10 +485,18 @@ def circle_coverage(size: int) -> list[float]:
 
 
 def rasterise(layers, size: int, background, circle_mask: bool) -> bytes:
-    """`layers` is [(subpaths, '#RRGGBB')], painted in order."""
+    """`layers` is [(subpaths, '#RRGGBB')], painted in order.
+
+    `background` is an (r, g, b) ground, or None for a transparent one: an
+    image drawn over a colour somebody else owns must not carry its own copy
+    of that colour, or the two go out of step the day one of them changes.
+    """
     mask = circle_coverage(size) if circle_mask else None
-    base_rgb = background[:3]
-    base_alpha = [1.0] * (size * size) if mask is None else mask
+    base_rgb = (0, 0, 0) if background is None else background[:3]
+    if background is None:
+        base_alpha = [0.0] * (size * size)
+    else:
+        base_alpha = [1.0] * (size * size) if mask is None else mask
 
     red = [base_rgb[0] / 255 * a for a in base_alpha]
     green = [base_rgb[1] / 255 * a for a in base_alpha]
@@ -571,6 +561,25 @@ def write_png(path: str, size: int, raw: bytes) -> None:
         raise SystemExit(f'{path}: wrote {width}x{height}, expected {size}x{size}')
 
 
+def write_png_rgb(path: str, size: int, raw: bytes) -> None:
+    """A PNG with no alpha channel, for the one image the store refuses to take
+    with one: the marketing icon."""
+    expected = size * (size * 3 + 1)
+    if len(raw) != expected:
+        raise SystemExit(f'{path}: {len(raw)} bytes for a {size}x{size} image, '
+                         f'expected {expected}')
+
+    def chunk(tag: bytes, payload: bytes) -> bytes:
+        return (struct.pack('>I', len(payload)) + tag + payload
+                + struct.pack('>I', zlib.crc32(tag + payload) & 0xFFFFFFFF))
+
+    header = struct.pack('>IIBBBBB', size, size, 8, 2, 0, 0, 0)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, 'wb').write(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', header)
+                           + chunk(b'IDAT', zlib.compress(raw, 9))
+                           + chunk(b'IEND', b''))
+
+
 def vector(canvas: float, dp: float, entries) -> str:
     body = '\n'.join(
         f'    <path\n'
@@ -605,175 +614,3 @@ def squared(box):
 
 def ratio_of(box) -> float:
     return (box[2] - box[0]) / (box[3] - box[1])
-
-
-def main() -> None:
-    symbol = read_paths('aluza-symbol-primary.svg')
-    logo = read_paths('aluza-logo-primary.svg')
-
-    traced_ink = polygons_of(next(d for d, fill in symbol if fill == DARK))
-    traced_sun = polygons_of(next(d for d, fill in symbol if fill == YELLOW))
-    traced_logo_ink = polygons_of(next(d for d, fill in logo if fill == DARK))
-
-    known = {tuple(ring) for ring in traced_ink}
-    traced_wordmark = [ring for ring in traced_logo_ink if tuple(ring) not in known]
-    if len(traced_wordmark) != len(traced_logo_ink) - len(traced_ink):
-        raise SystemExit('the logo no longer contains the symbol verbatim')
-
-    symbol_ink, _ = smooth(traced_ink, 'symbol ink')
-    symbol_sun, _ = smooth(traced_sun, 'symbol sun')
-    wordmark, _ = smooth(traced_wordmark, 'wordmark')
-
-    symbol_box = squared(bbox(symbol_ink + symbol_sun))
-    traced_box = bbox([(ring[0], [('L', point) for point in ring[1:]])
-                       for ring in traced_ink + traced_sun])
-    ratio_drift = abs(ratio_of(symbol_box) - ratio_of(traced_box)) / ratio_of(traced_box)
-    if ratio_drift > MAX_RATIO_DRIFT:
-        raise SystemExit(f'symbol proportion moved {ratio_drift * 100:.2f}%, '
-                         f'past {MAX_RATIO_DRIFT * 100:.1f}%')
-    print(f'symbol ratio {ratio_of(symbol_box):.4f} vs kit {ratio_of(traced_box):.4f} '
-          f'({ratio_drift * 100:.2f}% drift)')
-
-    wordmark_box = bbox(wordmark)
-    sun_box = bbox(symbol_sun)
-
-    # --- React Native artwork -------------------------------------------
-    sx, sy, ex, ey = symbol_box
-    wx, wy, wex, wey = wordmark_box
-    symbol_ink_view = transform(symbol_ink, 1, -sx, -sy)
-    symbol_sun_view = transform(symbol_sun, 1, -sx, -sy)
-    wordmark_view = transform(wordmark, 1, -wx, -wy)
-    length = sum(polygon_length(flatten_subpath(sub, 0.05)) for sub in symbol_ink_view)
-
-    # The splash lights the sun up one stroke at a time, clockwise from the
-    # highest one, so the order is decided here and never in the component.
-    centre_x = (ex - sx) / 2
-    centre_y = (ey - sy) / 2
-
-    def sun_order(sub) -> float:
-        box = bbox([sub])
-        cx = (box[0] + box[2]) / 2
-        cy = (box[1] + box[3]) / 2
-        return math.atan2(cx - centre_x, centre_y - cy) % (2 * math.pi)
-
-    sun_strokes = sorted(symbol_sun_view, key=sun_order)
-    sun_centres = []
-    for sub in sun_strokes:
-        box = bbox([sub])
-        sun_centres.append(((box[0] + box[2]) / 2, (box[1] + box[3]) / 2))
-
-    stroke_paths = ',\n'.join(f"  '{path_data([sub])}'" for sub in sun_strokes)
-    stroke_centres = ',\n'.join(f'  {{ x: {cx:.2f}, y: {cy:.2f} }}'
-                                for cx, cy in sun_centres)
-
-    artwork = f'''// Generated by scripts/generate-aluza-brand.py. Do not edit.
-// Source: assets/brand/aluza-symbol-primary.svg, assets/brand/aluza-logo-primary.svg
-
-export const ALUZA_COLORS = {{
-  ink: '{DARK}',
-  sun: '{YELLOW}',
-  cream: '{CREAM}',
-  white: '#FFFFFF',
-}} as const;
-
-/** Tight box of the symbol, so padding is the only adaptation ever made. */
-export const ALUZA_SYMBOL_VIEWBOX = '0 0 {ex - sx:.2f} {ey - sy:.2f}';
-export const ALUZA_SYMBOL_SIZE = {{
-  width: {ex - sx:g},
-  height: {ey - sy:g},
-}} as const;
-
-/** Length of the symbol contour. */
-export const ALUZA_SYMBOL_OUTLINE_LENGTH = {length:.0f};
-
-/** Centre of the yellow detail inside the symbol view box. */
-export const ALUZA_SUN_CENTER = {{
-  x: {(sun_box[0] + sun_box[2]) / 2 - sx:g},
-  y: {(sun_box[1] + sun_box[3]) / 2 - sy:g},
-}} as const;
-
-export const ALUZA_SYMBOL_INK_PATH =
-  '{path_data(symbol_ink_view)}';
-
-export const ALUZA_SYMBOL_SUN_PATH =
-  '{path_data(symbol_sun_view)}';
-
-/** The sun, stroke by stroke, ordered clockwise from the highest one: the
- * splash lights them in this order. */
-export const ALUZA_SYMBOL_SUN_PATHS = [
-{stroke_paths},
-] as const;
-
-/** Centre of each stroke above, so it can scale from its own middle. */
-export const ALUZA_SUN_CENTERS = [
-{stroke_centres},
-] as const;
-
-export const ALUZA_WORDMARK_VIEWBOX = '0 0 {wex - wx:.2f} {wey - wy:.2f}';
-export const ALUZA_WORDMARK_RATIO = {(wex - wx) / (wey - wy):.4f};
-
-export const ALUZA_WORDMARK_PATH =
-  '{path_data(wordmark_view)}';
-'''
-    generated_ts = os.path.join(ROOT, 'src/app/components/AluzaArtwork.generated.ts')
-    open(generated_ts, 'w', encoding='utf8').write(artwork)
-    # The repository checks formatting, and this file is part of it.
-    try:
-        subprocess.run(['npx', 'prettier', '--write', generated_ts], cwd=ROOT,
-                       check=True, stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL)
-    except (OSError, subprocess.CalledProcessError):
-        print('prettier not available: format AluzaArtwork.generated.ts by hand')
-
-    # --- Android vectors -------------------------------------------------
-    drawable = os.path.join(ROOT, 'android/app/src/main/res/drawable')
-    adaptive_share = ADAPTIVE_SIZE / ADAPTIVE_CANVAS
-    open(os.path.join(drawable, 'ic_launcher_foreground.xml'), 'w', encoding='utf8').write(
-        vector(ADAPTIVE_CANVAS, ADAPTIVE_CANVAS, [
-            (path_data(normalise(symbol_ink, symbol_box, ADAPTIVE_CANVAS, adaptive_share)), DARK),
-            (path_data(normalise(symbol_sun, symbol_box, ADAPTIVE_CANVAS, adaptive_share)), YELLOW),
-        ]))
-    open(os.path.join(drawable, 'ic_launcher_monochrome.xml'), 'w', encoding='utf8').write(
-        vector(ADAPTIVE_CANVAS, ADAPTIVE_CANVAS, [
-            (path_data(normalise(symbol_ink, symbol_box, ADAPTIVE_CANVAS, adaptive_share)), DARK),
-            (path_data(normalise(symbol_sun, symbol_box, ADAPTIVE_CANVAS, adaptive_share)), DARK),
-        ]))
-    # The launch window and the Android 12+ splash, in both appearances: on the
-    # dark background the symbol is drawn in white, never in ink on ink.
-    drawable_night = os.path.join(ROOT, 'android/app/src/main/res/drawable-night')
-    os.makedirs(drawable_night, exist_ok=True)
-    for folder, ink in ((drawable, DARK), (drawable_night, WHITE)):
-        open(os.path.join(folder, 'launch_mark.xml'), 'w', encoding='utf8').write(
-            vector(LAUNCH_CANVAS, LAUNCH_CANVAS, [
-                (path_data(normalise(symbol_ink, symbol_box, LAUNCH_CANVAS, 0.86)), ink),
-                (path_data(normalise(symbol_sun, symbol_box, LAUNCH_CANVAS, 0.86)), YELLOW),
-            ]))
-        # Android 12+ masks the splash icon to a circle and only the inner two
-        # thirds are safe, so the symbol sits smaller inside the canvas.
-        open(os.path.join(folder, 'splash_icon.xml'), 'w', encoding='utf8').write(
-            vector(ADAPTIVE_CANVAS, ADAPTIVE_CANVAS, [
-                (path_data(normalise(symbol_ink, symbol_box, ADAPTIVE_CANVAS, 0.52)), ink),
-                (path_data(normalise(symbol_sun, symbol_box, ADAPTIVE_CANVAS, 0.52)), YELLOW),
-            ]))
-
-    # --- Legacy mipmaps ---------------------------------------------------
-    cream = (int(CREAM[1:3], 16), int(CREAM[3:5], 16), int(CREAM[5:7], 16))
-    for density, size in DENSITIES.items():
-        folder = os.path.join(ROOT, 'android/app/src/main/res', f'mipmap-{density}')
-        for filename, share, circle in (
-            ('ic_launcher.png', LEGACY_SHARE, False),
-            ('ic_launcher_round.png', ROUND_SHARE, True),
-        ):
-            raw = rasterise(
-                [
-                    (normalise(symbol_ink, symbol_box, float(size), share), DARK),
-                    (normalise(symbol_sun, symbol_box, float(size), share), YELLOW),
-                ],
-                size, cream, circle,
-            )
-            write_png(os.path.join(folder, filename), size, raw)
-            print(f'{density}/{filename} {size}x{size}')
-
-
-if __name__ == '__main__':
-    main()

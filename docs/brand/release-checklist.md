@@ -1,85 +1,63 @@
-# Aluza — pendências pré-publicação
+# Aluza — o que falta antes de publicar
 
-## Lote de release da marca — bloqueiam a publicação
+Este arquivo descrevia três bloqueios que já não existem: os frames antigos do
+onboarding (a apresentação foi redesenhada e não usa mais captura de tela), o
+link de convite em `ideias.app/p/` (o host hoje é o do Firebase Hosting) e a
+ausência de um projeto iOS (existe, e é o que está sendo publicado primeiro).
+Foi reescrito para dizer o que de fato está de pé.
 
-Os três itens abaixo saem juntos, no mesmo lote, antes de publicar o Aluza.
-Nenhum deles pode ir para a loja como está:
+## Versões
 
-1. **applicationId** `com.ideiasorganizetask` → `app.aluza`, depois do
-   `google-services.json` novo.
-2. **Link de convite** `SHARE_LINK_HOST = 'ideias.app/p/'` → domínio Aluza.
-   É a marca antiga lida por quem recebe o convite.
-3. **Frames do onboarding** recapturados. Enquanto não forem, a apresentação
-   mostra a marca em vez das capturas antigas
-   (`ONBOARDING_FRAMES_STALE = true`).
+São dois números independentes, e é assim de propósito:
 
-## applicationId
+- **iOS** — `MARKETING_VERSION` e `CURRENT_PROJECT_VERSION` no projeto Xcode.
+  Hoje `1.0 (1)`.
+- **Android** — `VERSIONNAME` e `VERSIONCODE` no `.env`, que o
+  `android/app/build.gradle` lê no build. É o número que se muda para gerar um
+  AAB novo.
 
-Hoje: `com.ideiasorganizetask` (em `android/app/build.gradle`, `applicationId`
-e `namespace`).
+O `APP_VERSION` em `src/app/config/appMetadata.ts` é o que a tela de Ajustes
+mostra, e é uma terceira cópia à mão. **Ao subir a versão de qualquer
+plataforma, subir essa também** — hoje ela diz `1.0`, igual ao iOS.
 
-O id **não** foi trocado para `app.aluza` porque o
-`android/app/google-services.json` do repositório ainda é o do app antigo
-(`project_id: ideiasorganizetask`, `package_name: com.ideiasorganizetask`).
-Trocar o id sem o json correspondente quebra o build do Firebase.
+Ler o número do próprio binário resolveria a cópia de vez, mas exige um módulo
+nativo em cada plataforma; enquanto isso não existe, o acordo é lembrar aqui.
 
-Passos manuais do dono, no console do Firebase, antes de publicar com o id
-novo:
+## applicationId do Android — decidir antes do primeiro envio ao Play
 
-1. Firebase Console → projeto → **Adicionar app Android** com o pacote
-   `app.aluza`.
-2. Baixar o `google-services.json` novo e substituir
-   `android/app/google-services.json`.
-3. Reativar em **Authentication** os provedores usados pelo app para o novo
-   pacote e cadastrar o **SHA-1/SHA-256** da chave de assinatura.
-4. Só então trocar `applicationId` e `namespace` em `android/app/build.gradle`
-   para `app.aluza` e refazer o build.
+Hoje: `com.ideiasorganizetask`, em `android/app/build.gradle` (`applicationId`
+e `namespace`). O iOS já vai como `com.aluza.app`.
 
-Enquanto isso não acontece, o app instala e roda normalmente com o id atual e
-já aparece como **Aluza** no launcher: o nome visível vem de `app_name`, não do
-applicationId.
+**O applicationId não pode mudar depois do primeiro envio ao Play.** Se o app
+ainda não foi publicado lá, esta é a última janela para trocá-lo por algo com o
+nome da marca. Se já foi, ele está fixo para sempre e não há o que fazer.
 
-## Frames do onboarding — bloqueio de release
+Trocar exige, na ordem:
 
-Os PNGs em `assets/onboarding/` foram capturados antes do rebrand: ainda mostram
-o nome antigo e a palavra "Projetos" na interface. Eles aparecem na primeira
-abertura do app e no replay em Ajustes, então **o app não pode ser publicado com
-eles**.
+1. Firebase Console → **Adicionar app Android** com o pacote novo.
+2. Baixar o `google-services.json` e substituir `android/app/google-services.json`.
+3. Em **Authentication**, reativar os provedores para o pacote novo e cadastrar
+   o SHA-1/SHA-256 da chave de assinatura.
+4. Só então trocar `applicationId` e `namespace` e refazer o build.
 
-Enquanto isso, `ONBOARDING_FRAMES_STALE` em
-`src/app/components/onboarding/onboardingSteps.ts` está em `true`: a
-apresentação mostra o símbolo Aluza no palco, com o mesmo tamanho, em vez de
-ensinar um nome que a interface não usa mais. Depois da recaptura, mude a flag
-para `false` no mesmo commit dos PNGs novos.
+Trocar o id sem o `google-services.json` correspondente quebra o build.
 
-Passo manual do dono, com um device ou emulador conectado (`adb`, `ffmpeg`,
-`python3`), rodando o build já rebrandado:
+O nome visível no launcher vem de `app_name`, não do applicationId: o app já
+aparece como **Aluza** com o id atual.
 
-1. preparar o aparelho como descreve `assets/onboarding/README.md` (tema claro,
-   pt-BR, sessão iniciada, tarefas e espaços de exemplo);
-2. `scripts/capture-onboarding-frames.sh capture`;
-3. `scripts/capture-onboarding-frames.sh shared`;
-4. copiar as coordenadas novas de `capture-taps.json` e `shared-taps.json` para
-   `src/app/components/onboarding/onboardingSteps.ts` e conferir o `aspect` de
-   cada demo.
+## Marca
 
-As legendas dos passos já dizem "Espaços": só os PNGs estão pendentes.
+Uma fonte só: `assets/brand/aluza-mark-source.svg`. `npm run brand:assets`
+reconstrói o ícone das duas lojas, as launch screens, os recortes das telas de
+marca e a geometria que o splash anima. Nada de arte é editado à mão.
 
-## Link de convite — bloqueio de release
+## Loja
 
-`SHARE_LINK_HOST` em `src/features/tasks/domain/TaskList.ts` ainda é
-`ideias.app/p/`, e esse texto aparece no link que a pessoa compartilha. Publicar
-o Aluza com link `ideias.app` mostra a marca antiga a quem recebe o convite.
-
-A troca mexe na mecânica de compartilhamento (domínio, registro do host,
-compatibilidade dos links já criados), então o código fica para uma tarefa
-própria: registrar `aluza.app`, apontar o novo host e decidir se os links
-antigos continuam sendo aceitos na leitura. Mesmo assim o item **bloqueia a
-publicação** e sai no mesmo lote do `applicationId`: publicar o Aluza com link
-`ideias.app` mostra a marca antiga a cada convite enviado.
-
-## iOS
-
-Não há projeto iOS versionado neste repositório. Quando houver, o
-`CFBundleDisplayName` passa a ser `Aluza` e o app icon sai de
-`assets/brand/aluza-symbol-primary.svg` sobre o creme `#F6F3EC`.
+- **Ícone 1024** — gerado sem canal alpha, que é o que o App Store Connect
+  exige.
+- **Privacidade** — o app coleta Analytics e Crashlytics vinculados à conta.
+  A política em `public/privacidade.html` diz isso, e as respostas no App Store
+  Connect precisam dizer o mesmo.
+- **GA4** — enquanto a propriedade não for vinculada no console do Firebase, o
+  app coleta e transmite, mas nada aparece em relatório. Ver
+  `docs/firebase/telemetria.md`.
