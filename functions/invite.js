@@ -27,16 +27,18 @@ const TOKEN = /^[a-z0-9]{4,24}$/i;
 /**
  * Where to send somebody who does not have the app yet.
  *
- * Empty while the app is not published. A button that promises a download and
+ * Both empty until the app is published. A button promising a download that
  * lands on a store error is worse than no button: the person came here to
- * accept an invite and leaves thinking the whole thing is broken. Until there
- * is a store page, the invite shows the code instead, which is something the
- * person who sent it can act on.
+ * accept an invite and leaves thinking the whole thing is broken. Until then
+ * the page leads with the code, which is something they can still act on.
+ *
+ * `APPLE_APP_ID` is the numeric id from App Store Connect; it also drives
+ * Safari's Smart App Banner, the one route iOS gives from a web page to the
+ * store. `ANDROID_PACKAGE` is the Play listing's package name, kept as a name
+ * rather than a URL because the Play link is built with the invite attached.
  */
-const STORES = {
-  ios: '',
-  android: '',
-};
+const APPLE_APP_ID = '';
+const ANDROID_PACKAGE = '';
 
 /** Enough to recognise the space, not enough to be a copy of it. */
 const PREVIEW_TASKS = 3;
@@ -73,20 +75,67 @@ function previewOf(data) {
   };
 }
 
-function storeLinks() {
-  const links = [];
+/** Which store this browser should be sent to, from its own claim. */
+function platformOf(userAgent) {
+  const ua = String(userAgent ?? '');
 
-  if (STORES.ios !== '') {
-    links.push(`<a class="cta" href="${STORES.ios}">Baixar para iPhone</a>`);
-  }
-  if (STORES.android !== '') {
-    links.push(`<a class="cta" href="${STORES.android}">Baixar para Android</a>`);
-  }
-
-  return links.join('');
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+  if (/Android/i.test(ua)) return 'android';
+  return 'other';
 }
 
-function page(preview, token) {
+/**
+ * The Play link, with the invite riding along.
+ *
+ * Android is the one platform where the token can survive the install: Play
+ * carries `referrer` through to the installed app, which reads it back once
+ * with the Install Referrer API and can then open straight into the space.
+ * Nothing equivalent exists on iOS, which is why the code on this page is not
+ * a fallback but the actual mechanism there.
+ */
+function playUrl(token) {
+  return (
+    `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}` +
+    `&referrer=${encodeURIComponent(`invite=${token}`)}`
+  );
+}
+
+function appStoreUrl() {
+  return `https://apps.apple.com/app/id${APPLE_APP_ID}`;
+}
+
+/**
+ * The one big button, aimed at the phone that is reading.
+ *
+ * Reaching this page means the app is not installed — an iPhone or Android
+ * that had it never got here, the link opened the app instead. So the page is
+ * written for somebody who does not have it, and the download is the loudest
+ * thing on it.
+ */
+function downloadButton(platform, token) {
+  const ios = APPLE_APP_ID !== '';
+  const android = ANDROID_PACKAGE !== '';
+
+  if (platform === 'ios' && ios) {
+    return `<a class="cta" href="${appStoreUrl()}">Baixar o Aluza</a>`;
+  }
+  if (platform === 'android' && android) {
+    return `<a class="cta" href="${playUrl(token)}">Baixar o Aluza</a>`;
+  }
+
+  // A desktop browser, or a phone whose store is not open yet: offer what
+  // there is, and nothing that would land on an error.
+  const both = [
+    ios ? `<a class="cta" href="${appStoreUrl()}">Baixar para iPhone</a>` : '',
+    android
+      ? `<a class="cta cta-soft" href="${playUrl(token)}">Baixar para Android</a>`
+      : '',
+  ].join('');
+
+  return both;
+}
+
+function page(preview, token, platform) {
   const name = escapeHtml(preview.name ?? 'um espaço');
   const who = preview.invitedBy == null ? 'Alguém' : escapeHtml(preview.invitedBy);
   const rows = preview.tasks
@@ -95,6 +144,13 @@ function page(preview, token) {
         `<li class="${task.done ? 'done' : ''}">${escapeHtml(task.title)}</li>`,
     )
     .join('');
+  const download = downloadButton(platform, token);
+  // The token is validated against `TOKEN` before anything is rendered, so it
+  // is safe to drop into the script below without further escaping.
+  const banner =
+    APPLE_APP_ID === ''
+      ? ''
+      : `<meta name="apple-itunes-app" content="app-id=${APPLE_APP_ID}">`;
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -104,8 +160,10 @@ function page(preview, token) {
 <title>${who} te chamou para ${name} · Aluza</title>
 <meta property="og:title" content="${who} te chamou para o espaço ${name}">
 <meta property="og:description" content="Vocês vão ver o mesmo dia: o que cada um levou e o que já fechou.">
+${banner}
 <style>
   :root { color-scheme: light; }
+  * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100vh; background: #FFC63D; color: #1B1710;
     font: 400 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -122,22 +180,35 @@ function page(preview, token) {
   li.done { color: #6F6656; text-decoration: line-through; }
   .cta {
     display: block; text-align: center; text-decoration: none;
-    background: #1B1710; color: #FFC63D; font-weight: 800;
-    border-radius: 15px; padding: 17px; margin-bottom: 10px;
+    background: #1B1710; color: #FFC63D; font-weight: 800; font-size: 18px;
+    border-radius: 17px; padding: 20px; margin-bottom: 10px;
   }
-  .note { text-align: center; font-size: 13px; color: rgba(27,23,16,.7); }
-  .code {
-    background: #1B1710; border-radius: 15px; padding: 14px;
-    text-align: center; margin-bottom: 10px;
+  .cta-soft { background: #fff; color: #1B1710; }
+  .steps {
+    margin: 0 0 20px; padding: 0 0 0 22px;
+    color: rgba(27,23,16,.82); font-size: 15px;
+  }
+  .steps li { padding: 3px 0; border-top: 0; }
+  .steps b { font-weight: 700; }
+  .copy {
+    display: block; width: 100%; border: 0; cursor: pointer; font: inherit;
+    background: #1B1710; border-radius: 17px; padding: 16px 14px;
+    text-align: center; margin-bottom: 10px; -webkit-appearance: none;
   }
   .code-label {
     display: block; font-size: 11px; font-weight: 800; letter-spacing: 1.8px;
     text-transform: uppercase; color: #FFC63D; margin-bottom: 6px;
   }
-  .code code {
+  .copy code {
+    display: block;
     font: 800 26px ui-monospace, Menlo, monospace; color: #FFFDF7;
     letter-spacing: 2px;
   }
+  .copy-hint {
+    display: block; margin-top: 8px; font-size: 12px; font-weight: 700;
+    color: rgba(255,253,247,.72);
+  }
+  .note { text-align: center; font-size: 13px; color: rgba(27,23,16,.7); }
 </style>
 </head>
 <body>
@@ -149,13 +220,68 @@ function page(preview, token) {
       ? ''
       : `<div class="card"><h2>Hoje, no combinado</h2><ul>${rows}</ul></div>`
   }
-  ${storeLinks()}
-  <div class="code">
+  <ol class="steps">
+    <li>Instale o <b>Aluza</b>, um aplicativo de celular.</li>
+    <li>Abra <b>Espaços</b> e toque em <b>Entrar com convite</b>.</li>
+    <li>Cole o código abaixo.</li>
+  </ol>
+  ${download}
+  <button class="copy" id="copy" type="button">
     <span class="code-label">Código do convite</span>
-    <code>${escapeHtml(token)}</code>
-  </div>
-  <p class="note">Abra o Aluza, toque em <b>Espaços</b> e depois em <b>Entrar com convite</b>.</p>
+    <code id="code">${token}</code>
+    <span class="copy-hint" id="hint">Toque para copiar</span>
+  </button>
+  ${
+    download === ''
+      ? '<p class="note">O Aluza ainda não está nas lojas. Guarde este código — ele continua valendo.</p>'
+      : ''
+  }
 </main>
+<script>
+(function () {
+  var button = document.getElementById('copy');
+  var hint = document.getElementById('hint');
+  var token = '${token}';
+  var resting = hint.textContent;
+
+  function say(text) {
+    hint.textContent = text;
+    setTimeout(function () { hint.textContent = resting; }, 2200);
+  }
+
+  // Selecting the code by hand on a phone is fiddly enough that people give
+  // up on it, and the code is the only way in on iOS.
+  function fallback() {
+    var field = document.createElement('textarea');
+    field.value = token;
+    field.setAttribute('readonly', '');
+    field.style.position = 'fixed';
+    field.style.opacity = '0';
+    document.body.appendChild(field);
+    field.select();
+    field.setSelectionRange(0, token.length);
+
+    try {
+      say(document.execCommand('copy') ? 'Copiado' : 'Copie o código acima');
+    } catch (error) {
+      say('Copie o código acima');
+    }
+
+    document.body.removeChild(field);
+  }
+
+  button.addEventListener('click', function () {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(token).then(function () {
+        say('Copiado');
+      }, fallback);
+      return;
+    }
+
+    fallback();
+  });
+})();
+</script>
 </body>
 </html>`;
 }
@@ -190,5 +316,10 @@ exports.invite = onRequest({ cors: true }, async (request, response) => {
     return;
   }
 
-  response.status(200).send(page(preview, token));
+  // The page aims its download button at the phone reading it, so a cache in
+  // front of this must not hand an iPhone the copy built for an Android.
+  response.set('Vary', 'User-Agent');
+  response
+    .status(200)
+    .send(page(preview, token, platformOf(request.get('user-agent'))));
 });
