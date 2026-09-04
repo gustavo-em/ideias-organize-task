@@ -1,424 +1,430 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, useWindowDimensions } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { useWindowDimensions } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, {
+  Easing,
   cancelAnimation,
+  interpolate,
+  interpolateColor,
   runOnJS,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withDelay,
-  withSequence,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
-import styled, { useTheme } from 'styled-components/native';
+import Svg, { Path } from 'react-native-svg';
+import styled from 'styled-components/native';
 
-import {
-  SPLASH_DRAW,
-  SPLASH_EXIT,
-  SPLASH_MARK,
-  SPLASH_SETTLE,
-  SPLASH_SETTLE_SCALE,
-  SPLASH_SUN,
-  SPLASH_SUN_DELAY_MS,
-  SPLASH_SUN_SCALE,
-  SPLASH_WORDMARK,
-  SPLASH_WORDMARK_DELAY_MS,
-} from '../animation/motion';
-import type { AppLanguage } from '../../features/tasks/presentation/localization/taskCopy';
-import { MARK_ASPECT, MARK_COLORS } from './AppMark';
-import { AppWordmark } from './AppWordmark';
+import { brandGround } from '../theme/brandGround';
+import { ALUZA_BODY, ALUZA_SPARK, ALUZA_VIEW_BOX } from './AluzaSymbol';
 
 interface AppSplashProps {
+  /** Held for later: the wipe already lands after everything the shell needs,
+   * so nothing waits on these today. */
   isReady: boolean;
-  language: AppLanguage;
+  language: string;
   onFinished: () => void;
 }
 
-/** The board artwork in two layers: the letter in ink, and the sun (the
- * yellow tip of the stroke plus the three rays) that lights up over it. */
-const INK_LIGHT = require('../../../assets/brand/aluza-mark-ink.png');
-const INK_DARK = require('../../../assets/brand/aluza-mark-ink-dark.png');
-const SUN_LAYER = require('../../../assets/brand/aluza-mark-sun.png');
+/**
+ * The opening: three list rows becoming the three rays of the mark.
+ *
+ * The idea is the one the brand already carries — a task is a line, and the
+ * mark is made of lines that turned into light. So the rows arrive as rows
+ * (ink, exactly like a task line), light up while still, and only then fly
+ * into place as the rays. Lighting them mid-flight would cross the ink letter
+ * in ink and lose the whole gesture for 200ms.
+ *
+ * The ground is Sol, not a dark screen, because the store icon is Sol with an
+ * ink letter and white rays. Opening in the same paint makes tapping the icon
+ * and watching this one continuous gesture: the icon grows into the screen.
+ */
+const DURATION_MS = 1560;
 
-/** Centre of the sun inside the mark's box, as a share of each side —
- * measured on the artwork itself, so the pop grows out of the sun's own
- * middle instead of the image's. */
-const SUN_CENTER = { x: 0.603, y: 0.236 } as const;
-
-/** Centre of the letter's ring, measured on the ink layer: the sweep that
- * draws the stroke pivots here, not on the image's own middle. */
-const RING_CENTER = { x: 0.306, y: 0.577 } as const;
-
-/** Where the visual mass of the whole symbol sits (weighted centroid). The
- * rays hang off the top-right, so centring the raw image pushed the letter
- * left of the screen's middle; this puts the mass there instead. */
-const OPTICAL_CENTER = { x: 0.3704, y: 0.5733 } as const;
-
-/** The stroke is born where the yellow tip sits — about 35° clockwise from
- * twelve o'clock — and the hand travels counter-clockwise from there. */
-const DRAW_START_DEG = 35;
-
+/**
+ * The whole opening, in milliseconds, in the order it happens.
+ *
+ * Written out rather than sprinkled through the interpolations so the order is
+ * something a test can hold: the rows have to light *before* they fly, the
+ * mark's own rays have to take over exactly as they fade, and the wipe has to
+ * be last. Break any of those and the idea stops reading, even though nothing
+ * looks broken.
+ */
 export const SPLASH_TIMING = {
-  /** The symbol arriving. */
-  mark: SPLASH_MARK.duration,
-  /** The symbol settling into its size, behind the arrival. */
-  settle: SPLASH_SETTLE.duration,
-  /** The sun lighting up over the letter. */
-  /** The letter drawing itself, one sweep around the ring. */
-  draw: SPLASH_DRAW.duration,
-  sunDelay: SPLASH_SUN_DELAY_MS,
-  sun: SPLASH_SUN.duration,
-  /** The wordmark arriving under the symbol. */
-  wordmarkDelay: SPLASH_WORDMARK_DELAY_MS,
-  wordmark: SPLASH_WORDMARK.duration,
-  /** Floor so the brand is legible even on a fast cold start. */
-  minVisible: 1250,
-  fade: SPLASH_EXIT.duration,
-  /** Shorter exit for when the app was ready before the floor above. */
-  compact: 120,
-  reducedFade: 80,
-  slowState: 1500,
+  total: DURATION_MS,
+  letterOpen: 530,
+  rowsIn: 265,
+  rowsLit: 390,
+  rowsFly: 875,
+  raysTakeOver: 970,
+  wordmark: 1250,
+  wipe: 1310,
+  /** From the second opening of the day, only the wordmark and the wipe. */
+  shortFrom: 900,
+  reduced: 360,
 } as const;
 
-const SLOW_COPY: Record<AppLanguage, string> = {
-  'pt-BR': 'Abrindo o Aluza…',
-  'en-US': 'Opening Aluza…',
-};
+/** The timeline above as shares of the run, which is what the interpolations
+ * actually take. */
+const AT = {
+  letterOpen: SPLASH_TIMING.letterOpen / DURATION_MS,
+  rowsIn: SPLASH_TIMING.rowsIn / DURATION_MS,
+  rowsLit: SPLASH_TIMING.rowsLit / DURATION_MS,
+  rowsFly: SPLASH_TIMING.rowsFly / DURATION_MS,
+  raysTakeOver: SPLASH_TIMING.raysTakeOver / DURATION_MS,
+  wordmark: SPLASH_TIMING.wordmark / DURATION_MS,
+  wipe: SPLASH_TIMING.wipe / DURATION_MS,
+} as const;
 
-/** The single, post-native cold-start transition. The artwork is the brand
- * board's own — a bitmap cut from it, never a redrawn approximation. */
-export function AppSplash({ isReady, language, onFinished }: AppSplashProps) {
-  const theme = useTheme();
-  const reduceMotion = useReducedMotion();
-  const { width } = useWindowDimensions();
-  const isDark = theme.mode === 'dark';
-  const paper = isDark ? MARK_COLORS.ink : MARK_COLORS.cream;
-  const ink = isDark ? MARK_COLORS.white : MARK_COLORS.ink;
-  const mark = useSharedValue(reduceMotion ? 1 : 0);
-  const settle = useSharedValue(reduceMotion ? 1 : 0);
-  const draw = useSharedValue(reduceMotion ? 1 : 0);
-  const sun = useSharedValue(reduceMotion ? 1 : 0);
-  const wordmark = useSharedValue(reduceMotion ? 1 : 0);
-  const cover = useSharedValue(1);
-  const startedAt = useRef(Date.now());
-  const exitStarted = useRef(false);
-  const exitTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showSlowState, setShowSlowState] = useState(false);
-  const markSize = width >= 700 ? 112 : width < 330 ? 72 : 96;
+/** The one curve. Fast in, slow to settle — that is what gives it weight. */
+const CURVE = Easing.bezier(0.2, 0.85, 0.15, 1);
 
-  useEffect(() => {
-    if (reduceMotion) {
-      mark.value = 1;
-      settle.value = 1;
-      wordmark.value = 1;
-      return;
-    }
+/** From the second opening of the day the mark is already formed: only the
+ * wordmark and the wipe are left. Nobody should watch the same animation ten
+ * times a day. */
+const SHORT_START = SPLASH_TIMING.shortFrom / DURATION_MS;
+const SEEN_KEY = 'ideias.splash.seen.v1';
 
-    mark.value = withTiming(1, SPLASH_MARK);
-    settle.value = withTiming(1, SPLASH_SETTLE);
-    draw.value = withTiming(1, SPLASH_DRAW);
-    // The sun bursts a hair past its size and settles back: lit, not placed.
-    sun.value = withDelay(
-      SPLASH_TIMING.sunDelay,
-      withSequence(
-        withTiming(1.07, SPLASH_SUN),
-        withTiming(1, { duration: 140, easing: SPLASH_SUN.easing }),
+/** The design's frame is 176pt wide; every measure below is a share of it, so
+ * the composition holds on any screen. */
+const FRAME = 176;
+const MARK_SIZE = 176;
+
+/** Where the letter opens from: the middle of its bowl, not the middle of the
+ * image. */
+const OPEN_AT = { x: 58 / FRAME, y: 96 / FRAME };
+
+/** The three rows, in the order they arrive. Each one starts off to the left
+ * as a 64pt task row and lands as a 26pt ray, rotated onto the mark. */
+const ROWS = [
+  {
+    from: { x: -182.7, y: 51.3 },
+    at: { x: 110.7, y: 4.7 },
+    angle: -80,
+    lead: 0,
+  },
+  {
+    from: { x: -211.4, y: 64.2 },
+    at: { x: 139.4, y: 21.8 },
+    angle: -36,
+    lead: 0.03,
+  },
+  {
+    from: { x: -219.2, y: 63.6 },
+    at: { x: 147.2, y: 52.4 },
+    angle: 6,
+    lead: 0.06,
+  },
+] as const;
+
+const ROW_HEIGHT = 9 / FRAME;
+const ROW_WIDTH_START = 64 / FRAME;
+const ROW_WIDTH_END = 26 / FRAME;
+
+/** One row: ink while it waits, light while it flies. */
+function Row({
+  index,
+  size,
+  t,
+}: {
+  index: number;
+  size: number;
+  t: SharedValue<number>;
+}) {
+  const row = ROWS[index];
+  const lead = row.lead;
+
+  const style = useAnimatedStyle(() => {
+    const width = interpolate(
+      t.value,
+      [AT.rowsFly - 0.28 + lead, AT.rowsFly + lead],
+      [ROW_WIDTH_START * size, ROW_WIDTH_END * size],
+      'clamp',
+    );
+    const travel = interpolate(
+      t.value,
+      [AT.rowsFly - 0.28 + lead, AT.rowsFly + lead],
+      [1, 0],
+      'clamp',
+    );
+    // A short bloom as it lands, then back — the only flourish in the piece.
+    const bloom = interpolate(
+      t.value,
+      [AT.rowsFly + lead, AT.rowsFly + 0.05 + lead, AT.rowsFly + 0.08 + lead],
+      [1, 1.1, 1],
+      'clamp',
+    );
+
+    return {
+      width,
+      height: ROW_HEIGHT * size,
+      opacity: interpolate(
+        t.value,
+        [
+          AT.rowsIn + lead,
+          AT.rowsLit - 0.05 + lead,
+          AT.rowsFly + 0.08 + lead,
+          AT.rowsFly + 0.14 + lead,
+        ],
+        [0, 1, 1, 0],
+        'clamp',
       ),
-    );
-    wordmark.value = withDelay(
-      SPLASH_TIMING.wordmarkDelay,
-      withTiming(1, SPLASH_WORDMARK),
-    );
-
-    return () => {
-      cancelAnimation(mark);
-      cancelAnimation(settle);
-      cancelAnimation(draw);
-      cancelAnimation(sun);
-      cancelAnimation(wordmark);
-    };
-  }, [draw, mark, reduceMotion, settle, sun, wordmark]);
-
-  useEffect(() => {
-    if (isReady) {
-      setShowSlowState(false);
-      return;
-    }
-
-    const timeout = setTimeout(
-      () => setShowSlowState(true),
-      SPLASH_TIMING.slowState,
-    );
-    return () => clearTimeout(timeout);
-  }, [isReady]);
-
-  // Kept in a ref so a re-render of the app above never restarts, and never
-  // cancels, the exit that is already on its way out.
-  const finish = useRef(onFinished);
-  finish.current = onFinished;
-
-  useEffect(() => {
-    if (!isReady || exitStarted.current) return;
-
-    // The animation never delays the app: it runs while the app loads, and the
-    // exit only waits for the floor that keeps the mark legible.
-    const elapsed = Date.now() - startedAt.current;
-    // The floor holds for everyone: asking for less movement asks for a still
-    // mark, not for the brand to flash by.
-    const wait = Math.max(0, SPLASH_TIMING.minVisible - elapsed);
-    // Ready before the floor: the opening already spent its budget waiting, so
-    // the fade is compressed instead of paid in full.
-    const readyAfterFloor = elapsed >= SPLASH_TIMING.minVisible;
-    const exitDuration = reduceMotion
-      ? SPLASH_TIMING.reducedFade
-      : readyAfterFloor
-      ? SPLASH_TIMING.fade
-      : SPLASH_TIMING.compact;
-
-    exitStarted.current = true;
-
-    const done = () => finish.current();
-    const timeout = setTimeout(() => {
-      cover.value = withTiming(
-        0,
-        { duration: exitDuration, easing: SPLASH_EXIT.easing },
-        finished => {
-          if (finished) runOnJS(done)();
+      backgroundColor: interpolateColor(
+        t.value,
+        [AT.rowsLit - 0.05 + lead, AT.rowsLit + lead],
+        [brandGround.tinta, '#FFFFFF'],
+      ),
+      transform: [
+        { translateX: (row.from.x / FRAME) * size * travel },
+        { translateY: (row.from.y / FRAME) * size * travel },
+        {
+          rotate: `${interpolate(
+            t.value,
+            [AT.rowsFly - 0.28 + lead, AT.rowsFly + lead],
+            [0, row.angle],
+            'clamp',
+          )}deg`,
         },
-      );
-    }, wait);
-    exitTimeout.current = timeout;
-
-    // No cleanup clearing this timeout: once the exit is committed it has to
-    // land, or the cover would stay on screen forever.
-  }, [cover, isReady, reduceMotion]);
-
-  useEffect(
-    () => () => {
-      if (exitTimeout.current) clearTimeout(exitTimeout.current);
-    },
-    [],
-  );
-
-  const coverStyle = useAnimatedStyle(() => ({ opacity: cover.value }));
-  const markStyle = useAnimatedStyle(() => ({
-    opacity: mark.value,
-    transform: [
-      {
-        scale: SPLASH_SETTLE_SCALE - (SPLASH_SETTLE_SCALE - 1) * settle.value,
-      },
-    ],
-  }));
-  const markHeight = markSize * MARK_ASPECT;
-  // The sweep that draws the stroke: two paper-coloured covers, one per half
-  // around the ring's centre, each swinging out counter-clockwise inside its
-  // own clipped half so the stroke appears in writing order.
-  const ringX = RING_CENTER.x * markSize;
-  const ringY = RING_CENTER.y * markHeight;
-  const wipeRadius = markSize * 0.95;
-  const leftCoverStyle = useAnimatedStyle(() => {
-    const angle = -Math.min(draw.value * 2, 1) * 180;
-
-    return {
-      transform: [
-        { translateX: wipeRadius / 2 },
-        { rotate: `${angle}deg` },
-        { translateX: -wipeRadius / 2 },
+        { scale: bloom },
       ],
     };
   });
-  const rightCoverStyle = useAnimatedStyle(() => {
-    const angle = -Math.max(draw.value * 2 - 1, 0) * 180;
-
-    return {
-      transform: [
-        { translateX: -wipeRadius / 2 },
-        { rotate: `${angle}deg` },
-        { translateX: wipeRadius / 2 },
-      ],
-    };
-  });
-  // The two translations put the sun's own centre under the scale, so it
-  // grows in place over the letter instead of sliding across it.
-  const sunOffsetX = (SUN_CENTER.x - 0.5) * markSize;
-  const sunOffsetY = (SUN_CENTER.y - 0.5) * markHeight;
-  const sunStyle = useAnimatedStyle(() => {
-    const lit = Math.min(sun.value, 1);
-
-    return {
-      opacity: lit,
-      transform: [
-        { translateX: sunOffsetX },
-        { translateY: sunOffsetY },
-        { scale: SPLASH_SUN_SCALE + sun.value * (1 - SPLASH_SUN_SCALE) },
-        { translateX: -sunOffsetX },
-        { translateY: -sunOffsetY },
-      ],
-    };
-  });
-  const wordmarkStyle = useAnimatedStyle(() => ({
-    opacity: wordmark.value,
-    transform: [{ translateY: reduceMotion ? 0 : (1 - wordmark.value) * 4 }],
-  }));
-  const busyLabel = useMemo(() => SLOW_COPY[language], [language]);
 
   return (
-    <Cover
-      $paper={paper}
-      accessibilityElementsHidden={!showSlowState}
-      importantForAccessibility={showSlowState ? 'yes' : 'no-hide-descendants'}
-      pointerEvents="auto"
-      style={coverStyle}
-      testID="app-splash"
-    >
-      <BrandGroup>
-        <MarkFrame style={markStyle}>
-          <MarkShift
-            $dx={(0.5 - OPTICAL_CENTER.x) * markSize}
-            $dy={(0.5 - OPTICAL_CENTER.y) * markHeight}
-          >
-            <Image
-              resizeMode="contain"
-              source={isDark ? INK_DARK : INK_LIGHT}
-              style={{ width: markSize, height: markHeight }}
-            />
-            {reduceMotion ? null : (
-              <WipeFrame
-                $radius={wipeRadius}
-                $x={ringX}
-                $y={ringY}
-                pointerEvents="none"
-              >
-                <WipeHalf $left $radius={wipeRadius}>
-                  <WipeCover
-                    $paper={paper}
-                    $radius={wipeRadius}
-                    style={leftCoverStyle}
-                  />
-                </WipeHalf>
-                <WipeHalf $left={false} $radius={wipeRadius}>
-                  <WipeCover
-                    $paper={paper}
-                    $radius={wipeRadius}
-                    style={rightCoverStyle}
-                  />
-                </WipeHalf>
-              </WipeFrame>
-            )}
-            <SunLayer style={sunStyle}>
-              <Image
-                resizeMode="contain"
-                source={SUN_LAYER}
-                style={{ width: markSize, height: markHeight }}
-              />
-            </SunLayer>
-          </MarkShift>
-        </MarkFrame>
-
-        <WordmarkFrame style={wordmarkStyle}>
-          <AppWordmark height={26} variant={isDark ? 'dark' : 'light'} />
-        </WordmarkFrame>
-      </BrandGroup>
-
-      {showSlowState ? (
-        <BusyStatus
-          accessibilityLabel={busyLabel}
-          accessibilityLiveRegion="polite"
-          accessibilityRole="progressbar"
-          accessibilityState={{ busy: true }}
-        >
-          <ActivityIndicator color={ink} size="small" />
-          <BusyText $ink={ink}>{busyLabel}</BusyText>
-        </BusyStatus>
-      ) : null}
-    </Cover>
+    <RowBar
+      style={[
+        {
+          left: (row.at.x / FRAME) * size,
+          top: (row.at.y / FRAME) * size,
+          borderRadius: (5 / FRAME) * size,
+        },
+        style,
+      ]}
+    />
   );
 }
 
-/** The kit's cream, the same colour the native launch window paints, so the
- * opening never flashes or changes brand between the two. */
-const Cover = styled(Animated.View)<{ $paper: string }>`
+export function AppSplash({ onFinished }: AppSplashProps) {
+  const window = useWindowDimensions();
+  const reduceMotion = useReducedMotion();
+  const [short, setShort] = useState<boolean | null>(null);
+  const finished = useRef(false);
+  const t = useSharedValue(0);
+  const size = Math.min(MARK_SIZE, window.width * 0.48);
+
+  // Asked once, before anything is drawn: a full opening that turns short
+  // halfway through would be worse than either.
+  useEffect(() => {
+    let active = true;
+    const today = new Date().toDateString();
+
+    AsyncStorage.getItem(SEEN_KEY)
+      .then(seen => {
+        if (active) setShort(seen === today);
+        return AsyncStorage.setItem(SEEN_KEY, today);
+      })
+      .catch(() => {
+        if (active) setShort(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (short == null) return undefined;
+
+    const done = () => {
+      if (finished.current) return;
+      finished.current = true;
+      onFinished();
+    };
+
+    if (reduceMotion) {
+      // No morph: the mark is already whole and only the wipe runs.
+      t.value = 0.62;
+      t.value = withTiming(
+        1,
+        { duration: 360, easing: Easing.linear },
+        done2 => {
+          if (done2 === true) runOnJS(done)();
+        },
+      );
+
+      return () => cancelAnimation(t);
+    }
+
+    t.value = short ? SHORT_START : 0;
+    t.value = withTiming(
+      1,
+      {
+        duration: short ? DURATION_MS * (1 - SHORT_START) : DURATION_MS,
+        easing: CURVE,
+      },
+      complete => {
+        if (complete === true) runOnJS(done)();
+      },
+    );
+
+    return () => cancelAnimation(t);
+    // The opening runs once, on its own clock.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [short]);
+
+  // Data that is not ready holds the wipe at its last frame rather than
+  // cutting into an app that has nothing to show. Never cut mid-morph.
+  const holdStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          t.value,
+          [AT.wipe, 1],
+          [0, -window.height],
+          'clamp',
+        ),
+      },
+    ],
+  }));
+
+  const letterStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: interpolate(t.value, [0, AT.letterOpen], [1.05, 1], 'clamp') },
+    ],
+  }));
+
+  // The letter opens as a circle growing out of its own bowl. Done with a
+  // round view that clips its contents rather than an SVG clip path: an
+  // animated `r` on a clipPath circle never reaches the native side, so the
+  // letter stayed clipped to nothing and took the whole composition with it.
+  const openStyle = useAnimatedStyle(() => {
+    const radius =
+      interpolate(t.value, [0, AT.letterOpen], [0, 1.45], 'clamp') * size;
+
+    return {
+      width: radius * 2,
+      height: radius * 2,
+      borderRadius: radius,
+      left: OPEN_AT.x * size - radius,
+      top: OPEN_AT.y * size - radius,
+    };
+  });
+
+  // Pushed back by exactly what the circle grew, so the letter under it never
+  // moves while the opening does.
+  const insideStyle = useAnimatedStyle(() => {
+    const radius =
+      interpolate(t.value, [0, AT.letterOpen], [0, 1.45], 'clamp') * size;
+
+    return { left: radius - OPEN_AT.x * size, top: radius - OPEN_AT.y * size };
+  });
+
+  // The rays of the mark itself take over exactly as the flying rows fade:
+  // the last frame is the store icon, pixel for pixel.
+  const sparkStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      t.value,
+      [AT.rowsFly, AT.raysTakeOver],
+      [0, 1],
+      'clamp',
+    ),
+  }));
+
+  const wordStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      t.value,
+      [AT.rowsFly + 0.05, AT.wordmark],
+      [0, 1],
+      'clamp',
+    ),
+    transform: [
+      {
+        translateY: interpolate(
+          t.value,
+          [AT.rowsFly + 0.05, AT.wordmark],
+          [8, 0],
+          'clamp',
+        ),
+      },
+    ],
+  }));
+
+  if (short == null) return <Ground />;
+
+  return (
+    <Ground
+      accessibilityLabel="Aluza"
+      accessibilityRole="image"
+      style={holdStyle}
+      testID="app-splash"
+    >
+      <Stage style={{ width: size, height: size }}>
+        <Animated.View style={[{ width: size, height: size }, letterStyle]}>
+          <Opening style={openStyle}>
+            <Inside style={insideStyle}>
+              <Svg height={size} viewBox={ALUZA_VIEW_BOX} width={size}>
+                <Path d={ALUZA_BODY} fill={brandGround.tinta} />
+              </Svg>
+            </Inside>
+          </Opening>
+        </Animated.View>
+
+        <Sparks pointerEvents="none" style={sparkStyle}>
+          <Svg height={size} viewBox={ALUZA_VIEW_BOX} width={size}>
+            <Path d={ALUZA_SPARK} fill="#FFFFFF" fillRule="evenodd" />
+          </Svg>
+        </Sparks>
+
+        {ROWS.map((_, index) => (
+          <Row index={index} key={index} size={size} t={t} />
+        ))}
+      </Stage>
+
+      <Wordmark style={wordStyle}>aluza</Wordmark>
+    </Ground>
+  );
+}
+
+const Ground = styled(Animated.View)`
   position: absolute;
-  top: 0px;
-  left: 0px;
-  right: 0px;
-  bottom: 0px;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  background-color: ${brandGround.sol};
   align-items: center;
   justify-content: center;
-  background-color: ${({ $paper }) => $paper};
-  z-index: 20;
 `;
 
-const BrandGroup = styled.View`
-  align-items: center;
+const Stage = styled.View`
+  position: relative;
 `;
 
-const MarkFrame = styled(Animated.View)`
-  align-items: center;
-  justify-content: center;
-`;
-
-/** Static optical correction: the symbol's mass, not its bounding box, sits
- * on the centre of the screen. */
-const MarkShift = styled.View<{ $dx: number; $dy: number }>`
-  transform: translate(${({ $dx }) => $dx}px, ${({ $dy }) => $dy}px);
-`;
-
-/** The sun sits exactly over the letter, in its own layer. */
-const SunLayer = styled(Animated.View)`
+const Opening = styled(Animated.View)`
   position: absolute;
-  top: 0px;
-  left: 0px;
-`;
-
-/** The wipe assembly, pre-rotated so the seam sits where the stroke is born
- * and the sweep follows the hand. Centred on the ring, sized to cover the
- * whole symbol. */
-const WipeFrame = styled.View<{ $radius: number; $x: number; $y: number }>`
-  position: absolute;
-  left: ${({ $x, $radius }) => $x - $radius}px;
-  top: ${({ $y, $radius }) => $y - $radius}px;
-  width: ${({ $radius }) => $radius * 2}px;
-  height: ${({ $radius }) => $radius * 2}px;
-  transform: rotate(${DRAW_START_DEG}deg);
-`;
-
-/** One clipped half of the sweep: its cover can only ever paint inside it. */
-const WipeHalf = styled.View<{ $left: boolean; $radius: number }>`
-  position: absolute;
-  left: ${({ $left, $radius }) => ($left ? 0 : $radius)}px;
-  top: 0px;
-  width: ${({ $radius }) => $radius}px;
-  height: ${({ $radius }) => $radius * 2}px;
   overflow: hidden;
 `;
 
-/** The paper-coloured blade that swings out and reveals the stroke. */
-const WipeCover = styled(Animated.View)<{ $paper: string; $radius: number }>`
+const Inside = styled(Animated.View)`
   position: absolute;
-  left: 0px;
-  top: 0px;
-  width: ${({ $radius }) => $radius}px;
-  height: ${({ $radius }) => $radius * 2}px;
-  background-color: ${({ $paper }) => $paper};
 `;
 
-const WordmarkFrame = styled(Animated.View)`
-  align-items: center;
-  justify-content: center;
-  margin-top: 18px;
-`;
-
-const BusyStatus = styled.View`
+const Sparks = styled(Animated.View)`
   position: absolute;
-  top: 68%;
-  align-items: center;
-  gap: 8px;
+  top: 0;
+  left: 0;
 `;
 
-const BusyText = styled.Text<{ $ink: string }>`
-  color: ${({ $ink }) => $ink};
-  font-size: 13px;
-  line-height: 18px;
-  opacity: 0.72;
+const RowBar = styled(Animated.View)`
+  position: absolute;
+`;
+
+const Wordmark = styled(Animated.Text)`
+  margin-top: 28px;
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -2.1px;
+  color: ${brandGround.onSol};
 `;
