@@ -1,102 +1,60 @@
 #!/usr/bin/env bash
 #
-# Regenerates the onboarding demo frames from a real device or emulator.
+# Regenerates the first-run walk-through's stills from a real device or
+# emulator. The walk-through plays screenshots of the product itself, so
+# every PNG in assets/onboarding/ has to come from this script — never from a
+# drawing tool.
 #
-# The onboarding plays screenshots of the product itself, so every frame in
-# assets/onboarding/ has to come from this script — never from a drawing tool.
-#
-# Requirements: adb (device connected, app installed and open), ffmpeg, python3.
-# The device must be in light theme, in pt-BR, signed in, with the sample data
-# described in assets/onboarding/README.md.
+# Requirements: adb (device connected, app installed and signed in), python3
+# with Pillow importable (`pip install pillow`). The device should be in
+# light theme and pt-BR, with the fixture described in this folder's
+# README.md — in particular a shared space named "Churras de sábado" holding
+# a couple of open tasks.
 #
 # Usage:
-#   scripts/capture-onboarding-frames.sh capture   # slide 1, 8 frames
-#   scripts/capture-onboarding-frames.sh shared    # slide 2, 6 frames
+#   scripts/capture-onboarding-frames.sh couple   # slide 1, 3 frames
+#   scripts/capture-onboarding-frames.sh spaces   # slide 2, 3 frames
+#   scripts/capture-onboarding-frames.sh invite   # slide 3, 1 still
+#   scripts/capture-onboarding-frames.sh all      # all three, in order
 #
-# Frames land in assets/onboarding/<slide>-NN.png, cropped to the action band
-# and resized to 720px wide. The tap coordinates of every step are written to
-# <slide>-taps.json, normalised to the cropped frame, so the app can draw the
-# highlight ring over the button that was pressed.
+# Frames land in assets/onboarding/<slide>-NN.png (or step-convite.png for
+# the invite still), each a full screenshot with the status bar and the
+# system gesture bar cropped away. Every frame this script writes is
+# 1080×2250; if that ever needs to change (a different capture device, a
+# taller status bar), update CROP_TOP/CROP_BOTTOM below and copy the new
+# aspect ratio (1080 / height) into every slide's `aspect` in
+# src/app/components/onboarding/onboardingSteps.ts.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/assets/onboarding"
-RAW="$(mktemp -d)"
-SLIDE="${1:-capture}"
 mkdir -p "$OUT"
 
-# The band that carries the action: the list rows, the capture sheet and the
-# buttons at the bottom. Keeping one band for every frame is what lets the
-# crossfade read as one screen instead of a slideshow.
-CROP_X=0
-CROP_W=1080
-# Slide 1 lives at the bottom of the screen (list rows, sheet, save button);
-# slide 2 needs the project rows and the agreement band a bit higher up, and
-# stops above the floating buttons so none of them is cut in half.
-if [ "$SLIDE" = "shared" ]; then
-  # Same height as slide 1, so both demos fill the stage instead of sitting
-  # letterboxed inside it, and still ending above the floating buttons.
-  CROP_Y=660
-  CROP_H=1150
-else
-  # Starts above the chip row of the project picker and below the
-  # writing-shortcuts button, so neither is shown sliced, and ends below the
-  # save button.
-  CROP_Y=1010
-  CROP_H=1150
-fi
+# Measured on a 1080×2400 device: the status bar (clock, battery) ends
+# around y=95, and the system gesture bar starts around y=2340. Between them
+# is the app, nothing else.
+CROP_TOP=90
+CROP_BOTTOM=2340
 
-TAPS="$OUT/$SLIDE-taps.json"
-LAST_SHOT=0
-: > "$TAPS.tmp"
-
-shot() {
-  LAST_SHOT="$1"
-  local n
-  n="$(printf '%02d' "$1")"
-  adb exec-out screencap -p > "$RAW/$SLIDE-$n.png"
-  ffmpeg -y -loglevel error -i "$RAW/$SLIDE-$n.png" \
-    -vf "crop=$CROP_W:$CROP_H:$CROP_X:$CROP_Y,scale=720:-1" \
-    "$OUT/$SLIDE-$n.png"
-  sleep 0.4
+crop() {
+  python3 - "$1" "$2" <<PY
+from PIL import Image
+im = Image.open("$1")
+im.crop((0, $CROP_TOP, im.width, $CROP_BOTTOM)).save("$2")
+PY
 }
 
-# Taps the element and records where it was, so the frame already captured gets
-# its highlight ring on the button the user is meant to press.
 tap_id() {
-  local point x y
-  point="$(python3 "$ROOT/scripts/adb-tap.py" "$1")"
-  x="${point% *}"
-  y="${point#* }"
-  echo "$LAST_SHOT $x $y" >> "$TAPS.tmp"
-  adb shell input tap "$x" "$y"
-  sleep "${2:-1.4}"
-}
-
-# Records a ring over an element without pressing it: used when the real tap
-# would leave the app (the system share chooser, for instance).
-mark() {
-  local point x y
-  point="$(python3 "$ROOT/scripts/adb-tap.py" "$1")"
-  x="${point% *}"
-  y="${point#* }"
-  echo "$LAST_SHOT $x $y" >> "$TAPS.tmp"
-}
-
-# A tap that only moves the flow along and does not deserve a ring.
-tap_quiet() {
   local point
   point="$(python3 "$ROOT/scripts/adb-tap.py" "$1")"
   # shellcheck disable=SC2086
   adb shell input tap $point
-  sleep "${2:-1.4}"
+  sleep "${2:-1.5}"
 }
 
-# Taps raw screen coordinates: used where two nodes answer to the same label,
-# like the sheet's Cancel button and the scrim behind it.
 tap_xy() {
   adb shell input tap "$1" "$2"
-  sleep "${3:-1.4}"
+  sleep "${3:-1.5}"
 }
 
 type_text() {
@@ -109,92 +67,69 @@ hide_keyboard() {
   sleep 1.2
 }
 
-capture_slide() {
-  # 1. the real Tasks screen, before the tap on the new task button
-  tap_quiet tab-today 1.6
-  shot 1
-  tap_id today-capture 1.8
+shot() {
+  local raw
+  raw="$(mktemp)"
+  adb exec-out screencap -p > "$raw"
+  crop "$raw" "$OUT/$1"
+  rm -f "$raw"
+}
+
+# Slide 1: the Tasks tab, planning something together — a task typed with a
+# date, a priority and a space, and then landing where it was planned.
+couple_slide() {
+  tap_id tab-today 2
+  shot couple-01.png
+  tap_id today-capture 2
   hide_keyboard
-  # 2. the sheet open, waiting for the title
-  shot 2
   tap_id capture-field 1.2
-  # 3. the title being typed
-  type_text 'Renovar%so'
+  type_text 'Comprar%sflores%spara%so%sjantar%samanha%s18h%s#casa%s~15min'
   hide_keyboard
-  shot 3
-  tap_quiet capture-field 1.2
-  type_text '%sseguro'
-  hide_keyboard
-  # 4. the title finished, before opening the chips
-  shot 4
-  tap_id capture-more 1.6
-  # 5. the three chips: date, priority, project
-  shot 5
-  tap_id capture-chip-date 1.6
-  # 6. the date panel
-  shot 6
-  tap_id calendar-tomorrow 1.4
-  tap_quiet capture-chip-priority 1.2
-  tap_quiet capture-chip-priority 1.2
-  tap_quiet capture-chip-list 1.6
-  # 7. the project picker, with the date and priority already set
-  shot 7
-  tap_id list-option-casa-nova 1.4
-  tap_quiet capture-save 2.2
-  # 8. the task in the list
-  shot 8
+  shot couple-02.png
+  tap_id capture-save 2.5
+  shot couple-03.png
 }
 
-shared_slide() {
-  # A sheet left open from a previous run would shift every frame, so the
-  # capture always starts from the plain Projects screen.
-  adb shell monkey -p com.ideiasorganizetask -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
-  sleep 5
-  tap_quiet tab-lists 1.6
-  # The project starts closed: the first frame has to show the list as anyone
-  # opening the app would find it.
-  if python3 "$ROOT/scripts/adb-tap.py" shared-day-band >/dev/null 2>&1; then
-    tap_quiet list-chevron-casa-nova 1.6
-  fi
-  # 1. the real Projects screen, before opening the shared project
-  shot 1
-  tap_id list-chevron-casa-nova 1.8
-  # 2. the shared project open: the agreement band and the tasks
-  shot 2
-  tap_id list-share-inline 2
-  # 3. the invite sheet: the link and what whoever joins can do
-  shot 3
-  tap_id share-copy-link 0.7
-  # 4. the link copied, ready to send to the other person
-  shot 4
-  tap_xy 658 2130 1.8
-  # 5. back on the project, on the agreement band
-  shot 5
-  tap_quiet list-chevron-casa-nova 1.8
-  # 6. the list again, with the shared project closed
-  shot 6
+# Slide 2: the Spaces tab — the index, a shared space open with its agreement
+# band, and the same space after a couple of things get done.
+spaces_slide() {
+  tap_id tab-lists 2
+  shot spaces-01.png
+  tap_id list-churras-de-sabado 2
+  shot spaces-02.png
+  # Checks the first task in "No espaço", not the agreement band's own row
+  # (their bounds differ, and the band's checkbox is not a stable id).
+  tap_xy 104 908 1.5
+  shot spaces-03.png
 }
 
-case "$SLIDE" in
-  capture) capture_slide ;;
-  shared) shared_slide ;;
-  *) echo "unknown slide: $SLIDE" >&2; exit 1 ;;
+# Slide 3: the invite ready to send. Uses a fresh, throwaway shared space
+# instead of an existing one, because the invite sheet on a space that
+# already has pending invites and members shows three footer buttons and
+# truncates "Cancelar" — the sheet a first-run walk-through should show is
+# the simple one right after creating a space.
+invite_slide() {
+  tap_id tab-lists 2
+  tap_id new-list 2
+  tap_id list-template-trip 1.5
+  # The template pre-fills the name field with the template's own name, so
+  # typing appends instead of replacing — clear it first.
+  tap_id list-name-field 1
+  adb shell input keyevent --longpress KEYCODE_MOVE_END
+  for _ in $(seq 1 40); do adb shell input keyevent KEYCODE_DEL; done
+  type_text 'Viagem%sde%sjulho'
+  hide_keyboard
+  tap_id list-shared-toggle 1.5
+  tap_id list-name-submit 2.5
+  shot step-convite.png
+}
+
+case "${1:-all}" in
+  couple) couple_slide ;;
+  spaces) spaces_slide ;;
+  invite) invite_slide ;;
+  all) couple_slide; spaces_slide; invite_slide ;;
+  *) echo "unknown slide: $1" >&2; exit 1 ;;
 esac
-
-python3 - "$TAPS.tmp" "$TAPS" "$CROP_X" "$CROP_Y" "$CROP_W" "$CROP_H" <<'PY'
-import json, sys
-src, dst, cx, cy, cw, ch = sys.argv[1:7]
-cx, cy, cw, ch = map(int, (cx, cy, cw, ch))
-taps = {}
-for line in open(src):
-    frame, x, y = map(int, line.split())
-    taps[str(frame)] = {
-        'x': round((x - cx) / cw, 4),
-        'y': round((y - cy) / ch, 4),
-    }
-json.dump(taps, open(dst, 'w'), indent=2, sort_keys=True)
-open(dst, 'a').write('\n')
-PY
-rm -f "$TAPS.tmp"
 
 echo "frames written to $OUT"
