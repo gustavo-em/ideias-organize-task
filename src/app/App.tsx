@@ -18,12 +18,17 @@ import { imagePickerAvatarAdapter } from '../features/auth/infrastructure/fireba
 import { useProfileViewModel } from '../features/auth/presentation/view-models/useProfileViewModel';
 import { ProfileScreen } from '../features/auth/presentation/screens/ProfileScreen';
 import { AccountSection } from '../features/auth/presentation/views/AccountSection';
+import { DeleteAccountDialog } from '../features/auth/presentation/views/DeleteAccountDialog';
+import { useDeleteAccountViewModel } from '../features/auth/presentation/view-models/useDeleteAccountViewModel';
 import type { AuthViewModel } from '../features/auth/presentation/view-models/useAuthViewModel';
 import { systemClock } from '../features/tasks/infrastructure/clock/systemClock';
 import { systemHaptics } from '../features/tasks/infrastructure/haptics/systemHaptics';
 import { firestoreShareGateway } from '../features/tasks/infrastructure/sharing/firestoreShareGateway';
 import { systemClipboard } from '../features/tasks/infrastructure/sharing/systemClipboard';
-import { createLocalTaskStores } from '../features/tasks/infrastructure/storage/asyncStorageStores';
+import {
+  clearLocalTaskData,
+  createLocalTaskStores,
+} from '../features/tasks/infrastructure/storage/asyncStorageStores';
 import { firestoreWorkspaceBackup } from '../features/tasks/infrastructure/storage/firestoreWorkspaceBackup';
 import { firebaseUsageReporter } from '../features/tasks/infrastructure/usage/firebaseUsageReporter';
 import { deriveMemberIdentity } from '../features/tasks/presentation/models/memberIdentity';
@@ -274,6 +279,55 @@ function AppContent({
     await auth.signOut();
   }, [auth]);
 
+  // Erasing the account, unlike leaving it, has to reach every project this
+  // device knows about: the ones this account owns come down for everybody in
+  // them, and the ones it only belongs to lose its row. Each is on its own —
+  // a project that refuses is not a reason to keep an account somebody asked
+  // to erase, and the ones after it still go.
+  const detachSharedProjects = useCallback(async () => {
+    const personId = auth.user?.uid;
+    if (personId == null) return;
+
+    await Promise.all(
+      tasks.lists
+        .filter(list => list.share != null)
+        .map(async list => {
+          const share = list.share;
+          if (share == null) return;
+
+          const owned = share.members.some(
+            member => member.personId === personId && member.role === 'owner',
+          );
+
+          try {
+            await (owned
+              ? firestoreShareGateway.revokeLink(share)
+              : firestoreShareGateway.removeMember(share, personId));
+          } catch {
+            // Nothing to report: the account is going either way, and this
+            // row is not worth stopping it over.
+          }
+        }),
+    );
+  }, [auth.user?.uid, tasks.lists]);
+
+  const clearLocalData = useCallback(async () => {
+    const personId = auth.user?.uid;
+    if (personId == null) return;
+
+    await clearLocalTaskData(personId);
+  }, [auth.user?.uid]);
+
+  const deleteAccount = useDeleteAccountViewModel({
+    authPort: firebaseAuthAdapter,
+    profilePort: firestoreProfileAdapter,
+    copy: getAuthCopy(app.language),
+    uid: auth.user?.uid ?? null,
+    handle: profile.profile?.handle ?? null,
+    detachSharedProjects,
+    clearLocalData,
+  });
+
   const behindProfile = youRoute === 'profile';
   // Taking the column out of the layout is what removes it from the Android
   // accessibility tree, but doing it on the same frame would empty the window
@@ -365,6 +419,7 @@ function AppContent({
                 onAppearanceModeChange={app.changeAppearanceMode}
                 onDayCapacityChange={app.changeDayCapacity}
                 onLanguageChange={app.changeLanguage}
+                onDeleteAccount={deleteAccount.open}
                 onReplayOnboarding={onReplayOnboarding}
                 onSignOut={signOut}
                 personId={auth.user?.uid ?? null}
@@ -452,6 +507,20 @@ function AppContent({
           avatarBusy={profile.avatarStatus === 'working'}
           avatarErrorKind={profile.avatarErrorKind}
           saving={profileStatus === 'saving'}
+        />
+      ) : null}
+
+      {/* Last of all, over everything including the profile: whatever is
+          underneath is about to stop existing. */}
+      {deleteAccount.isOpen ? (
+        <DeleteAccountDialog
+          asksForPassword={deleteAccount.asksForPassword}
+          busy={deleteAccount.isDeleting}
+          copy={getAuthCopy(app.language)}
+          error={deleteAccount.error}
+          needsProof={deleteAccount.needsProof}
+          onCancel={deleteAccount.cancel}
+          onConfirm={deleteAccount.confirm}
         />
       ) : null}
     </>

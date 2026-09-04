@@ -45,6 +45,10 @@ function makePort(overrides: Partial<AuthPort> = {}): AuthPort {
     signInWithApple: jest.fn(async () => undefined),
     signInAnonymously: jest.fn(async () => undefined),
     signOut: jest.fn(async () => undefined),
+    accountProvider: jest.fn(() => 'password' as const),
+    requiresRecentLogin: jest.fn(() => false),
+    reauthenticate: jest.fn(async () => undefined),
+    deleteAccount: jest.fn(async () => undefined),
     onAuthStateChanged: listener => {
       listener(null);
       return () => undefined;

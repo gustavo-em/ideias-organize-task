@@ -27,6 +27,7 @@ function renderSettings(
           language="pt-BR"
           onAppearanceModeChange={() => undefined}
           onDayCapacityChange={() => undefined}
+          onDeleteAccount={() => undefined}
           onLanguageChange={() => undefined}
           onOpenNotificationSettings={
             overrides.onOpenNotificationSettings ?? (() => undefined)

@@ -14,6 +14,9 @@ export type AuthErrorKind =
   | 'play-services-unavailable'
   | 'provider-unavailable'
   | 'account-exists-with-different-credential'
+  /** The session is too old for something Firebase only lets a fresh one do —
+   * erasing the account. The way out is signing in again, never retrying. */
+  | 'requires-recent-login'
   | 'unknown';
 
 export interface AuthError {

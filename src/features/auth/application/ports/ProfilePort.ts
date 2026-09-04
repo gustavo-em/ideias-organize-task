@@ -26,4 +26,15 @@ export interface ProfilePort {
   /** The avatar alone: saved the moment a photo is chosen, never waiting on
    * the name and handle the person may still be typing. Null clears it. */
   savePhotoURL(uid: string, photoURL: string | null): Promise<void>;
+  /**
+   * Everything this account wrote about itself, gone: the profile document,
+   * the handle it was holding, the workspace copy kept for a new phone, and
+   * every device token registered for push.
+   *
+   * Runs while the account still exists, because all of it is authorized by
+   * the session that is about to be erased. `handle` is what the profile held
+   * — null when it was never read, and then the reservation is looked up
+   * before it is released, so a stale handle is never left locked forever.
+   */
+  deleteAccountData(uid: string, handle: string | null): Promise<void>;
 }

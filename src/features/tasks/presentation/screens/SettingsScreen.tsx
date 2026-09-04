@@ -33,6 +33,9 @@ interface SettingsScreenProps {
   onDayCapacityChange: (capacity: number) => void;
   onLanguageChange: (language: AppLanguage) => void;
   onSignOut: () => void;
+  /** Opens the account's own last door. Red, and the very last line: it is
+   * the only setting here that destroys anything. */
+  onDeleteAccount: () => void;
   /** Opens the first-run walk-through again, without touching any data. */
   onReplayOnboarding: () => void;
 }
@@ -65,6 +68,7 @@ export function SettingsScreen({
   onDayCapacityChange,
   onLanguageChange,
   onSignOut,
+  onDeleteAccount,
   onReplayOnboarding,
 }: SettingsScreenProps) {
   return (
@@ -229,6 +233,21 @@ export function SettingsScreen({
                 <RowLabel $quiet>{accountCopy.account.signOut}</RowLabel>
               </Row>
             </PressableLine>
+
+            {/* Below leaving, and in red: erasing the account is a different
+                kind of act, and the App Store requires the app that opens an
+                account to be the place it can be closed. */}
+            <Rule />
+            <PressableLine
+              accessibilityLabel={accountCopy.account.delete}
+              accessibilityRole="button"
+              onPress={onDeleteAccount}
+              testID="settings-delete-account"
+            >
+              <Row>
+                <RowLabel $danger>{accountCopy.account.delete}</RowLabel>
+              </Row>
+            </PressableLine>
           </>
         )}
       </Card>
@@ -293,10 +312,14 @@ const Row = styled.View`
   min-height: 24px;
 `;
 
-const RowLabel = styled.Text<{ $quiet?: boolean }>`
+const RowLabel = styled.Text<{ $quiet?: boolean; $danger?: boolean }>`
   flex: 1;
-  color: ${({ theme, $quiet }) =>
-    $quiet ? theme.colors.mutedStrong : theme.colors.text};
+  color: ${({ theme, $quiet, $danger }) =>
+    $danger
+      ? theme.colors.danger
+      : $quiet
+      ? theme.colors.mutedStrong
+      : theme.colors.text};
   font-size: ${({ theme }) => theme.type.body}px;
   font-weight: 500;
 `;

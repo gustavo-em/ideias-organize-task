@@ -323,3 +323,74 @@ export async function firestoreDocument(
     clearTimeout(timeout);
   }
 }
+
+/**
+ * The ids of every document in one collection, following Firestore's own
+ * paging until the last page.
+ *
+ * Only the names are asked for (`mask.fieldPaths=__name__`), because the one
+ * caller — erasing an account — needs the paths to delete and nothing that is
+ * written inside them. A collection nobody ever wrote to answers 200 with no
+ * `documents` at all, which is an empty list here and not a failure.
+ */
+export async function firestoreCollectionIds(
+  path: string,
+): Promise<readonly string[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const ids: string[] = [];
+    let pageToken: string | null = null;
+
+    do {
+      const query = `?mask.fieldPaths=__name__&pageSize=300${
+        pageToken == null ? '' : `&pageToken=${encodeURIComponent(pageToken)}`
+      }`;
+
+      const send = async (forceRefresh: boolean) => {
+        const token = await idToken(forceRefresh);
+
+        return fetch(`${BASE_URL}/${path}${query}`, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      };
+
+      let response = await send(false);
+      if (response.status === 401) response = await send(true);
+
+      if (response.status === 404) return ids;
+      if (response.status === 403) throw new FirestoreRestError('forbidden');
+      if (!response.ok) throw new FirestoreRestError('unknown');
+
+      const body = (await response.json()) as {
+        documents?: { name?: string }[];
+        nextPageToken?: string;
+      };
+
+      for (const document of body.documents ?? []) {
+        const name = document.name;
+        if (name == null) continue;
+
+        const id = name.slice(name.lastIndexOf('/') + 1);
+        if (id.length > 0) ids.push(id);
+      }
+
+      pageToken = body.nextPageToken ?? null;
+    } while (pageToken != null);
+
+    return ids;
+  } catch (error) {
+    if (error instanceof FirestoreRestError) throw error;
+    if (error instanceof ShareOperationError) {
+      throw new FirestoreRestError(
+        error.kind === 'forbidden' ? 'unauthenticated' : 'network',
+      );
+    }
+    throw new FirestoreRestError('network');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
