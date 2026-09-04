@@ -89,7 +89,7 @@ export async function syncReminderAlerts(
           android: {
             channelId: ACTIVITY_CHANNEL_ID,
             pressAction: { id: 'default' },
-            smallIcon: 'ic_launcher',
+            smallIcon: 'ic_notification',
           },
         },
         trigger,

@@ -99,7 +99,7 @@ export const notifeeActivityNotifier: ActivityNotifier = {
             // together in the tray.
             groupId: `${ACTIVITY_CHANNEL_ID}.${token}`,
             pressAction: { id: 'default' },
-            smallIcon: 'ic_launcher',
+            smallIcon: 'ic_notification',
           },
         });
       }
@@ -126,7 +126,7 @@ export async function presentActivityLine(
       channelId,
       groupId: `${ACTIVITY_CHANNEL_ID}.${line.token}`,
       pressAction: { id: 'default' },
-      smallIcon: 'ic_launcher',
+      smallIcon: 'ic_notification',
     },
   });
 }
