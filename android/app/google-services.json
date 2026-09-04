@@ -1,0 +1,62 @@
+{
+  "project_info": {
+    "project_number": "676891253849",
+    "project_id": "ideiasorganizetask",
+    "storage_bucket": "ideiasorganizetask.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:676891253849:android:fd11ef92e253716528a548",
+        "android_client_info": {
+          "package_name": "com.ideiasorganizetask"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "676891253849-abmih5c8bn6osmmpukml3a0n6c01fpoq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ideiasorganizetask",
+            "certificate_hash": "eb60ccf9e740d2a0524f92e3c0934911151a1061"
+          }
+        },
+        {
+          "client_id": "676891253849-ud4pjar4lpon1gh3igfvmvbjnib98q7t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ideiasorganizetask",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "676891253849-kcdo2clkkemlom6vmpeju1ng5qtnsnq4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZin3FfPn74D2CdX5WrVR06H8hPjhEvqw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "676891253849-kcdo2clkkemlom6vmpeju1ng5qtnsnq4.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "676891253849-0moqdouj6b14gtic13q2jj47uorl7unb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.aluza.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

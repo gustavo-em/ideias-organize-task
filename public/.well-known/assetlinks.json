@@ -1,0 +1,14 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.ideiasorganizetask",
+      "sha256_cert_fingerprints": [
+        "1F:8A:72:1A:85:44:65:95:07:91:AB:EC:98:34:24:04:3A:EC:6A:1A:D1:50:13:C0:12:72:AB:15:E5:FB:A8:64",
+        "31:14:C9:62:D2:51:49:4C:89:D5:BF:F9:5A:30:25:80:98:52:54:AA:20:1E:FA:81:28:1B:5F:48:DA:CA:81:DB",
+        "FA:C6:17:45:DC:09:03:78:6F:B9:ED:E6:2A:96:2B:39:9F:73:48:F0:BB:6F:89:9B:83:32:66:75:91:03:3B:9C"
+      ]
+    }
+  }
+]

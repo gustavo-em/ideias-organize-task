@@ -4,6 +4,7 @@ import type { ListColor, ProjectIcon } from '../../domain/TaskList';
 import type { TaskFacts as Facts } from '../models/taskMeta';
 import {
   CalendarGlyph,
+  ChecklistGlyph,
   ClockGlyph,
   PriorityGlyph,
   ProjectGlyph,
@@ -36,8 +37,10 @@ export function TaskFacts({
   compact = false,
 }: TaskFactsProps) {
   const theme = useTheme();
+  // Priority and lateness are not danger: `danger` belongs to the destructive
+  // action alone. High priority reads as the strongest ink on the card.
   const toneOf = {
-    danger: theme.colors.danger,
+    danger: theme.colors.text,
     accent: theme.colors.accentInk,
     muted: theme.colors.muted,
   };
@@ -50,7 +53,7 @@ export function TaskFacts({
   const dueColor = dimmed
     ? theme.colors.border
     : facts.due?.late
-    ? theme.colors.danger
+    ? theme.colors.text
     : theme.colors.muted;
   const quiet = dimmed ? theme.colors.border : theme.colors.muted;
 
@@ -83,6 +86,17 @@ export function TaskFacts({
         <Fact>
           <ClockGlyph color={quiet} size={11} />
           <Label $color={quiet}>{facts.stale.label}</Label>
+        </Fact>
+      )}
+
+      {/* Steps done out of steps written, as a fact like any other: no bar, no
+          pill, and nothing at all on a task nobody broke down. */}
+      {compact || facts.subtasks == null ? null : (
+        <Fact accessibilityLabel={facts.subtasks.label}>
+          <ChecklistGlyph color={quiet} size={13} />
+          <Label $color={quiet}>
+            {`${facts.subtasks.done}/${facts.subtasks.total}`}
+          </Label>
         </Fact>
       )}
 

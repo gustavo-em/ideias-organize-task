@@ -1,0 +1,273 @@
+// Regras para o Cloud Firestore do projeto "ideiasorganizetask".
+//
+// Isto é um artefato a publicar, não código do app: nenhuma parte deste
+// ciclo pode habilitar o Cloud Firestore no console nem rodar `firebase
+// deploy` (ambos exigem credencial/acesso de dono do projeto). Publique este
+// arquivo depois de confirmar que o Firestore está habilitado.
+//
+// Modelo: um documento por projeto compartilhado, em sharedLists/{token}.
+// O token é o mesmo do link de convite, é o id do documento, e `list` é
+// `false` — então ele é o segredo que dá acesso de leitura, e escrever
+// continua exigindo ser membro (ou estar entrando, via `isJoining`).
+//
+// `editorIds` é um campo próprio (uids com role owner ou editor), mantido
+// pelo cliente a cada escrita em members/memberIds — regra de segurança não
+// consegue buscar dentro de um array de mapas (`members`) para responder
+// "este uid é editor?", então o papel de escrita vive num array plano só de
+// ids, checável com `in`.
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Perfil visível: nome de exibição e handle. O e-mail da conta nunca é
+    // gravado aqui — identidade em tela é nome + @handle, não endereço.
+    // Leitura por qualquer pessoa autenticada porque um membro precisa ler
+    // quem são os outros do projeto; escrita só do próprio uid.
+    match /users/{uid} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create, update: if request.auth != null &&
+        request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly(
+          ['displayName', 'handle', 'updatedAtMs', 'photoURL']
+        ) &&
+        // A foto é opcional: URL do provedor OU a própria imagem como data
+        // URI (plano sem Storage — ela mora no documento). O teto de 200k
+        // caracteres impede um documento inflado de propósito; um avatar de
+        // 288px fica em ~20-60k.
+        (!('photoURL' in request.resource.data.keys()) ||
+          request.resource.data.photoURL == null ||
+          (request.resource.data.photoURL is string &&
+            request.resource.data.photoURL.size() < 200000)) &&
+        request.resource.data.handle is string &&
+        request.resource.data.handle.matches('^[a-z0-9_]{3,20}$');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+
+      // Camada B — push real. Um documento por aparelho, com o próprio token
+      // como id. Só o dono da conta lê e escreve os seus: nenhum outro membro
+      // do projeto consegue listar nem ler tokens alheios, e é a Cloud
+      // Function (Admin SDK, fora destas regras) que os lê para enviar.
+      match /fcmTokens/{fcmToken} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // Cópia do workspace da própria conta — tarefas, espaços, progresso.
+      // Só o dono lê e escreve; nenhum outro membro de projeto chega aqui.
+      //
+      // Não é sincronização: o aparelho continua sendo onde o app lê e
+      // escreve, e isto existe para os três momentos em que o aparelho não
+      // tem resposta — celular novo, reinstalação, e sair e voltar da conta.
+      // Cada parte é gravada como string JSON, então a regra não tem opinião
+      // sobre o formato interno; o teto de 900k por campo é folga sob o
+      // limite de 1 MiB por documento do Firestore.
+      match /workspace/{doc} {
+        allow read, delete: if request.auth != null && request.auth.uid == uid;
+        allow create, update: if request.auth != null &&
+          request.auth.uid == uid &&
+          request.resource.data.keys().hasOnly(
+            ['tasks', 'lists', 'progress', 'trio', 'groupStreaks', 'updatedAtMs']
+          ) &&
+          (!('tasks' in request.resource.data.keys()) ||
+            (request.resource.data.tasks is string &&
+              request.resource.data.tasks.size() < 900000)) &&
+          (!('lists' in request.resource.data.keys()) ||
+            (request.resource.data.lists is string &&
+              request.resource.data.lists.size() < 900000));
+      }
+    }
+
+    // Reserva de handle: o id do documento é o próprio handle, e é isso que
+    // garante a unicidade. `create` sem sobrescrever documento existente é a
+    // reserva; trocar de handle cria o novo e apaga o antigo no mesmo commit.
+    match /usernames/{handle} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create: if request.auth != null &&
+        request.resource.data.keys().hasOnly(['uid', 'updatedAtMs']) &&
+        request.resource.data.uid == request.auth.uid &&
+        handle.matches('^[a-z0-9_]{3,20}$');
+      allow update: if request.auth != null &&
+        resource.data.uid == request.auth.uid &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.keys().hasOnly(['uid', 'updatedAtMs']);
+      allow delete: if request.auth != null &&
+        resource.data.uid == request.auth.uid;
+    }
+
+    match /sharedLists/{token} {
+      function isMember() {
+        return request.auth != null &&
+          request.auth.uid in resource.data.memberIds;
+      }
+
+      // owner e editor podem alterar o conteúdo do projeto; viewer só lê.
+      function canEditContent() {
+        return request.auth != null &&
+          request.auth.uid in resource.data.editorIds;
+      }
+
+      function isOwner() {
+        return request.auth != null &&
+          request.auth.uid == resource.data.ownerId;
+      }
+
+      function onlyChanges(fields) {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+      }
+
+      // Conteúdo do projeto: nome, cor, símbolo e tarefas. Nunca papéis,
+      // nunca quem está no projeto.
+      function isContentUpdate() {
+        return canEditContent() &&
+          onlyChanges(['name', 'color', 'icon', 'groups', 'tasks', 'updatedAtMs']);
+      }
+
+      // Criar link, revogar, mudar papel de convite e remover membro:
+      // "owner cria/revoga link, muda papel, remove membro" — só o dono.
+      function isMembershipUpdate() {
+        return isOwner() &&
+          onlyChanges(['members', 'memberIds', 'editorIds', 'invitedAs']);
+      }
+
+      // Ao entrar, o mapa do membro passa a levar `joinedAtMs` (quando o
+      // convite foi aceito, em ms locais). O campo viaja dentro de um item de
+      // `members`, que já está em `onlyChanges` aqui e em
+      // `isMemberIdentityUpdate` — nenhum campo de topo novo é escrito, então
+      // a regra não precisa de widening e um app com estas regras ainda não
+      // publicadas continua entrando normalmente. Membro antigo simplesmente
+      // não tem o campo, e a tela mostra "—" em vez de inventar data.
+      //
+      // Entrar é a única escrita permitida a quem ainda não é membro, e só
+      // pode adicionar o próprio uid — nunca remover ou trocar quem já está,
+      // e o único uid que `editorIds` pode ganhar aqui é o de quem está
+      // entrando (nunca promove outra pessoa).
+      function isJoining() {
+        return request.auth != null &&
+          !(request.auth.uid in resource.data.memberIds) &&
+          request.auth.uid in request.resource.data.memberIds &&
+          onlyChanges(['members', 'memberIds', 'editorIds']) &&
+          request.resource.data.memberIds.size() ==
+            resource.data.memberIds.size() + 1 &&
+          request.resource.data.memberIds.hasAll(resource.data.memberIds) &&
+          request.resource.data.editorIds.hasAll(resource.data.editorIds) &&
+          request.resource.data.editorIds
+            .removeAll(resource.data.editorIds)
+            .hasOnly([request.auth.uid]);
+      }
+
+      // Sair do projeto: o inverso exato de `isJoining`. Só o próprio uid
+      // sai, `memberIds` encolhe em um, e o único id que `editorIds` pode
+      // perder é o de quem está saindo — ninguém remove outra pessoa por
+      // aqui, e nenhum campo de conteúdo muda junto. É o que permite tanto
+      // "Sair do espaço" quanto a exclusão de conta apagarem a linha de quem
+      // não administra o projeto; sem isto, `isMembershipUpdate` (só do dono)
+      // deixava a pessoa presa na lista alheia para sempre.
+      //
+      // O dono não sai por aqui: um projeto sem dono não teria mais ninguém
+      // capaz de mexer em membros. Ele apaga o projeto (`allow delete`).
+      function isLeaving() {
+        return request.auth != null &&
+          request.auth.uid != resource.data.ownerId &&
+          request.auth.uid in resource.data.memberIds &&
+          !(request.auth.uid in request.resource.data.memberIds) &&
+          onlyChanges(['members', 'memberIds', 'editorIds']) &&
+          request.resource.data.memberIds.size() ==
+            resource.data.memberIds.size() - 1 &&
+          resource.data.memberIds.hasAll(request.resource.data.memberIds) &&
+          resource.data.editorIds.hasAll(request.resource.data.editorIds) &&
+          resource.data.editorIds
+            .removeAll(request.resource.data.editorIds)
+            .hasOnly([request.auth.uid]);
+      }
+
+      // Como a própria pessoa é chamada dentro do projeto: só o array
+      // `members` muda, e `memberIds`/`editorIds` continuam iguais — ninguém
+      // entra, sai ou muda de papel por aqui.
+      function isMemberIdentityUpdate() {
+        return isMember() &&
+          onlyChanges(['members']) &&
+          request.resource.data.memberIds == resource.data.memberIds &&
+          request.resource.data.editorIds == resource.data.editorIds;
+      }
+
+      // Quem ficou com cada tarefa, num mapa de topo `assignments` indexado
+      // pelo uid: uid -> lista de ids de tarefa. É a única forma que a regra
+      // consegue policiar — dentro de `tasks` (array de mapas) ela não sabe
+      // responder "esta pessoa só mexeu em si mesma?", e todo editor pode
+      // escrever `tasks`. Mesmo padrão do documento do dia (`members.<uid>`).
+      //
+      // Dono: livre, qualquer chave. Qualquer outro membro: só a própria.
+      function isOwnerAssignmentUpdate() {
+        return isOwner() && onlyChanges(['assignments']);
+      }
+
+      function isSelfAssignmentUpdate() {
+        return isMember() &&
+          onlyChanges(['assignments']) &&
+          request.resource.data.assignments.diff(
+            resource.data.get('assignments', {})
+          ).affectedKeys().hasOnly([request.auth.uid]);
+      }
+
+      // Ler exige apenas uma sessão, não ser membro. Quem entra por convite
+      // precisa ler o documento ANTES de entrar — `isJoining()` autoriza a
+      // escrita de entrada, mas ela é montada a partir dos membros atuais, e
+      // exigir `isMember()` aqui tornava impossível chegar até ela: toda conta
+      // nova levava 403 e via "esse convite não é válido".
+      //
+      // O token continua sendo o segredo. Ele é o id do documento, `list` é
+      // `false`, e são 10 caracteres — não há como enumerar, e quem tem o
+      // token já ia entrar de qualquer jeito.
+      allow get: if request.auth != null;
+      allow list: if false; // nunca por consulta — só pelo token do link.
+      allow create: if request.auth != null &&
+        request.auth.uid in request.resource.data.memberIds &&
+        request.auth.uid == request.resource.data.ownerId;
+      allow update: if isContentUpdate() || isMembershipUpdate() ||
+        isJoining() || isLeaving() || isMemberIdentityUpdate() ||
+        isOwnerAssignmentUpdate() || isSelfAssignmentUpdate();
+      allow delete: if isOwner();
+
+      // Fase 2 — "Hoje, no combinado".
+      //
+      // Um documento por dia do projeto, com um mapa `members` indexado pelo
+      // uid: publicar o próprio dia é uma escrita num único caminho de campo
+      // e ler o dia inteiro é uma leitura de documento só, sem consulta de
+      // coleção (nada aqui é ilimitado).
+      //
+      // O que trafega é apenas quais tarefas do projeto a pessoa levou — o
+      // placar (peso, pontos, nível, sequência pessoal) nunca sai do
+      // aparelho. Membro é membro do projeto pai: a regra busca o documento
+      // do projeto para responder isso.
+      match /days/{dayKey} {
+        function isProjectMember() {
+          return request.auth != null &&
+            request.auth.uid in
+              get(/databases/$(database)/documents/sharedLists/$(token))
+                .data.memberIds;
+        }
+
+        // Cada pessoa só escreve a própria chave dentro de `members`.
+        function onlyOwnEntry() {
+          return request.resource.data.members.diff(
+            resource == null ? {} : resource.data.members
+          ).affectedKeys().hasOnly([request.auth.uid]);
+        }
+
+        // O documento do dia só tem `members`: nenhum outro campo de topo
+        // entra, nem na criação nem na atualização.
+        function onlyMembersField() {
+          return request.resource.data.keys().hasOnly(['members']);
+        }
+
+        allow get: if isProjectMember();
+        allow list: if false;
+        allow create: if isProjectMember() && onlyMembersField() &&
+          request.resource.data.members.keys().hasOnly([request.auth.uid]);
+        allow update: if isProjectMember() && onlyMembersField() &&
+          onlyOwnEntry();
+        allow delete: if false;
+      }
+    }
+  }
+}

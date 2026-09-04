@@ -7,6 +7,7 @@ import {
 import {
   findTask,
   isCompleted,
+  isReminder,
   replaceTask,
   taskWeight,
   withCompletion,
@@ -27,10 +28,14 @@ export function toggleTask(
   workspace: Workspace,
   taskId: string,
   nowMs: number,
+  /** uid of whoever is closing it, so a shared project can show who did. */
+  completedBy: string | null = null,
 ): UseCaseResult {
   const task = findTask(workspace.tasks, taskId);
 
-  if (task == null) return { workspace, events: [] };
+  // A reminder has nothing to tick: it is memory, not work. The row draws no
+  // box, and this is the same answer for anything that reaches here anyway.
+  if (task == null || isReminder(task)) return { workspace, events: [] };
 
   const weight = taskWeight(task);
   const inTrio = workspace.trio.taskIds.includes(task.id);
@@ -47,7 +52,7 @@ export function toggleTask(
     };
     events.push({ type: 'task.reopened', at: nowMs, task: reopened, weight });
   } else {
-    const completed = withCompletion(task, nowMs);
+    const completed = withCompletion(task, nowMs, completedBy);
     const tasks = replaceTask(workspace.tasks, completed);
     const levelBefore = getLevel(workspace.progress.points);
     let progress = recordCompletion(workspace.progress, weight, nowMs);

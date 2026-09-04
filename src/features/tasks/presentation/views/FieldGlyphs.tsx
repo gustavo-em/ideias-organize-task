@@ -86,6 +86,40 @@ export function TagGlyph({ color, size = 13 }: GlyphProps) {
   );
 }
 
+/**
+ * Saying something before a deadline arrives.
+ *
+ * Outline only, at the same stroke as the calendar it stands next to: the
+ * reminder is a companion to the date, not a warning about it. Nothing is
+ * filled, so it never reads as an alarm going off.
+ */
+export function BellGlyph({ color, size = 13 }: GlyphProps) {
+  return (
+    <Svg height={size} viewBox="0 0 16 16" width={size}>
+      <Path
+        d="M3.4 11.2c.9-.9 1.2-1.7 1.2-3.1V7.3a3.4 3.4 0 0 1 6.8 0v.8c0 1.4.3 2.2 1.2 3.1Z"
+        fill="none"
+        stroke={color}
+        strokeLinejoin="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M6.6 13.1a1.6 1.6 0 0 0 2.8 0"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M8 2.6v1.3"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+    </Svg>
+  );
+}
+
 /** Time passing, for a task that has been sitting untouched. It is not a
  * deadline, so it must not wear the calendar. */
 export function ClockGlyph({ color, size = 13 }: GlyphProps) {
@@ -102,6 +136,43 @@ export function ClockGlyph({ color, size = 13 }: GlyphProps) {
       <Path
         d="M8 4.6V8l2.4 1.6"
         fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+    </Svg>
+  );
+}
+
+/** Steps inside a task: a tick and two lines, so the count beside it reads as
+ * work broken down rather than as a date or a duration. */
+export function ChecklistGlyph({ color, size = 13 }: GlyphProps) {
+  return (
+    <Svg height={size} viewBox="0 0 16 16" width={size}>
+      <Path
+        d="M1.8 4.6 3.4 6.2 6.4 3.1"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M1.8 11.3 3.4 12.9 6.4 9.8"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M8.6 4.9h5.6"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M8.6 11.6h5.6"
         stroke={color}
         strokeLinecap="round"
         strokeWidth={1.5}
@@ -348,6 +419,49 @@ export function ProjectGlyph({
           />
         </>
       ) : null}
+      {icon === 'cake' ? (
+        <>
+          <Path
+            d="M2.6 8.6h10.8v4.2c0 .6-.5 1.1-1.1 1.1H3.7c-.6 0-1.1-.5-1.1-1.1z"
+            {...stroke}
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M2.6 10.9c1.08 0 1.08-.9 2.16-.9s1.08.9 2.16.9 1.08-.9 2.16-.9 1.08.9 2.16.9 1.08-.9 2.16-.9"
+            {...stroke}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M8 8.6V6.2M6.9 5 8 3.7 9.1 5"
+            {...stroke}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </>
+      ) : null}
+      {icon === 'gift' ? (
+        <>
+          <Rect height={2.6} rx={0.8} width={12} x={2} y={5} {...stroke} />
+          <Path
+            d="M3 7.6v5c0 .6.5 1 1 1h8c.6 0 1-.4 1-1v-5M8 5v8.6"
+            {...stroke}
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M8 5H6.3a1.5 1.5 0 1 1 0-3C7.4 2 8 3.5 8 5zm0 0h1.7a1.5 1.5 0 1 0 0-3C8.6 2 8 3.5 8 5z"
+            {...stroke}
+            strokeLinejoin="round"
+          />
+        </>
+      ) : null}
+      {icon === 'tools' ? (
+        <Path
+          d="M9.8 4.2a.67.67 0 0 0 0 .93l1.07 1.07a.67.67 0 0 0 .93 0l2.51-2.51a4 4 0 0 1-5.29 5.29l-4.61 4.61a1.41 1.41 0 0 1-2-2l4.61-4.61a4 4 0 0 1 5.29-5.29l-2.51 2.51z"
+          {...stroke}
+          strokeLinejoin="round"
+        />
+      ) : null}
       {icon === 'inbox' ? (
         <>
           <Path
@@ -413,6 +527,58 @@ export function StopGlyph({ color, size = 16 }: GlyphProps) {
   return (
     <Svg height={size} viewBox="0 0 16 16" width={size}>
       <Rect fill={color} height={9.5} rx={1.6} width={9.5} x={3.25} y={3.25} />
+    </Svg>
+  );
+}
+
+/** People: the project that stopped being one person's. */
+export function PeopleGlyph({ color, size = 16 }: GlyphProps) {
+  return (
+    <Svg height={size} viewBox="0 0 16 16" width={size}>
+      <Circle
+        cx={6.2}
+        cy={5.6}
+        fill="none"
+        r={2.6}
+        stroke={color}
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M1.8 13.4c0-2.4 2-3.9 4.4-3.9s4.4 1.5 4.4 3.9"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M11.2 4.2a2.4 2.4 0 0 1 0 4.5M12.2 10.1c1.3.5 2 1.7 2 3.3"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+    </Svg>
+  );
+}
+
+/** A link: what gets copied and sent. */
+export function LinkGlyph({ color, size = 16 }: GlyphProps) {
+  return (
+    <Svg height={size} viewBox="0 0 16 16" width={size}>
+      <Path
+        d="M6.4 9.6 9.6 6.4"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M8.7 4.6l1.1-1.1a2.6 2.6 0 0 1 3.7 3.7l-1.1 1.1M7.3 11.4l-1.1 1.1a2.6 2.6 0 0 1-3.7-3.7l1.1-1.1"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeWidth={1.5}
+      />
     </Svg>
   );
 }

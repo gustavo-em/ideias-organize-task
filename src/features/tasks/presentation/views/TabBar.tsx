@@ -6,7 +6,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
-import { CHECK_SPRING } from '../animation/motion';
+import { CHECK_SPRING } from '../../../../app/animation/motion';
 import { PressableScale } from './PressableScale';
 
 interface TabGlyphProps {
@@ -28,9 +28,9 @@ interface TabBarProps<Id extends string> {
 }
 
 /**
- * Four destinations and no more.
+ * Three destinations and no more.
  *
- * The mark under the active tab is one element that slides, not four that fade:
+ * The mark under the active tab is one element that slides, not three that fade:
  * a single moving mark is what makes the bar read as one control rather than
  * as a row of buttons taking turns lighting up.
  */
@@ -55,7 +55,7 @@ export function TabBar<Id extends string>({
   }));
 
   return (
-    <Bar>
+    <Bar accessibilityRole="tablist">
       <Indicator style={indicatorStyle} />
       {items.map(item => {
         const selected = item.id === active;
@@ -64,6 +64,8 @@ export function TabBar<Id extends string>({
           <Tab
             accessibilityLabel={item.label}
             accessibilityRole="tab"
+            // PressableScale already renders one accessible node per tab, so
+            // the label is announced once, never doubled by the inner text.
             accessibilityState={{ selected }}
             key={item.id}
             onPress={() => onSelect(item.id)}
@@ -71,7 +73,8 @@ export function TabBar<Id extends string>({
           >
             <item.Glyph
               active={selected}
-              color={selected ? theme.colors.accentInk : theme.colors.muted}
+              color={selected ? theme.colors.text : theme.colors.muted}
+              size={22}
             />
             <TabLabel $active={selected}>{item.label}</TabLabel>
           </Tab>
@@ -81,13 +84,17 @@ export function TabBar<Id extends string>({
   );
 }
 
+/* 76 tall, a hairline on top and the mark glued to it: the bar is part of the
+   paper, not a tray sitting on it. */
 const Bar = styled.View`
   flex-direction: row;
   align-items: center;
+  min-height: 76px;
   border-top-width: 1px;
   border-top-color: ${({ theme }) => theme.colors.borderSubtle};
   background-color: ${({ theme }) => theme.colors.background};
   padding-top: ${({ theme }) => theme.spacing.small + 2}px;
+  padding-bottom: ${({ theme }) => theme.spacing.small}px;
 `;
 
 const Indicator = styled(Animated.View)`
@@ -101,11 +108,15 @@ const Indicator = styled(Animated.View)`
   background-color: ${({ theme }) => theme.colors.accent};
 `;
 
+/* House rule: an icon stacked over its label centers on the horizontal axis.
+ * A glyph pinned to the left of its own label reads as a layout accident. */
 const Tab = styled(PressableScale)`
   flex: 1;
+  min-height: 56px;
   align-items: center;
-  gap: 4px;
-  padding: 4px 0px 2px;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 0px;
 `;
 
 const TabLabel = styled.Text<{ $active: boolean }>`

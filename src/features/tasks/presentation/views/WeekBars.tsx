@@ -1,51 +1,84 @@
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useEffect } from 'react';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
-import type { DayRecord } from '../../domain/Progress';
-import { STAGGER_MS } from '../animation/motion';
+import { GROUND } from '../../../../app/animation/motion';
+import type { ClosedDay } from '../../domain/TaskStats';
 
 interface WeekBarsProps {
-  week: readonly DayRecord[];
+  days: readonly ClosedDay[];
+  todayMs: number;
   weekdays: readonly string[];
   height?: number;
 }
 
 /**
- * Seven days of finished weight.
+ * Seven days of finished tasks.
  *
- * The bar is weight, not count: a day with one hard thing done should not look
- * emptier than a day of five errands, because it was not.
+ * The bars grow from the floor when the tab opens. Six of them are the quiet
+ * neutral of the tab; only today is the accent, so the eye lands on the day
+ * the person is still living instead of hunting for the tallest column.
  */
-export function WeekBars({ week, weekdays, height = 96 }: WeekBarsProps) {
-  const peak = Math.max(1, ...week.map(day => day.weight));
+export function WeekBars({
+  days,
+  todayMs,
+  weekdays,
+  height = 96,
+}: WeekBarsProps) {
+  const peak = Math.max(1, ...days.map(day => day.closed));
 
   return (
     <Wrapper>
       <Bars style={{ height }}>
-        {week.map((day, index) => (
+        {days.map(day => (
           <Column key={day.dayMs}>
-            {/* The entrance and the dimming live in two views on purpose: a
-                component that animates in and also sets its own opacity is
-                exactly what Reanimated warns about, once per bar. */}
-            <Grow
-              entering={FadeInDown.delay(index * STAGGER_MS).duration(320)}
-              style={{
-                height: `${Math.max(4, (day.weight / peak) * 100)}%`,
-              }}
-            >
-              <Bar $closed={day.trioClosed} />
-            </Grow>
+            <GrowingBar
+              isToday={day.dayMs === todayMs}
+              /* A floor of 10% keeps the row of days readable when nothing was
+                 closed: an empty week is still a week. */
+              fraction={Math.max(0.1, day.closed / peak)}
+            />
           </Column>
         ))}
       </Bars>
       <Labels>
-        {week.map(day => (
-          <Label key={`label-${day.dayMs}`}>
+        {days.map(day => (
+          <Label $today={day.dayMs === todayMs} key={`label-${day.dayMs}`}>
             {weekdays[new Date(day.dayMs).getDay()]}
           </Label>
         ))}
       </Labels>
     </Wrapper>
+  );
+}
+
+function GrowingBar({
+  fraction,
+  isToday,
+}: {
+  fraction: number;
+  isToday: boolean;
+}) {
+  const grown = useSharedValue(0);
+
+  useEffect(() => {
+    grown.value = withTiming(fraction, GROUND);
+  }, [fraction, grown]);
+
+  /* Scale rather than height: a transform runs on the compositor, and a column
+     of seven animated heights is seven layout passes a frame. */
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: grown.value }],
+  }));
+
+  return (
+    <Bar style={animatedStyle}>
+      <BarFill $today={isToday} />
+    </Bar>
   );
 }
 
@@ -56,7 +89,7 @@ const Wrapper = styled.View`
 const Bars = styled.View`
   flex-direction: row;
   align-items: flex-end;
-  gap: ${({ theme }) => theme.spacing.small - 1}px;
+  gap: ${({ theme }) => theme.spacing.small}px;
 `;
 
 const Column = styled.View`
@@ -65,31 +98,31 @@ const Column = styled.View`
   justify-content: flex-end;
 `;
 
-const Grow = styled(Animated.View)`
-  width: 100%;
-`;
-
-const Bar = styled.View<{ $closed: boolean }>`
+const Bar = styled(Animated.View)`
   width: 100%;
   height: 100%;
-  border-top-left-radius: 5px;
-  border-top-right-radius: 5px;
-  border-bottom-left-radius: 3px;
-  border-bottom-right-radius: 3px;
-  background-color: ${({ theme }) => theme.colors.accent};
-  opacity: ${({ $closed }) => ($closed ? 1 : 0.35)};
+  transform-origin: bottom;
+`;
+
+const BarFill = styled.View<{ $today: boolean }>`
+  width: 100%;
+  height: 100%;
+  border-radius: ${({ theme }) => theme.spacing.small}px;
+  background-color: ${({ theme, $today }) =>
+    $today ? theme.colors.accent : theme.colors.cardNeutral};
 `;
 
 const Labels = styled.View`
   flex-direction: row;
-  gap: ${({ theme }) => theme.spacing.small - 1}px;
-  margin-top: ${({ theme }) => theme.spacing.small - 1}px;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 
-const Label = styled.Text`
+const Label = styled.Text<{ $today: boolean }>`
   flex: 1;
   text-align: center;
-  color: ${({ theme }) => theme.colors.muted};
+  color: ${({ theme, $today }) =>
+    $today ? theme.colors.text : theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption - 1}px;
-  font-weight: 600;
+  font-weight: ${({ $today }) => ($today ? 800 : 600)};
 `;

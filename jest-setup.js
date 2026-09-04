@@ -9,6 +9,7 @@ jest.mock('@react-native-async-storage/async-storage', () => {
     __esModule: true,
     default: {
       getItem: jest.fn(async key => (store.has(key) ? store.get(key) : null)),
+      getAllKeys: jest.fn(async () => [...store.keys()]),
       setItem: jest.fn(async (key, value) => {
         store.set(key, value);
       }),
@@ -49,14 +50,20 @@ jest.mock('react-native-reanimated', () => {
     FadeOut: makeAnimationBuilder(),
     FadeInDown: makeAnimationBuilder(),
     SlideInDown: makeAnimationBuilder(),
+    SlideInRight: makeAnimationBuilder(),
     SlideOutDown: makeAnimationBuilder(),
+    SlideOutLeft: makeAnimationBuilder(),
+    SlideOutRight: makeAnimationBuilder(),
     LinearTransition: makeAnimationBuilder(),
+    useAnimatedKeyboard: () => ({ height: { value: 0 } }),
   };
 
   function makeAnimationBuilder() {
     const builder = {
       delay: () => builder,
       duration: () => builder,
+      easing: () => builder,
+      reduceMotion: () => builder,
       springify: () => builder,
       damping: () => builder,
       stiffness: () => builder,
@@ -65,6 +72,90 @@ jest.mock('react-native-reanimated', () => {
     return builder;
   }
 });
+
+jest.mock('lottie-react-native', () => {
+  // The native view is replaced by a plain View that keeps the props a test
+  // asserts on (source, autoPlay, loop, progress, testID).
+  const React = require('react');
+  const { View } = require('react-native');
+
+  return {
+    __esModule: true,
+    default: props => React.createElement(View, props),
+  };
+});
+
+jest.mock('@notifee/react-native', () => {
+  // Scheduled reminders live here, so a test can read what the phone would be
+  // holding instead of guessing from the calls.
+  const triggers = new Map();
+
+  return {
+    __esModule: true,
+    AndroidImportance: { DEFAULT: 3 },
+    AuthorizationStatus: { DENIED: 0, AUTHORIZED: 1, PROVISIONAL: 2 },
+    TriggerType: { TIMESTAMP: 0, INTERVAL: 1 },
+    __triggers: triggers,
+    default: {
+      createChannel: jest.fn(async () => 'project-activity'),
+      displayNotification: jest.fn(async () => undefined),
+      getNotificationSettings: jest.fn(async () => ({
+        authorizationStatus: 1,
+      })),
+      openNotificationSettings: jest.fn(async () => undefined),
+      requestPermission: jest.fn(async () => ({ authorizationStatus: 1 })),
+      createTriggerNotification: jest.fn(async (notification, trigger) => {
+        triggers.set(notification.id, { notification, trigger });
+      }),
+      getTriggerNotificationIds: jest.fn(async () => [...triggers.keys()]),
+      cancelTriggerNotifications: jest.fn(async ids => {
+        for (const id of ids) triggers.delete(id);
+      }),
+    },
+  };
+});
+
+jest.mock('react-native-background-fetch', () => ({
+  __esModule: true,
+  default: {
+    NETWORK_TYPE_ANY: 0,
+    configure: jest.fn(async () => 2),
+    finish: jest.fn(),
+    registerHeadlessTask: jest.fn(),
+  },
+}));
+
+jest.mock('@react-native-firebase/analytics', () => ({
+  __esModule: true,
+  getAnalytics: jest.fn(() => ({})),
+  logEvent: jest.fn(async () => undefined),
+  logScreenView: jest.fn(async () => undefined),
+  setUserId: jest.fn(async () => undefined),
+}));
+
+jest.mock('@react-native-firebase/crashlytics', () => ({
+  __esModule: true,
+  getCrashlytics: jest.fn(() => ({})),
+  log: jest.fn(),
+  recordError: jest.fn(),
+  setUserId: jest.fn(async () => null),
+}));
+
+jest.mock('@react-native-firebase/messaging', () => ({
+  __esModule: true,
+  getMessaging: jest.fn(() => ({})),
+  getToken: jest.fn(async () => 'test-token'),
+  onMessage: jest.fn(() => () => undefined),
+  onTokenRefresh: jest.fn(() => () => undefined),
+  setBackgroundMessageHandler: jest.fn(),
+}));
+
+// The gallery is a native screen: the suite only ever needs the shape of the
+// answer, and each test that cares sets its own result.
+jest.mock('react-native-image-picker', () => ({
+  __esModule: true,
+  launchImageLibrary: jest.fn(async () => ({ didCancel: true })),
+}));
 
 beforeEach(async () => {
   await require('@react-native-async-storage/async-storage').default.clear();

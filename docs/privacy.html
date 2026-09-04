@@ -1,147 +1,408 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Privacy Policy — Aluza</title>
-<style>
-  body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #1a1a1a; }
-  h1 { font-size: 1.8em; }
-  h2 { font-size: 1.25em; margin-top: 2em; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
-  code { background: #f2f2f2; padding: 1px 5px; border-radius: 3px; }
-  ul { padding-left: 1.2em; }
-  .updated { color: #666; font-size: 0.9em; }
-  .langs { margin-bottom: 2em; }
-  .langs a { margin-right: 12px; }
-  hr.sep { margin: 3em 0; border: none; border-top: 2px solid #ddd; }
-  footer { margin-top: 3em; color: #666; font-size: 0.85em; }
-</style>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy — Aluza</title>
+    <style>
+      body {
+        font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+          sans-serif;
+        max-width: 760px;
+        margin: 40px auto;
+        padding: 0 20px;
+        line-height: 1.6;
+        color: #1a1a1a;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+      h2 {
+        font-size: 1.25em;
+        margin-top: 2em;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 4px;
+      }
+      code {
+        background: #f2f2f2;
+        padding: 1px 5px;
+        border-radius: 3px;
+      }
+      ul {
+        padding-left: 1.2em;
+      }
+      .updated {
+        color: #666;
+        font-size: 0.9em;
+      }
+      .langs {
+        margin-bottom: 2em;
+      }
+      .langs a {
+        margin-right: 12px;
+      }
+      hr.sep {
+        margin: 3em 0;
+        border: none;
+        border-top: 2px solid #ddd;
+      }
+      footer {
+        margin-top: 3em;
+        color: #666;
+        font-size: 0.85em;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="langs">
+      <a href="#pt-br">Português</a> | <a href="#en">English</a>
+    </p>
 
-<p class="langs"><a href="#pt-br">Português</a> | <a href="#en">English</a></p>
+    <section id="pt-br" lang="pt-BR">
+      <h1>Política de Privacidade do Aluza</h1>
+      <p class="updated">Última atualização: 04 de setembro de 2026</p>
 
-<section id="pt-br" lang="pt-BR">
+      <p>
+        Este documento explica quais dados o aplicativo
+        <strong>Aluza</strong> coleta, como são usados e armazenados, e quais
+        permissões o app solicita no seu dispositivo.
+      </p>
 
-<h1>Política de Privacidade do Aluza</h1>
-<p class="updated">Última atualização: 03 de setembro de 2026</p>
+      <h2>1. Dados de conta e autenticação</h2>
+      <p>
+        Para usar o Aluza você precisa criar uma conta. O login pode ser feito
+        por:
+      </p>
+      <ul>
+        <li>E-mail e senha</li>
+        <li>Google Sign-In</li>
+        <li>Sign in with Apple (iOS)</li>
+        <li>Acesso anônimo, informando apenas um nome de exibição</li>
+      </ul>
+      <p>
+        Armazenamos, vinculados à sua conta: nome de exibição, nome de usuário
+        (handle) e, opcionalmente, uma foto de perfil (salva como imagem
+        reduzida diretamente no seu documento de perfil, sem uso de serviço
+        externo de armazenamento de arquivos).
+      </p>
 
-<p>Este documento explica quais dados o aplicativo <strong>Aluza</strong> coleta, como são usados e armazenados, e quais permissões o app solicita no seu dispositivo.</p>
+      <h2>2. Conteúdo que você cria e compartilha</h2>
+      <p>
+        Listas de tarefas, projetos, tarefas, subtarefas, prazos, prioridades e
+        atribuições que você cria ficam salvos na nossa base de dados (Cloud
+        Firestore, serviço do Google Firebase). Quando você compartilha uma
+        lista com outras pessoas (ex.: casal, grupo, família), os membros
+        convidados podem ver o nome, nome de usuário e foto de perfil uns dos
+        outros dentro dessa lista compartilhada, além do conteúdo das tarefas.
+      </p>
 
-<h2>1. Dados de conta e autenticação</h2>
-<p>Para usar o Aluza você precisa criar uma conta. O login pode ser feito por:</p>
-<ul>
-  <li>E-mail e senha</li>
-  <li>Google Sign-In</li>
-  <li>Sign in with Apple (iOS)</li>
-  <li>Acesso anônimo, informando apenas um nome de exibição</li>
-</ul>
-<p>Armazenamos, vinculados à sua conta: nome de exibição, nome de usuário (handle) e, opcionalmente, uma foto de perfil (salva como imagem reduzida diretamente no seu documento de perfil, sem uso de serviço externo de armazenamento de arquivos).</p>
+      <h2>3. Notificações push</h2>
+      <p>
+        O Aluza usa o Firebase Cloud Messaging para enviar notificações (ex.:
+        quando alguém conclui uma tarefa ou entra em uma lista compartilhada).
+        Para isso, guardamos um token de identificação do seu dispositivo (não
+        identifica você pessoalmente fora do app) vinculado à sua conta.
+        Notificações também podem ser exibidas localmente no aparelho, sem envio
+        de dados a servidores.
+      </p>
 
-<h2>2. Conteúdo que você cria e compartilha</h2>
-<p>Listas de tarefas, projetos, tarefas, subtarefas, prazos, prioridades e atribuições que você cria ficam salvos na nossa base de dados (Cloud Firestore, serviço do Google Firebase). Quando você compartilha uma lista com outras pessoas (ex.: casal, grupo, família), os membros convidados podem ver o nome, nome de usuário e foto de perfil uns dos outros dentro dessa lista compartilhada, além do conteúdo das tarefas.</p>
+      <h2>4. Dados armazenados apenas no seu aparelho</h2>
+      <p>
+        Preferências do app e um histórico local de atividades recentes (para
+        evitar notificações duplicadas) ficam salvos apenas no seu dispositivo e
+        não são enviados a terceiros.
+      </p>
 
-<h2>3. Notificações push</h2>
-<p>O Aluza usa o Firebase Cloud Messaging para enviar notificações (ex.: quando alguém conclui uma tarefa ou entra em uma lista compartilhada). Para isso, guardamos um token de identificação do seu dispositivo (não identifica você pessoalmente fora do app) vinculado à sua conta. Notificações também podem ser exibidas localmente no aparelho, sem envio de dados a servidores.</p>
+      <h2>5. Análise de uso e relatórios de falha</h2>
+      <p>
+        O Aluza usa <strong>Firebase Analytics</strong> e
+        <strong>Firebase Crashlytics</strong>, ambos do Google.
+      </p>
+      <p>
+        O Analytics registra <em>o formato</em> do que acontece no app: que uma
+        tarefa foi criada e a partir de qual tela, se era tarefa ou lembrete, se
+        tinha data ou prazo, quantos passos tinha, quanto tempo levou para ser
+        escrita, que um bloco de foco começou ou terminou, que um espaço foi
+        compartilhado ou que alguém entrou nele, e qual aba foi aberta.
+      </p>
+      <p>
+        <strong>Nunca o que você escreveu.</strong> Títulos de tarefa, nomes de
+        espaço, nomes de grupo e qualquer texto digitado ficam no aparelho e não
+        são enviados para essas ferramentas.
+      </p>
+      <p>
+        O Crashlytics registra falhas do aplicativo: onde no código o app
+        quebrou, modelo do aparelho, versão do sistema e do app, e uma trilha
+        com os <em>nomes</em> das ações anteriores — também sem conteúdo.
+      </p>
+      <p>
+        Os dois recebem o identificador da sua conta, para que a mesma pessoa
+        usando dois aparelhos seja contada uma vez e para saber quantas pessoas
+        uma falha atingiu. Esses dados são, portanto, vinculados à sua
+        identidade.
+      </p>
+      <p>
+        Não usamos identificador de publicidade (IDFA) e não fazemos
+        rastreamento entre aplicativos ou sites de terceiros.
+      </p>
 
-<h2>4. Dados armazenados apenas no seu aparelho</h2>
-<p>Preferências do app e um histórico local de atividades recentes (para evitar notificações duplicadas) ficam salvos apenas no seu dispositivo e não são enviados a terceiros.</p>
+      <h2>6. O que NÃO coletamos</h2>
+      <ul>
+        <li>Não exibimos anúncios nem usamos redes de publicidade</li>
+        <li>
+          Não usamos identificador de publicidade nem rastreamento entre
+          aplicativos e sites
+        </li>
+        <li>
+          Não enviamos o conteúdo das suas tarefas para ferramentas de análise
+          ou de relatório de falhas
+        </li>
+        <li>
+          Não vendemos ou compartilhamos seus dados com terceiros para fins
+          comerciais
+        </li>
+      </ul>
 
-<h2>5. Análise de uso (analytics)</h2>
-<p>No momento não coletamos dados de comportamento de uso. Podemos adicionar ferramentas de analytics no futuro para entender como o app é usado e melhorá-lo; se isso acontecer, esta política será atualizada para detalhar quais dados passam a ser coletados.</p>
+      <h2>7. Permissões solicitadas no Android</h2>
+      <ul>
+        <li>
+          <code>INTERNET</code> — necessária para sincronizar suas listas e
+          tarefas
+        </li>
+        <li>
+          <code>POST_NOTIFICATIONS</code> — para exibir notificações do app
+        </li>
+        <li>
+          <code>VIBRATE</code> — para vibrar o aparelho em
+          notificações/lembretes
+        </li>
+        <li>
+          <code>RECEIVE_BOOT_COMPLETED</code> e <code>WAKE_LOCK</code> — para
+          manter lembretes e notificações agendadas funcionando após reiniciar o
+          aparelho
+        </li>
+      </ul>
+      <p>
+        O Aluza não solicita acesso a câmera, localização, contatos, microfone
+        ou armazenamento de arquivos. A galeria de fotos é aberta apenas quando
+        você escolhe uma foto de perfil, e apenas a imagem escolhida é lida.
+      </p>
 
-<h2>6. O que NÃO coletamos</h2>
-<ul>
-  <li>Não usamos ferramentas de coleta de relatórios de falha de terceiros</li>
-  <li>Não exibimos anúncios nem usamos redes de publicidade</li>
-  <li>Não vendemos ou compartilhamos seus dados com terceiros para fins comerciais</li>
-</ul>
+      <h2>8. Retenção e exclusão de dados</h2>
+      <p>
+        Seus dados de conta e conteúdo ficam armazenados enquanto sua conta
+        existir. Você pode excluir a conta dentro do próprio aplicativo, em
+        <strong>Você &rsaquo; Excluir conta</strong>. A exclusão apaga
+        imediatamente o perfil, o nome de usuário, a cópia do seu workspace
+        guardada na nuvem e os tokens de notificação do aparelho; os espaços que
+        você administra saem do ar para todos os membros, e sua participação nos
+        espaços de outras pessoas é removida. Tarefas que você criou em espaços
+        de terceiros podem permanecer no conteúdo do espaço, sem vínculo com o
+        seu perfil. Se preferir, também é possível pedir a exclusão pelo e-mail
+        <a href="mailto:gustavo.emanuel01@outlook.com"
+          >gustavo.emanuel01@outlook.com</a
+        >, atendida em até 30 dias.
+      </p>
 
-<h2>7. Permissões solicitadas no Android</h2>
-<ul>
-  <li><code>INTERNET</code> — necessária para sincronizar suas listas e tarefas</li>
-  <li><code>POST_NOTIFICATIONS</code> — para exibir notificações do app</li>
-  <li><code>VIBRATE</code> — para vibrar o aparelho em notificações/lembretes</li>
-  <li><code>RECEIVE_BOOT_COMPLETED</code> e <code>WAKE_LOCK</code> — para manter lembretes e notificações agendadas funcionando após reiniciar o aparelho</li>
-</ul>
-<p>O Aluza não solicita acesso a câmera, galeria, localização, contatos, microfone ou armazenamento de arquivos.</p>
+      <h2>9. Serviços de terceiros utilizados</h2>
+      <p>
+        O Aluza utiliza os seguintes serviços do Google Firebase: Firebase
+        Authentication (login), Cloud Firestore (armazenamento de dados),
+        Firebase Cloud Messaging (notificações), Firebase Analytics (análise de
+        uso) e Firebase Crashlytics (relatórios de falha). O uso desses serviços
+        está sujeito também à
+        <a
+          href="https://policies.google.com/privacy"
+          target="_blank"
+          rel="noopener"
+          >Política de Privacidade do Google</a
+        >.
+      </p>
 
-<h2>8. Retenção e exclusão de dados</h2>
-<p>Seus dados de conta e conteúdo ficam armazenados enquanto sua conta existir. Para solicitar a exclusão da sua conta e dos dados associados, entre em contato pelo e-mail: <a href="mailto:gustavo.emanuel01@outlook.com">gustavo.emanuel01@outlook.com</a></p>
+      <h2>10. Contato</h2>
+      <p>
+        Dúvidas sobre esta política ou sobre seus dados, incluindo pedidos de
+        exclusão de conta, podem ser enviadas para:
+        <a href="mailto:gustavo.emanuel01@outlook.com"
+          >gustavo.emanuel01@outlook.com</a
+        >
+      </p>
 
-<h2>9. Serviços de terceiros utilizados</h2>
-<p>O Aluza utiliza os seguintes serviços do Google Firebase para funcionamento do app: Firebase Authentication (login), Cloud Firestore (armazenamento de dados) e Firebase Cloud Messaging (notificações). O uso desses serviços está sujeito também à <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Política de Privacidade do Google</a>.</p>
+      <footer>
+        <p>
+          Esta política pode ser atualizada periodicamente. Alterações
+          significativas serão comunicadas dentro do app.
+        </p>
+      </footer>
+    </section>
 
-<h2>10. Contato</h2>
-<p>Dúvidas sobre esta política ou sobre seus dados, incluindo pedidos de exclusão de conta, podem ser enviadas para: <a href="mailto:gustavo.emanuel01@outlook.com">gustavo.emanuel01@outlook.com</a></p>
+    <hr class="sep" />
 
-<footer>
-  <p>Esta política pode ser atualizada periodicamente. Alterações significativas serão comunicadas dentro do app.</p>
-</footer>
+    <section id="en" lang="en">
+      <h1>Aluza Privacy Policy</h1>
+      <p class="updated">Last updated: September 4, 2026</p>
 
-</section>
+      <p>
+        This document explains what data the <strong>Aluza</strong> app
+        collects, how it is used and stored, and which permissions the app
+        requests on your device.
+      </p>
 
-<hr class="sep">
+      <h2>1. Account and authentication data</h2>
+      <p>To use Aluza you need to create an account. You can sign in with:</p>
+      <ul>
+        <li>Email and password</li>
+        <li>Google Sign-In</li>
+        <li>Sign in with Apple (iOS)</li>
+        <li>Anonymous access, providing only a display name</li>
+      </ul>
+      <p>
+        We store, linked to your account: display name, username (handle), and
+        optionally a profile photo (saved as a resized image directly inside
+        your profile document, with no external file-storage service involved).
+      </p>
 
-<section id="en" lang="en">
+      <h2>2. Content you create and share</h2>
+      <p>
+        Task lists, projects, tasks, subtasks, due dates, priorities and
+        assignments you create are stored in our database (Cloud Firestore, a
+        Google Firebase service). When you share a list with other people (e.g.
+        a couple, group, or family), invited members can see each other's name,
+        username, and profile photo within that shared list, along with the task
+        content.
+      </p>
 
-<h1>Aluza Privacy Policy</h1>
-<p class="updated">Last updated: September 3, 2026</p>
+      <h2>3. Push notifications</h2>
+      <p>
+        Aluza uses Firebase Cloud Messaging to send notifications (e.g. when
+        someone completes a task or joins a shared list). For this, we store a
+        device push token (it does not identify you personally outside the app)
+        linked to your account. Notifications may also be shown locally on your
+        device, without any data being sent to servers.
+      </p>
 
-<p>This document explains what data the <strong>Aluza</strong> app collects, how it is used and stored, and which permissions the app requests on your device.</p>
+      <h2>4. Data stored only on your device</h2>
+      <p>
+        App preferences and a local log of recent activity (to avoid duplicate
+        notifications) are kept only on your device and are not sent to any
+        third party.
+      </p>
 
-<h2>1. Account and authentication data</h2>
-<p>To use Aluza you need to create an account. You can sign in with:</p>
-<ul>
-  <li>Email and password</li>
-  <li>Google Sign-In</li>
-  <li>Sign in with Apple (iOS)</li>
-  <li>Anonymous access, providing only a display name</li>
-</ul>
-<p>We store, linked to your account: display name, username (handle), and optionally a profile photo (saved as a resized image directly inside your profile document, with no external file-storage service involved).</p>
+      <h2>5. Usage analytics and crash reports</h2>
+      <p>
+        Aluza uses <strong>Firebase Analytics</strong> and
+        <strong>Firebase Crashlytics</strong>, both from Google.
+      </p>
+      <p>
+        Analytics records <em>the shape</em> of what happens in the app: that a
+        task was created and from which screen, whether it was a task or a
+        reminder, whether it had a due date, how many steps it had, how long it
+        took to write, that a focus block started or finished, that a space was
+        shared or that somebody joined one, and which tab was opened.
+      </p>
+      <p>
+        <strong>Never what you wrote.</strong> Task titles, space names, group
+        names and any typed text stay on your device and are not sent to these
+        tools.
+      </p>
+      <p>
+        Crashlytics records app failures: where in the code the app broke,
+        device model, OS and app version, and a trail of the <em>names</em> of
+        the preceding actions — also without content.
+      </p>
+      <p>
+        Both receive your account identifier, so that the same person on two
+        devices is counted once and so we can tell how many people a crash
+        reached. This data is therefore linked to your identity.
+      </p>
+      <p>
+        We do not use an advertising identifier (IDFA) and we do not track you
+        across other companies' apps or websites.
+      </p>
 
-<h2>2. Content you create and share</h2>
-<p>Task lists, projects, tasks, subtasks, due dates, priorities and assignments you create are stored in our database (Cloud Firestore, a Google Firebase service). When you share a list with other people (e.g. a couple, group, or family), invited members can see each other's name, username, and profile photo within that shared list, along with the task content.</p>
+      <h2>6. What we do NOT collect</h2>
+      <ul>
+        <li>We do not show ads or use advertising networks</li>
+        <li>
+          We do not use an advertising identifier or track you across apps and
+          websites
+        </li>
+        <li>
+          We do not send the content of your tasks to analytics or
+          crash-reporting tools
+        </li>
+        <li>
+          We do not sell or share your data with third parties for commercial
+          purposes
+        </li>
+      </ul>
 
-<h2>3. Push notifications</h2>
-<p>Aluza uses Firebase Cloud Messaging to send notifications (e.g. when someone completes a task or joins a shared list). For this, we store a device push token (it does not identify you personally outside the app) linked to your account. Notifications may also be shown locally on your device, without any data being sent to servers.</p>
+      <h2>7. Android permissions requested</h2>
+      <ul>
+        <li><code>INTERNET</code> — required to sync your lists and tasks</li>
+        <li><code>POST_NOTIFICATIONS</code> — to show app notifications</li>
+        <li>
+          <code>VIBRATE</code> — to vibrate the device for
+          notifications/reminders
+        </li>
+        <li>
+          <code>RECEIVE_BOOT_COMPLETED</code> and <code>WAKE_LOCK</code> — to
+          keep scheduled reminders and notifications working after the device
+          restarts
+        </li>
+      </ul>
+      <p>
+        Aluza does not request access to camera, location, contacts, microphone,
+        or file storage. The photo gallery is opened only when you pick a
+        profile picture, and only the image you choose is read.
+      </p>
 
-<h2>4. Data stored only on your device</h2>
-<p>App preferences and a local log of recent activity (to avoid duplicate notifications) are kept only on your device and are not sent to any third party.</p>
+      <h2>8. Data retention and deletion</h2>
+      <p>
+        Your account and content data are stored for as long as your account
+        exists. You can delete the account from inside the app, under
+        <strong>You &rsaquo; Delete account</strong>. Deleting removes the
+        profile, the username, the cloud copy of your workspace and this
+        device's notification tokens right away; spaces you own come down for
+        every member, and your membership in other people's spaces is removed.
+        Tasks you created inside somebody else's space may remain in that
+        space's content, with no link to your profile. You can also request
+        deletion by email at
+        <a href="mailto:gustavo.emanuel01@outlook.com"
+          >gustavo.emanuel01@outlook.com</a
+        >, answered within 30 days.
+      </p>
 
-<h2>5. Usage analytics</h2>
-<p>We currently do not collect usage-behavior data. We may add analytics tools in the future to understand app usage and improve it; if we do, this policy will be updated to detail what data is collected.</p>
+      <h2>9. Third-party services used</h2>
+      <p>
+        Aluza uses the following Google Firebase services: Firebase
+        Authentication (sign-in), Cloud Firestore (data storage), Firebase Cloud
+        Messaging (notifications), Firebase Analytics (usage analytics) and
+        Firebase Crashlytics (crash reports). Use of these services is also
+        subject to
+        <a
+          href="https://policies.google.com/privacy"
+          target="_blank"
+          rel="noopener"
+          >Google's Privacy Policy</a
+        >.
+      </p>
 
-<h2>6. What we do NOT collect</h2>
-<ul>
-  <li>We do not use third-party crash-reporting tools</li>
-  <li>We do not show ads or use advertising networks</li>
-  <li>We do not sell or share your data with third parties for commercial purposes</li>
-</ul>
+      <h2>10. Contact</h2>
+      <p>
+        Questions about this policy or your data, including account-deletion
+        requests, can be sent to:
+        <a href="mailto:gustavo.emanuel01@outlook.com"
+          >gustavo.emanuel01@outlook.com</a
+        >
+      </p>
 
-<h2>7. Android permissions requested</h2>
-<ul>
-  <li><code>INTERNET</code> — required to sync your lists and tasks</li>
-  <li><code>POST_NOTIFICATIONS</code> — to show app notifications</li>
-  <li><code>VIBRATE</code> — to vibrate the device for notifications/reminders</li>
-  <li><code>RECEIVE_BOOT_COMPLETED</code> and <code>WAKE_LOCK</code> — to keep scheduled reminders and notifications working after the device restarts</li>
-</ul>
-<p>Aluza does not request access to camera, photo gallery, location, contacts, microphone, or file storage.</p>
-
-<h2>8. Data retention and deletion</h2>
-<p>Your account and content data are stored for as long as your account exists. To request deletion of your account and associated data, contact us at the email below.</p>
-
-<h2>9. Third-party services used</h2>
-<p>Aluza uses the following Google Firebase services to operate: Firebase Authentication (sign-in), Cloud Firestore (data storage), and Firebase Cloud Messaging (notifications). Use of these services is also subject to <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>.</p>
-
-<h2>10. Contact</h2>
-<p>Questions about this policy or your data, including account-deletion requests, can be sent to: <a href="mailto:gustavo.emanuel01@outlook.com">gustavo.emanuel01@outlook.com</a></p>
-
-<footer>
-  <p>This policy may be updated periodically. Significant changes will be communicated inside the app.</p>
-</footer>
-
-</section>
-
-</body>
+      <footer>
+        <p>
+          This policy may be updated periodically. Significant changes will be
+          communicated inside the app.
+        </p>
+      </footer>
+    </section>
+  </body>
 </html>

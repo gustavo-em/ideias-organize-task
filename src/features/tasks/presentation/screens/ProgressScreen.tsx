@@ -1,11 +1,12 @@
-import { StyleSheet } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import { contentEnter } from '../../../../app/animation/motion';
+import { startOfDay } from '../../domain/Day';
 import type { TaskCopy } from '../localization/taskCopy';
 import type { TasksViewModel } from '../view-models/useTasksViewModel';
 import { CountUpText } from '../views/CountUpText';
-import { ScreenHeader } from '../views/ScreenHeader';
 import { WeekBars } from '../views/WeekBars';
 
 interface ProgressScreenProps {
@@ -14,145 +15,177 @@ interface ProgressScreenProps {
 }
 
 /**
- * What the person has actually been doing.
+ * What today and this week have been.
  *
- * Everything here is measured in weight rather than in count, and the line
- * under the chart says so out loud. It is the promise that slicing a task in
- * half will not move any of these numbers.
+ * Two things only: the day, as the one yellow card on the tab, and the week
+ * as seven bars. Everything is counted from the tasks on this phone. The
+ * level is one quiet line under the person's name, not the subject.
  */
 export function ProgressScreen({ copy, viewModel }: ProgressScreenProps) {
   const theme = useTheme();
-  const { level } = viewModel;
+  const { closedByDay, dayTaskIds, doneToday, level, streakDays, week } =
+    viewModel;
+  const todayMs = startOfDay(viewModel.nowMs);
+  const dayTotal = dayTaskIds.length;
+  const closedThisWeek = closedByDay.reduce((sum, day) => sum + day.closed, 0);
+  const weekWeight = week.reduce((sum, day) => sum + day.weight, 0);
+  const sentence = copy.progress.todaySentence(doneToday, dayTotal, streakDays);
 
   return (
-    <Content
-      contentContainerStyle={styles.scroll}
-      showsVerticalScrollIndicator={false}
-    >
-      <ScreenHeader
-        eyebrow={copy.progress.title}
-        subtitle={copy.progress.streakHint}
-        title={copy.progress.streakTitle(viewModel.streakDays)}
-      />
+    <Content>
+      <LevelNote testID="progress-level">
+        {copy.progress.footnote(level.level, streakDays)}
+      </LevelNote>
 
-      <Section entering={FadeInDown.duration(300)}>
-        <SectionLabel>{copy.progress.week}</SectionLabel>
-        <WeekBars week={viewModel.week} weekdays={copy.progress.weekdays} />
-        <Note>{copy.progress.weightHint}</Note>
-      </Section>
-
-      <Cards>
-        <Card entering={FadeInDown.delay(60).duration(300)}>
-          <CardValue>{copy.progress.level(level.level)}</CardValue>
-          <CardLabel>
-            {copy.progress.levelPoints(level.intoLevel, level.levelSpan)}
-          </CardLabel>
-          <Track>
-            <Fill
-              style={{
-                width: `${
-                  level.levelSpan === 0
-                    ? 0
-                    : (level.intoLevel / level.levelSpan) * 100
-                }%`,
-              }}
+      <TodayCard
+        accessibilityLabel={`${copy.progress.today}. ${sentence}`}
+        accessibilityRole="summary"
+        accessible
+        entering={contentEnter(0)}
+        testID="progress-today"
+      >
+        <View importantForAccessibility="no-hide-descendants">
+          <TodayEyebrow>{copy.progress.today}</TodayEyebrow>
+          <TodayFigures>
+            <CountUpText
+              style={[styles.todayCount, { color: theme.colors.text }]}
+              testID="today-done"
+              value={doneToday}
             />
-          </Track>
-        </Card>
+            <TodayOf>{copy.progress.todayOf(dayTotal)}</TodayOf>
+          </TodayFigures>
+          <TodaySentence>{sentence}</TodaySentence>
+        </View>
+      </TodayCard>
 
-        <Card entering={FadeInDown.delay(120).duration(300)}>
-          <CountUpText
-            accessibilityLabel={`${viewModel.trioCount} ${copy.progress.trios}`}
-            style={[styles.count, { color: theme.colors.text }]}
-            testID="trio-count"
-            value={viewModel.trioCount}
-          />
-          <CardLabel>{copy.progress.trios}</CardLabel>
-        </Card>
-      </Cards>
+      <Block entering={contentEnter(1)}>
+        <Heading>
+          <HeadingLine>
+            <HeadingLabel>{copy.progress.sevenDays}</HeadingLabel>
+            <HeadingCount testID="week-closed">
+              {copy.progress.weekWeight(weekWeight)}
+            </HeadingCount>
+          </HeadingLine>
+          <HeadingRule />
+        </Heading>
+
+        <View
+          accessibilityLabel={copy.progress.weekSummary(closedThisWeek)}
+          accessibilityRole="summary"
+          accessible
+        >
+          <View importantForAccessibility="no-hide-descendants">
+            <WeekBars
+              days={closedByDay}
+              todayMs={todayMs}
+              weekdays={copy.progress.weekdays}
+            />
+          </View>
+        </View>
+      </Block>
     </Content>
   );
 }
 
+/* Tabular figures: a count that shifts sideways as it counts up reads as a
+   glitch, not as motion. */
 const styles = StyleSheet.create({
-  scroll: { paddingBottom: 40 },
-  count: { fontSize: 30, fontWeight: '800', letterSpacing: -1 },
+  todayCount: {
+    fontSize: 44,
+    fontWeight: '800',
+    letterSpacing: -2,
+    lineHeight: 48,
+    fontVariant: ['tabular-nums'],
+  },
 });
 
-const Content = styled.ScrollView`
-  flex: 1;
+/* The tab owns the scroll; this block only asks for the height it needs. */
+const Content = styled.View`
   padding: 0px ${({ theme }) => theme.spacing.large}px;
 `;
 
-const Section = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
-  padding: ${({ theme }) => theme.spacing.medium}px;
-  border-radius: ${({ theme }) => theme.radii.large}px;
-  background-color: ${({ theme }) => theme.colors.card};
-  border: 1px solid ${({ theme }) => theme.colors.borderSubtle};
-  elevation: 2;
-  shadow-color: #1b1710;
-  shadow-opacity: ${({ theme }) => (theme.mode === 'dark' ? 0 : 0.07)};
-  shadow-radius: 14px;
-  shadow-offset: 0px 5px;
+/* Level and streak, in line with the name above: the identity's third line. */
+const LevelNote = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 500;
+  line-height: 18px;
+  margin-top: ${({ theme }) => theme.spacing.tiny}px;
 `;
 
-const SectionLabel = styled.Text`
-  color: ${({ theme }) => theme.colors.muted};
+/* The only yellow card on the tab. */
+const TodayCard = styled(Animated.View)`
+  margin-top: ${({ theme }) => theme.spacing.large}px;
+  padding: 18px 20px;
+  border-radius: ${({ theme }) => theme.radii.large}px;
+  background-color: ${({ theme }) => theme.colors.accent};
+`;
+
+const TodayEyebrow = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
   font-size: ${({ theme }) => theme.type.caption}px;
-  font-weight: 700;
-  letter-spacing: 1.4px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
   text-transform: uppercase;
 `;
 
-const Note = styled.Text`
-  color: ${({ theme }) => theme.colors.muted};
-  font-size: ${({ theme }) => theme.type.caption + 1}px;
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
-`;
-
-const Cards = styled.View`
+const TodayFigures = styled.View`
   flex-direction: row;
-  gap: ${({ theme }) => theme.spacing.small + 2}px;
-  margin-top: ${({ theme }) => theme.spacing.small + 2}px;
+  align-items: baseline;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 
-const Card = styled(Animated.View)`
-  flex: 1;
-  padding: ${({ theme }) => theme.spacing.medium}px;
-  border-radius: ${({ theme }) => theme.radii.large}px;
-  background-color: ${({ theme }) => theme.colors.card};
-  border: 1px solid ${({ theme }) => theme.colors.borderSubtle};
-  elevation: 2;
-  shadow-color: #1b1710;
-  shadow-opacity: ${({ theme }) => (theme.mode === 'dark' ? 0 : 0.07)};
-  shadow-radius: 14px;
-  shadow-offset: 0px 5px;
-`;
-
-const CardValue = styled.Text`
-  color: ${({ theme }) => theme.colors.text};
-  font-size: 26px;
+const TodayOf = styled.Text`
+  color: ${({ theme }) => theme.colors.onAccentSubtle};
+  font-size: 18px;
   font-weight: 800;
-  letter-spacing: -1px;
 `;
 
-const CardLabel = styled.Text`
+const TodaySentence = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 600;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
+`;
+
+/* No surface of its own: a block is grouped by its heading, its rule and the
+   space around it, never by another box. */
+const Block = styled(Animated.View)`
+  margin-top: ${({ theme }) => theme.spacing.large}px;
+`;
+
+const Heading = styled.View`
+  gap: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const HeadingLine = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const HeadingLabel = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
-  margin-top: 4px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
 `;
 
-const Track = styled.View`
-  height: 4px;
-  border-radius: ${({ theme }) => theme.radii.pill}px;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
-  overflow: hidden;
-  margin-top: ${({ theme }) => theme.spacing.small + 2}px;
+const HeadingCount = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 600;
+  font-variant: tabular-nums;
 `;
 
-const Fill = styled.View`
-  height: 100%;
-  border-radius: ${({ theme }) => theme.radii.pill}px;
-  background-color: ${({ theme }) => theme.colors.accent};
+/* The rule sits under the line of text and crosses the whole width. */
+const HeadingRule = styled.View.attrs({
+  accessibilityElementsHidden: true,
+  importantForAccessibility: 'no' as const,
+})`
+  height: 1px;
+  background-color: ${({ theme }) => theme.colors.borderSubtle};
 `;

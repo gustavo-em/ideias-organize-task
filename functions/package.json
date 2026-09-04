@@ -1,0 +1,13 @@
+{
+  "name": "ideias-functions",
+  "description": "Push de atividade dos projetos compartilhados (Camada B).",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.1.0"
+  }
+}

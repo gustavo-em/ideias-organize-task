@@ -5,6 +5,7 @@ import type { TaskCopy } from '../localization/taskCopy';
 import { ProjectGlyph, PlusGlyph, TagGlyph } from './FieldGlyphs';
 import { projectTone } from '../models/projectAppearance';
 import { PressableScale } from './PressableScale';
+import { PanelBox, PanelTitle } from './SheetPanel';
 
 interface ListPanelProps {
   copy: TaskCopy;
@@ -31,79 +32,86 @@ export function ListPanel({
   const theme = useTheme();
 
   return (
-    <Panel>
-      <Option
-        $active={selectedId == null}
-        accessibilityLabel={copy.capture.noList}
-        accessibilityState={{ selected: selectedId == null }}
-        onPress={() => onSelect(null)}
-        testID="list-option-none"
-      >
-        <TagGlyph color={theme.colors.border} />
-        <OptionText $active={selectedId == null}>
-          {copy.capture.noList}
-        </OptionText>
-      </Option>
-
-      {lists.map(list => {
-        const isChosen = list.id === selectedId;
-
-        return (
-          <Option
-            $active={isChosen}
-            accessibilityLabel={list.name}
-            accessibilityState={{ selected: isChosen }}
-            key={list.id}
-            onPress={() => onSelect(list.id)}
-            testID={`list-option-${list.id}`}
-          >
-            <ProjectGlyph
-              color={projectTone(theme, list.color)}
-              icon={list.icon}
-            />
-            <OptionText $active={isChosen}>{list.name}</OptionText>
-          </Option>
-        );
-      })}
-
-      {onCreateNew == null ? null : (
+    <PanelBox>
+      <PanelTitle>{copy.capture.spacePanelTitle}</PanelTitle>
+      <Options>
         <Option
-          $active={false}
-          accessibilityLabel={copy.lists.newList}
-          onPress={onCreateNew}
-          testID="list-option-new"
+          $active={selectedId == null}
+          accessibilityLabel={copy.capture.noList}
+          accessibilityState={{ selected: selectedId == null }}
+          onPress={() => onSelect(null)}
+          testID="list-option-none"
         >
-          <PlusGlyph color={theme.colors.accentInk} />
-          <OptionText $active={false}>{copy.lists.newList}</OptionText>
+          <TagGlyph
+            color={
+              selectedId == null ? theme.colors.background : theme.colors.muted
+            }
+          />
+          <OptionText $active={selectedId == null}>
+            {copy.capture.noList}
+          </OptionText>
         </Option>
-      )}
-    </Panel>
+
+        {lists.map(list => {
+          const isChosen = list.id === selectedId;
+
+          return (
+            <Option
+              $active={isChosen}
+              accessibilityLabel={list.name}
+              accessibilityState={{ selected: isChosen }}
+              key={list.id}
+              onPress={() => onSelect(list.id)}
+              testID={`list-option-${list.id}`}
+            >
+              <ProjectGlyph
+                color={projectTone(theme, list.color)}
+                icon={list.icon}
+              />
+              <OptionText $active={isChosen}>{list.name}</OptionText>
+            </Option>
+          );
+        })}
+
+        {onCreateNew == null ? null : (
+          <Option
+            $active={false}
+            accessibilityLabel={copy.lists.newList}
+            onPress={onCreateNew}
+            testID="list-option-new"
+          >
+            <PlusGlyph color={theme.colors.recognizedText} />
+            <OptionText $active={false}>{copy.lists.newList}</OptionText>
+          </Option>
+        )}
+      </Options>
+    </PanelBox>
   );
 }
 
-const Panel = styled.View`
+const Options = styled.View`
   flex-direction: row;
   flex-wrap: wrap;
-  gap: ${({ theme }) => theme.spacing.small - 2}px;
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
+  gap: ${({ theme }) => theme.spacing.small}px;
 `;
 
 const Option = styled(PressableScale)<{ $active: boolean }>`
   flex-direction: row;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.small - 1}px;
-  padding: 9px 13px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
+  min-height: 36px;
+  padding: 0px 13px;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
   border: 1px solid
     ${({ theme, $active }) =>
-      $active ? theme.colors.accentInk : theme.colors.border};
+      $active ? theme.colors.text : theme.colors.border};
   background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.cardElevated : 'transparent'};
+    $active ? theme.colors.text : theme.colors.card};
 `;
 
 const OptionText = styled.Text<{ $active: boolean }>`
   font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: ${({ $active }) => ($active ? 800 : 500)};
+  font-weight: ${({ $active }) => ($active ? 700 : 600)};
   color: ${({ theme, $active }) =>
-    $active ? theme.colors.text : theme.colors.mutedStrong};
+    $active ? theme.colors.background : theme.colors.mutedStrong};
 `;
