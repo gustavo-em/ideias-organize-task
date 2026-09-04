@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect x="5" y="5" width="502" height="502" rx="88" fill="#F8AB00"/>
+  <path fill="#1B2025" fill-rule="evenodd" d="
+    M 229 132
+    C 147 132 80 197 80 281
+    C 80 366 145 435 228 435
+    C 270 435 306 420 333 394
+    C 337 410 345 423 357 431
+    C 366 438 377 439 387 434
+    C 398 428 403 418 399 407
+    C 397 401 392 397 387 393
+    C 381 389 379 383 379 374
+    L 379 282
+    C 379 195 314 132 229 132
+    Z
+
+    M 229 183
+    C 172 183 129 226 129 281
+    C 129 337 172 383 229 383
+    C 286 383 330 338 330 281
+    C 330 225 286 183 229 183
+    Z"/>
+  <rect x="322" y="63" width="34" height="82" rx="17" fill="#FFFFFF" transform="rotate(17 339 104)"/>
+  <rect x="369" y="118" width="35" height="80" rx="17.5" fill="#FFFFFF" transform="rotate(52 386.5 158)"/>
+  <rect x="385" y="207" width="78" height="33" rx="16.5" fill="#FFFFFF"/>
+</svg>

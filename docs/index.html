@@ -2,326 +2,575 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aluza — um espaço para a vida que vocês dividem</title>
-<meta name="description" content="Aluza é o app de listas e tarefas compartilhadas para casais, famílias e grupos. O dia de vocês, numa tela.">
+<meta name="description" content="Aluza é o app de tarefas e listas compartilhadas para casal, família e amigos. Escreva a tarefa como você falaria; o dia mostra três, não quarenta e sete.">
+<meta name="theme-color" content="#FFC63D">
+<link rel="icon" href="img/aluza-mark.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="img/aluza-mark.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Aluza — um espaço para a vida que vocês dividem">
+<meta property="og:description" content="Tarefas e listas compartilhadas para casal, família e amigos. O dia mostra três tarefas, não a lista inteira.">
+<meta property="og:image" content="img/og-aluza.png">
+<meta property="og:url" content="https://ideiasorganizetask.web.app/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --dark: #1D1D1B;
-    --yellow: #FFC107;
-    --cream: #F6F3EC;
-    --white: #FFFFFF;
+    --sol: #FFC63D;
+    --sol-soft: #FFE9AE;
+    --mel: #B36F00;
+    --tinta: #1B1710;
+    --papel: #FFFDF7;
+    --creme: #F6F3EC;
+    --menta: #0A8F60;
+    --uva: #4B3A8F;
+    --linha: rgba(27, 23, 16, 0.10);
+    --texto-suave: rgba(27, 23, 16, 0.66);
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --texto: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --max: 1140px;
+    --raio: 28px;
   }
+
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: var(--cream);
-    color: var(--dark);
+    background: var(--creme);
+    color: var(--tinta);
+    font-family: var(--texto);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
-  a { color: inherit; }
-  img { max-width: 100%; }
 
-  /* ---------- header ---------- */
-  header {
+  img { max-width: 100%; height: auto; display: block; }
+  a { color: inherit; }
+
+  h1, h2, h3 {
+    font-family: var(--display);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.02;
+    margin: 0;
+  }
+
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+
+  .eyebrow {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mel);
+    margin: 0 0 14px;
+  }
+
+  /* ---------------- header ---------------- */
+  .top {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(246, 243, 236, 0.86);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s ease;
+  }
+  .top.is-stuck { border-bottom-color: var(--linha); }
+  .top-inner {
+    max-width: var(--max);
+    margin: 0 auto;
+    padding: 14px 24px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    max-width: 1080px;
-    margin: 0 auto;
-    padding: 28px 24px 0;
+    gap: 16px;
   }
-  .brand { display: flex; align-items: center; gap: 10px; }
-  .brand img { height: 30px; width: auto; display: block; }
-  nav a {
+  .lockup { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .lockup img { width: 32px; height: 32px; border-radius: 10px; }
+  .lockup span { font-family: var(--display); font-weight: 800; font-size: 1.34rem; letter-spacing: -0.045em; }
+  .top nav { display: flex; align-items: center; gap: 26px; }
+  .top nav a {
     text-decoration: none;
-    font-size: 0.95em;
-    margin-left: 24px;
-    color: var(--dark);
-    opacity: 0.65;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--texto-suave);
   }
-  nav a:hover { opacity: 1; }
+  .top nav a:hover { color: var(--tinta); }
+  .top nav a.btn-dark { color: var(--papel); }
+  @media (max-width: 720px) { .top nav .hide-sm { display: none; } }
 
-  /* ---------- hero (yellow panel, like slide 1) ---------- */
-  .hero {
-    background: var(--yellow);
-    margin: 24px 0 0;
-    padding: 72px 24px 0;
-    overflow: hidden;
-  }
-  .hero-inner {
-    max-width: 1080px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 1fr 0.85fr;
-    gap: 24px;
-    align-items: end;
-  }
-  .hero-copy { padding-bottom: 64px; }
-  .mark-burst {
-    width: 64px;
-    height: auto;
-    margin-bottom: 22px;
-  }
-  .hero h1 {
-    font-size: 2.7em;
-    line-height: 1.06;
-    letter-spacing: -0.02em;
-    margin: 0 0 20px;
-    max-width: 11ch;
-  }
-  .hero p {
-    font-size: 1.15em;
-    line-height: 1.55;
-    opacity: 0.78;
-    max-width: 38ch;
-    margin: 0 0 30px;
-  }
-  .cta-row { display: flex; gap: 14px; flex-wrap: wrap; }
+  /* ---------------- buttons ---------------- */
   .btn {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     padding: 14px 22px;
     border-radius: 999px;
-    font-weight: 700;
     text-decoration: none;
-    font-size: 0.98em;
+    font-weight: 600;
+    font-size: 1rem;
+    border: 1.5px solid transparent;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
   }
-  .btn-dark { background: var(--dark); color: var(--white); }
-  .btn-outline { background: transparent; color: var(--dark); border: 1.5px solid var(--dark); opacity: 0.85; }
+  .btn svg { width: 20px; height: 20px; flex: none; }
+  .btn-dark { background: var(--tinta); color: var(--papel); }
+  .btn-dark:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(27, 23, 16, 0.24); }
+  .btn-ghost { border-color: rgba(27, 23, 16, 0.24); color: var(--tinta); }
+  .btn-ghost:hover { border-color: var(--tinta); transform: translateY(-2px); }
+  .btn-sol { background: var(--sol); color: var(--tinta); }
+  .btn-sol:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(179, 111, 0, 0.28); }
+  .btn.is-soon {
+    background: transparent;
+    border-color: rgba(27, 23, 16, 0.22);
+    color: var(--texto-suave);
+    cursor: default;
+    pointer-events: none;
+  }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 12px; }
 
-  .hero-phone { display: flex; justify-content: center; }
-  .phone {
-    width: 240px;
-    border-radius: 34px;
+  .selo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin: 22px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.9rem;
+    color: rgba(27, 23, 16, 0.72);
+  }
+  .selo li { display: flex; align-items: center; gap: 7px; }
+  .selo svg { width: 15px; height: 15px; }
+
+  /* ---------------- hero ---------------- */
+  .hero {
+    background: var(--sol);
+    border-radius: 0 0 40px 40px;
+    padding: 76px 0 0;
     overflow: hidden;
-    border: 8px solid var(--dark);
-    background: var(--dark);
-    box-shadow: 0 30px 60px rgba(29,29,27,0.28);
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 40px;
+    align-items: end;
+  }
+  .hero-copy { padding-bottom: 88px; }
+  .hero h1 {
+    font-size: clamp(2.6rem, 6vw, 4.3rem);
+    max-width: 13ch;
+    margin-bottom: 22px;
+  }
+  .hero p.lede {
+    font-size: clamp(1.05rem, 1.6vw, 1.22rem);
+    max-width: 44ch;
+    color: rgba(27, 23, 16, 0.78);
+    margin: 0 0 30px;
+  }
+  .hero-shot { display: flex; justify-content: center; align-items: flex-end; }
+
+  /* ---------------- phone ---------------- */
+  .phone {
+    width: min(300px, 76vw);
+    border: 9px solid var(--tinta);
+    border-radius: 44px;
+    background: var(--tinta);
+    box-shadow: 0 30px 60px rgba(27, 23, 16, 0.28);
+    overflow: hidden;
     position: relative;
   }
-  .phone img { display: block; width: 100%; height: auto; }
   .phone::before {
     content: "";
     position: absolute;
-    top: 10px; left: 50%;
+    top: 10px;
+    left: 50%;
     transform: translateX(-50%);
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: rgba(0,0,0,0.35);
+    width: 84px;
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(255, 253, 247, 0.34);
     z-index: 2;
   }
+  .phone img { border-radius: 36px; }
+  .phone-tall { margin-bottom: -70px; }
 
-  /* ---------- dark showcase panels (like slides 2-4) ---------- */
-  .panel {
-    background: var(--dark);
-    color: var(--white);
-    padding: 72px 24px 0;
+  /* ---------------- ticker / trust ---------------- */
+  .fita {
+    background: var(--tinta);
+    color: var(--papel);
+    font-size: 0.92rem;
+    letter-spacing: 0.02em;
   }
-  .panel-inner {
-    max-width: 1080px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 1fr 0.8fr;
-    gap: 24px;
-    align-items: end;
-  }
-  .panel-copy { padding-bottom: 64px; }
-  .panel h2 {
-    font-size: 2.3em;
-    line-height: 1.08;
-    letter-spacing: -0.02em;
-    margin: 0 0 16px;
-    max-width: 10ch;
-  }
-  .panel p {
-    font-size: 1.05em;
-    line-height: 1.55;
-    opacity: 0.68;
-    max-width: 36ch;
-    margin: 0;
-  }
-  .panel .phone {
-    width: 220px;
-    margin: 0 auto;
-    border-color: #050505;
-  }
-  .panel:nth-of-type(odd) { background: #17110A; }
-
-  /* ---------- features ---------- */
-  section.features {
-    max-width: 1080px;
-    margin: 0 auto;
-    padding: 80px 24px 40px;
-  }
-  .features h2 {
-    font-size: 1.7em;
+  .fita .wrap {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 34px;
+    padding-top: 16px;
+    padding-bottom: 16px;
     text-align: center;
-    margin: 0 0 36px;
-    letter-spacing: -0.01em;
   }
-  .grid3 {
+  .fita span { opacity: 0.86; }
+  .fita b { color: var(--sol); font-weight: 600; }
+
+  /* ---------------- sections ---------------- */
+  section { padding: 88px 0; }
+  .section-head { max-width: 32ch; margin-bottom: 44px; }
+  .section-head h2 { font-size: clamp(2rem, 4vw, 2.9rem); }
+  .section-head p { color: var(--texto-suave); font-size: 1.06rem; margin: 16px 0 0; }
+
+  .cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 22px;
+    gap: 18px;
   }
   .card {
-    background: var(--white);
-    border-radius: 18px;
-    padding: 26px 22px;
-    box-shadow: 0 8px 24px rgba(29,29,27,0.06);
+    background: var(--papel);
+    border: 1px solid var(--linha);
+    border-radius: var(--raio);
+    padding: 28px 26px 30px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
   }
-  .card .dot {
-    width: 40px; height: 40px;
-    border-radius: 12px;
-    background: var(--yellow);
-    margin-bottom: 14px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.2em;
+  .card:hover { transform: translateY(-4px); box-shadow: 0 18px 40px rgba(27, 23, 16, 0.09); }
+  .card .ico {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 18px;
+    background: var(--sol-soft);
   }
-  .card h3 { margin: 0 0 8px; font-size: 1.08em; }
-  .card p { margin: 0; opacity: 0.72; font-size: 0.95em; line-height: 1.5; }
+  .card .ico svg { width: 22px; height: 22px; }
+  .card h3 { font-size: 1.18rem; margin-bottom: 8px; letter-spacing: -0.02em; }
+  .card p { margin: 0; color: var(--texto-suave); font-size: 0.98rem; line-height: 1.55; }
+  .card code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.86em;
+    background: rgba(27, 23, 16, 0.06);
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
 
-  /* ---------- final CTA ---------- */
-  .band {
-    background: var(--dark);
-    color: var(--white);
-    margin-top: 20px;
-    padding: 64px 24px;
+  /* ---------------- showcase ---------------- */
+  .mostra { display: grid; gap: 76px; }
+  .mostra-item {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    align-items: center;
+  }
+  .mostra-item:nth-child(even) .mostra-copy { order: 2; }
+  .mostra-copy h2 { font-size: clamp(1.8rem, 3.4vw, 2.5rem); margin-bottom: 16px; }
+  .mostra-copy p { color: var(--texto-suave); font-size: 1.05rem; margin: 0 0 20px; max-width: 42ch; }
+  .mostra-copy ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+  .mostra-copy li { display: flex; gap: 10px; align-items: flex-start; font-size: 0.99rem; }
+  .mostra-copy li svg { width: 18px; height: 18px; flex: none; margin-top: 4px; color: var(--menta); }
+  .mostra-shot { display: flex; justify-content: center; }
+  .mostra-shot .phone { box-shadow: 0 24px 50px rgba(27, 23, 16, 0.16); }
+
+  /* ---------------- privacidade ---------------- */
+  .privacidade {
+    background: var(--tinta);
+    color: var(--papel);
+    border-radius: 40px;
+    padding: 64px 48px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 44px;
+    align-items: center;
+  }
+  .privacidade h2 { font-size: clamp(1.9rem, 3.6vw, 2.6rem); }
+  .privacidade p { color: rgba(255, 253, 247, 0.74); margin: 16px 0 0; }
+  .privacidade ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+  .privacidade li { display: flex; gap: 12px; align-items: flex-start; }
+  .privacidade li svg { width: 20px; height: 20px; flex: none; margin-top: 3px; color: var(--sol); }
+  .privacidade a { color: var(--sol); }
+
+  /* ---------------- fecho ---------------- */
+  .fecho {
+    background: var(--sol);
+    border-radius: 40px;
+    padding: 76px 32px;
     text-align: center;
   }
-  .band .mark-burst { margin: 0 auto 20px; }
-  .band h2 { font-size: 1.8em; margin: 0 0 14px; }
-  .band p { opacity: 0.72; max-width: 44ch; margin: 0 auto 28px; line-height: 1.55; }
-  .band .btn-dark { background: var(--yellow); color: var(--dark); }
+  .app-tile { display: inline-block; padding: 10px; margin-bottom: 26px; background: var(--papel); border-radius: 26px; box-shadow: 0 14px 34px rgba(27, 23, 16, 0.2); }
+  .app-tile img { width: 66px; height: 66px; border-radius: 18px; }
+  .fecho h2 { font-size: clamp(2rem, 4.4vw, 3.1rem); max-width: 18ch; margin: 0 auto 18px; }
+  .fecho p { color: rgba(27, 23, 16, 0.76); max-width: 46ch; margin: 0 auto 30px; font-size: 1.06rem; }
+  .fecho .btn-row { justify-content: center; }
+  .fecho .selo { justify-content: center; }
 
   footer {
-    max-width: 1080px;
-    margin: 0 auto;
-    padding: 40px 24px 56px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-    font-size: 0.9em;
-    opacity: 0.7;
+    padding: 44px 0 56px;
+    font-size: 0.92rem;
+    color: var(--texto-suave);
   }
-  footer a { text-decoration: underline; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 28px; justify-content: space-between; }
+  footer a { text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
 
-  @media (max-width: 760px) {
-    .hero-inner, .panel-inner { grid-template-columns: 1fr; }
-    .hero-copy, .panel-copy { padding-bottom: 32px; }
-    .hero h1, .panel h2 { max-width: none; font-size: 2em; }
-    .hero-phone, .panel .phone { margin-top: 0; }
-    .grid3 { grid-template-columns: 1fr; }
-    nav { display: none; }
+  /* ---------------- reveal ---------------- */
+  .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s ease, transform 0.6s ease; }
+  .reveal.is-in { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .btn:hover, .card:hover { transform: none; }
+  }
+
+  @media (max-width: 900px) {
+    .hero { padding-top: 52px; border-radius: 0 0 32px 32px; }
+    .hero-grid { grid-template-columns: 1fr; gap: 12px; }
+    .hero-copy { padding-bottom: 8px; }
+    .phone-tall { margin-bottom: -48px; }
+    .cards { grid-template-columns: 1fr; }
+    .mostra-item { grid-template-columns: 1fr; gap: 30px; }
+    .mostra-item:nth-child(even) .mostra-copy { order: 0; }
+    .privacidade { grid-template-columns: 1fr; padding: 44px 28px; border-radius: 30px; }
+    .fecho { border-radius: 30px; padding: 56px 22px; }
+    section { padding: 64px 0; }
   }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="brand">
-    <img src="img/aluza-logo-primary.svg" alt="Aluza">
+<header class="top" id="topo">
+  <div class="top-inner">
+    <a class="lockup" href="/" aria-label="Aluza"><img src="img/aluza-mark.svg" alt=""><span>aluza</span></a>
+    <nav>
+      <a class="hide-sm" href="#recursos">Recursos</a>
+      <a class="hide-sm" href="#privacidade">Privacidade</a>
+      <a class="hide-sm" href="/suporte">Suporte</a>
+      <a class="btn btn-dark" style="padding:10px 18px;font-size:0.92rem;" href="#baixar">Baixar</a>
+    </nav>
   </div>
-  <nav>
-    <a href="#recursos">Recursos</a>
-    <a href="privacy.html">Privacidade</a>
-    <a href="mailto:gustavo.emanuel01@outlook.com">Contato</a>
-  </nav>
 </header>
 
 <section class="hero">
-  <div class="hero-inner">
+  <div class="wrap hero-grid">
     <div class="hero-copy">
-      <img class="mark-burst" src="img/aluza-symbol-primary.svg" alt="">
+      <p class="eyebrow">Listas compartilhadas para casal, família e amigos</p>
       <h1>Um espaço para a vida que vocês dividem.</h1>
-      <p>Aluza é o app de listas e tarefas compartilhadas para casais, famílias e grupos. Combinem o que precisa ser feito, dividam entre vocês e acompanhem tudo em um só lugar.</p>
-      <div class="cta-row">
-        <a class="btn btn-dark" href="#recursos">Ver recursos</a>
-        <a class="btn btn-outline" href="mailto:gustavo.emanuel01@outlook.com">Falar com a gente</a>
+      <p class="lede">Escreva a tarefa como você falaria. O Aluza entende a data, o prazo e o espaço — e o dia mostra três tarefas, não a lista inteira.</p>
+      <div class="btn-row">
+        <a class="btn btn-dark is-soon" data-store="ios" href="#baixar">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.5-.2-2.8.8-3.6.8-.7 0-1.8-.8-3-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.7 0 0-2.4-.9-2.4-3.6zM14.1 5.9c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 0 2.1-.5 2.8-1.3z"/></svg>
+          <span>Em breve na App Store</span>
+        </a>
+        <a class="btn btn-ghost is-soon" data-store="android" href="#baixar">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 3.2v17.6c0 .5.5.9.9.6l9.6-8.4-9.6-8.4c-.4-.3-.9 0-.9.6zm12.1 6.9L6.6 2.9l9.2 8.1zM6.6 21.1l9.5-7.2 1.4 1.2-9.2 8zm11.9-9.9 2.5 1.4c.6.4.6 1.2 0 1.6l-2.5 1.4-1.9-1.6z"/></svg>
+          <span>Em breve no Google Play</span>
+        </a>
+      </div>
+      <ul class="selo">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> Grátis, sem compras dentro do app</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> Sem anúncios</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> Português e inglês</li>
+      </ul>
+    </div>
+    <div class="hero-shot">
+      <div class="phone phone-tall">
+        <img src="img/couple-01.png" alt="Tela de tarefas do Aluza, com a tarefa da vez em destaque e as demais separadas por dia" width="1080" height="2250">
       </div>
     </div>
-    <div class="hero-phone">
-      <div class="phone"><img src="img/couple-01.png" alt="Lista compartilhada 'Casa' no Aluza"></div>
-    </div>
   </div>
 </section>
 
-<section class="panel">
-  <div class="panel-inner">
-    <div class="panel-copy">
-      <h2>O dia de vocês, numa tela.</h2>
-      <p>O que cada um levou, o que já fechou, quem está em foco. Sem “e aquilo?”.</p>
-    </div>
-    <div class="hero-phone">
-      <div class="phone"><img src="img/couple-02.png" alt="Tela do dia combinado no Aluza"></div>
-    </div>
+<div class="fita">
+  <div class="wrap">
+    <span><b>Capture</b> em uma linha</span>
+    <span><b>Comprometa</b> com três por dia</span>
+    <span><b>Compartilhe</b> com quem divide a rotina</span>
   </div>
-</section>
-
-<section class="panel">
-  <div class="panel-inner">
-    <div class="panel-copy">
-      <h2>Sem placar entre vocês.</h2>
-      <p>Cada um leva três. Seu progresso é seu — o espaço mostra, não compara.</p>
-    </div>
-    <div class="hero-phone">
-      <div class="phone"><img src="img/couple-03.png" alt="Progresso individual no Aluza"></div>
-    </div>
-  </div>
-</section>
-
-<section class="panel">
-  <div class="panel-inner">
-    <div class="panel-copy">
-      <h2>Serve para a casa. E para o trabalho.</h2>
-      <p>Casal, lançamento, viagem, contas. Um app, sem modo especial.</p>
-    </div>
-    <div class="hero-phone">
-      <div class="phone"><img src="img/spaces-01.png" alt="Vários espaços compartilhados no Aluza"></div>
-    </div>
-  </div>
-</section>
-
-<section class="features" id="recursos">
-  <h2>Feito para fazer junto</h2>
-  <div class="grid3">
-    <div class="card">
-      <div class="dot">📋</div>
-      <h3>Listas compartilhadas</h3>
-      <p>Crie listas e projetos com quem você divide a rotina — casal, família ou grupo de amigos.</p>
-    </div>
-    <div class="card">
-      <div class="dot">🔔</div>
-      <h3>Lembretes que chegam</h3>
-      <p>Notificações no momento certo, pra ninguém esquecer o que ficou combinado.</p>
-    </div>
-    <div class="card">
-      <div class="dot">🤝</div>
-      <h3>Convide em segundos</h3>
-      <p>Compartilhe um link e a outra pessoa já entra direto na lista, sem fricção.</p>
-    </div>
-  </div>
-</section>
-
-<div class="band">
-  <img class="mark-burst" src="img/aluza-symbol-yellow-bg.svg" alt="" style="width:56px;border-radius:14px;">
-  <h2>Comece a organizar hoje</h2>
-  <p>Baixe o Aluza e transforme combinados soltos em uma lista que todo mundo vê.</p>
-  <a class="btn btn-dark" href="mailto:gustavo.emanuel01@outlook.com">Saiba mais</a>
 </div>
 
+<section id="recursos">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="eyebrow">O que o app faz</p>
+      <h2>Pouca regra, e ela cabe em seis linhas.</h2>
+      <p>Nada de configurar antes de usar. Você escreve, o app organiza e o dia continua curto.</p>
+    </div>
+    <div class="cards">
+      <div class="card reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#B36F00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z"/></svg></div>
+        <h3>Captura em uma linha</h3>
+        <p><code>comprar flores amanhã 18h #casa ~15min</code> vira prazo, espaço e duração sem abrir formulário.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#B36F00" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.4v2.4M12 19.2v2.4M2.4 12h2.4M19.2 12h2.4M5.2 5.2l1.7 1.7M17.1 17.1l1.7 1.7M18.8 5.2l-1.7 1.7M6.9 17.1l-1.7 1.7"/></svg></div>
+        <h3>O dia, não a lista</h3>
+        <p>Três tarefas por dia, escolhidas por prazo, peso e tempo parado. O resto espera sem cobrar.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#B36F00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20v-1.6a3.4 3.4 0 0 0-3.4-3.4H6.4A3.4 3.4 0 0 0 3 18.4V20"/><circle cx="9.5" cy="7.5" r="3.5"/><path d="M21 20v-1.6a3.4 3.4 0 0 0-2.6-3.3M15.6 4.2a3.5 3.5 0 0 1 0 6.6"/></svg></div>
+        <h3>Espaços compartilhados</h3>
+        <p>Casa, viagem, churrasco, contas. Cada espaço com a sua gente, e a caixa pessoal segue separada.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#B36F00" stroke-width="2" stroke-linecap="round"><path d="M10.6 13.4a4 4 0 0 0 6 .4l2.4-2.4a4.2 4.2 0 0 0-6-6l-1.4 1.4"/><path d="M13.4 10.6a4 4 0 0 0-6-.4L5 12.6a4.2 4.2 0 0 0 6 6l1.4-1.4"/></svg></div>
+        <h3>Convite por link</h3>
+        <p>Manda o link no WhatsApp; quem recebe vê o espaço antes de instalar e entra direto na lista.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#B36F00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5H4.5a2.5 2.5 0 0 0 2.5 4M17 5h2.5a2.5 2.5 0 0 1-2.5 4M9.5 20h5M12 14v6"/></svg></div>
+        <h3>Pontos pelo tamanho</h3>
+        <p>Fechar tarefa grande vale mais que fechar cinco pequenas. E o placar é seu — o espaço mostra, não compara.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#B36F00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8.6a6 6 0 1 0-12 0c0 6-2.4 7.4-2.4 7.4h16.8S18 14.6 18 8.6z"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></svg></div>
+        <h3>Avisos na hora certa</h3>
+        <p>Prazo chegando e movimento no espaço compartilhado. Nada de notificação para engajar por engajar.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0;">
+  <div class="wrap mostra">
+
+    <article class="mostra-item reveal">
+      <div class="mostra-copy">
+        <p class="eyebrow">Captura</p>
+        <h2>Escreva como você fala.</h2>
+        <p>Uma linha basta. O Aluza lê a data, a hora, a prioridade, o espaço e quanto tempo a tarefa leva — e mostra o que entendeu antes de salvar.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> <span><code>amanhã 18h</code> vira prazo com hora</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> <span><code>#casa</code> manda a tarefa para o espaço certo</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> <span><code>~15min</code> é o peso que decide o dia</span></li>
+        </ul>
+      </div>
+      <div class="mostra-shot">
+        <div class="phone"><img src="img/couple-02.png" alt="Caixa de captura do Aluza reconhecendo data, espaço e duração escritos em uma frase" width="1080" height="2250" loading="lazy"></div>
+      </div>
+    </article>
+
+    <article class="mostra-item reveal">
+      <div class="mostra-copy">
+        <p class="eyebrow">Espaços</p>
+        <h2>Cada espaço com a sua gente.</h2>
+        <p>Um espaço para a casa, outro para o churrasco de sábado, outro só seu. Quem entra vê a lista daquele espaço — e nada além dela.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> <span>Convide por link, sem cadastrar time</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> <span>Caixa pessoal para o que não é de ninguém mais</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> <span>Sair de um espaço a qualquer hora</span></li>
+        </ul>
+      </div>
+      <div class="mostra-shot">
+        <div class="phone"><img src="img/spaces-01.png" alt="Lista de espaços do Aluza, com os compartilhados, os pessoais e o botão de entrar com convite" width="1080" height="2250" loading="lazy"></div>
+      </div>
+    </article>
+
+    <article class="mostra-item reveal">
+      <div class="mostra-copy">
+        <p class="eyebrow">Combinado</p>
+        <h2>Hoje, no combinado.</h2>
+        <p>Dentro do espaço, cada tarefa mostra quem levou. Quando alguém fecha uma, os outros ficam sabendo e os pontos vão para quem fez.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> <span>Quem faz o quê, sem cobrança</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> <span>Aviso quando o espaço se move</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> <span>Progresso individual, nunca um ranking</span></li>
+        </ul>
+      </div>
+      <div class="mostra-shot">
+        <div class="phone"><img src="img/spaces-02.png" alt="Espaço compartilhado do Aluza com a tarefa combinada para hoje e uma tarefa concluída valendo pontos" width="1080" height="2250" loading="lazy"></div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section id="privacidade" style="padding-top:0;">
+  <div class="wrap">
+    <div class="privacidade reveal">
+      <div>
+        <p class="eyebrow" style="color:var(--sol);">Privacidade</p>
+        <h2>O que é de vocês fica com vocês.</h2>
+        <p>Listas compartilhadas são visíveis só para quem foi convidado àquele espaço. Nada é vendido, nada é usado para publicidade.</p>
+      </div>
+      <ul>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5.5c0 4.3 2.9 8.3 7 9.5 4.1-1.2 7-5.2 7-9.5V6z"/></svg> <span>Sem anúncios e sem rastreio entre apps</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5.5c0 4.3 2.9 8.3 7 9.5 4.1-1.2 7-5.2 7-9.5V6z"/></svg> <span>Seus dados nunca são vendidos a terceiros</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5.5c0 4.3 2.9 8.3 7 9.5 4.1-1.2 7-5.2 7-9.5V6z"/></svg> <span>Conta e conteúdo apagáveis dentro do app, em <em>Você › Excluir conta</em></span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5.5c0 4.3 2.9 8.3 7 9.5 4.1-1.2 7-5.2 7-9.5V6z"/></svg> <span><a href="/privacidade">Política de privacidade completa</a></span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="baixar" style="padding-top:0;">
+  <div class="wrap">
+    <div class="fecho reveal">
+      <span class="app-tile"><img src="img/aluza-mark.svg" alt="Ícone do app Aluza"></span>
+      <h2>Comece hoje, com três tarefas.</h2>
+      <p>Baixe o Aluza, crie o primeiro espaço e mande o link para quem divide a rotina com você.</p>
+      <div class="btn-row">
+        <a class="btn btn-dark is-soon" data-store="ios" href="mailto:gustavo.emanuel01@outlook.com?subject=Avise-me%20quando%20o%20Aluza%20lan%C3%A7ar">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.5-.2-2.8.8-3.6.8-.7 0-1.8-.8-3-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.7 0 0-2.4-.9-2.4-3.6zM14.1 5.9c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 0 2.1-.5 2.8-1.3z"/></svg>
+          <span>Em breve na App Store</span>
+        </a>
+        <a class="btn btn-ghost is-soon" data-store="android" href="mailto:gustavo.emanuel01@outlook.com?subject=Avise-me%20quando%20o%20Aluza%20lan%C3%A7ar">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 3.2v17.6c0 .5.5.9.9.6l9.6-8.4-9.6-8.4c-.4-.3-.9 0-.9.6zm12.1 6.9L6.6 2.9l9.2 8.1zM6.6 21.1l9.5-7.2 1.4 1.2-9.2 8zm11.9-9.9 2.5 1.4c.6.4.6 1.2 0 1.6l-2.5 1.4-1.9-1.6z"/></svg>
+          <span>Em breve no Google Play</span>
+        </a>
+      </div>
+      <ul class="selo">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> Entre com Apple, Google, e-mail — ou só com um nome</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
 <footer>
-  <span>© 2026 Aluza</span>
-  <span>
-    <a href="privacy.html">Política de Privacidade</a>
-    &nbsp;·&nbsp;
-    <a href="mailto:gustavo.emanuel01@outlook.com">gustavo.emanuel01@outlook.com</a>
-  </span>
+  <div class="wrap">
+    <span>© 2026 Aluza · Feito no Brasil</span>
+    <span>
+      <a href="/privacidade">Privacidade</a> ·
+      <a href="/termos">Termos</a> ·
+      <a href="/suporte">Suporte</a> ·
+      <a href="mailto:gustavo.emanuel01@outlook.com">gustavo.emanuel01@outlook.com</a>
+    </span>
+  </div>
 </footer>
+
+<script>
+  /* Quando as fichas das lojas existirem, preencha as duas URLs abaixo:
+     os botões deixam de dizer "Em breve" e passam a levar para a loja. */
+  var LOJAS = {
+    ios: '',      /* ex.: 'https://apps.apple.com/br/app/aluza/id0000000000' */
+    android: ''   /* ex.: 'https://play.google.com/store/apps/details?id=com.ideiasorganizetask' */
+  };
+
+  document.querySelectorAll('[data-store]').forEach(function (botao) {
+    var url = LOJAS[botao.dataset.store];
+    if (!url) return;
+    botao.href = url;
+    botao.classList.remove('is-soon');
+    botao.querySelector('span').textContent =
+      botao.dataset.store === 'ios' ? 'Baixar na App Store' : 'Baixar no Google Play';
+  });
+
+  var topo = document.getElementById('topo');
+  var sentinela = new IntersectionObserver(function (entradas) {
+    topo.classList.toggle('is-stuck', entradas[0].boundingClientRect.top < 0);
+  }, { threshold: 0 });
+  sentinela.observe(document.querySelector('.hero'));
+
+  var revelar = new IntersectionObserver(function (entradas) {
+    entradas.forEach(function (entrada) {
+      if (!entrada.isIntersecting) return;
+      entrada.target.classList.add('is-in');
+      revelar.unobserve(entrada.target);
+    });
+  }, { rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(function (elemento) { revelar.observe(elemento); });
+</script>
 
 </body>
 </html>
