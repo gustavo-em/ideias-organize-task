@@ -1,60 +1,52 @@
-# Onboarding demo frames
-
-> **Pending after the Aluza rebrand.** The PNGs in the repository were captured
-> before the rename, so they still show the old name and the old "Projetos"
-> wording. Recapture both slides with the script below on a device running the
-> rebranded build; the captions already read "Espaços".
+# Onboarding demo stills
 
 The first-run walk-through plays screenshots of this app, not illustrations.
 Every PNG here was captured on a device by
-`scripts/capture-onboarding-frames.sh` and cropped to the band where the action
-happens: 1080×1150 of the screen for both slides, resized to 720px wide. Both
-bands stop short of the floating buttons, so no control is shown cut in half.
+`scripts/capture-onboarding-frames.sh`: a full screenshot with the status bar
+and the system gesture bar cropped away, 1080×2250. `SlideShow` crossfades
+between a slide's own frames — no ring, no highlight, no cropped band — so a
+still only has to be a real, legible screen of the app.
 
-The PNGs currently in the repository were taken with the previous bands
-(1080×1150 from y=1050 for slide 1 and 1080×780 from y=740 for slide 2), which
-is why slide 2 does not fill the stage. The next capture uses the bands in the
-script; after it, set `aspect` of both demos to `1080 / 1150` in
-`onboardingSteps.ts` and copy the new tap coordinates.
-
-- `capture-01..08.png` — slide 1: the Tasks screen, the new task button, the
-  sheet, the title being typed and the date/priority/project chips.
-- `shared-01..06.png` — slide 2: the Spaces screen, the shared space open
-  with its agreement band, the invite link and the copied link.
-- `capture-taps.json` / `shared-taps.json` — where each step was tapped,
-  normalised to the frame. The values are copied into
-  `src/app/components/onboarding/onboardingSteps.ts`, which is what the app
-  reads to draw the highlight ring. The ring is never burned into the PNG.
+- `couple-01..03.png` — slide 1, "A vida a dois, combinada": the Tasks tab,
+  a task typed with a date/priority/space and then landing where it was
+  planned.
+- `spaces-01..03.png` — slide 2, "Um espaço para cada plano": the Spaces
+  tab's index, the shared space "Churras de sábado" open with its agreement
+  band, then the same space with a couple of things done.
+- `step-convite.png` — slide 3, "Convide quem divide a rotina": the invite
+  sheet, link ready to copy or send.
+- `capture-*.png`, `shared-*.png`, `*-taps.json` — leftovers from an earlier
+  version of this script that cropped a band of the screen and drew a
+  highlight ring per tap. Nothing in the app reads them any more; kept only
+  because deleting them isn't this change's job.
 
 ## Regenerating
 
-Requirements: `adb` with one device or emulator connected, `ffmpeg`, `python3`.
+Requirements: `adb` with one device or emulator connected, `python3` with
+Pillow installed (`pip install pillow`).
 
 Prepare the device:
 
 1. light theme, language pt-BR, signed in;
-2. profile name `Gustavo`, handle `gustavo` (Você → Editar perfil);
-3. tasks in the inbox: `Marcar dentista`, `Pagar o aluguel`,
-   `Levar o carro na oficina`;
-4. spaces `Casa nova` (shared, with an invite link already created) and
-   `Viagem de julho`, with `Escolher a cor da sala` and `Comprar as cortinas`
-   inside `Casa nova`;
-5. no task named `Renovar o seguro` — slide 1 creates it during the capture.
+2. a shared space named `Churras de sábado` with at least two open tasks in
+   it (the walk-through's second slide opens this space by name);
+3. no space named `Viagem de julho` — the invite slide creates one during
+   the capture, as a throwaway shared space, and leaves it in place;
+4. no task named `Comprar flores para o jantar` — the first slide creates it
+   during the capture.
 
-Then, with the app open:
+Then, with the app open on its Tasks tab:
 
 ```bash
-scripts/capture-onboarding-frames.sh capture
-scripts/capture-onboarding-frames.sh shared
+scripts/capture-onboarding-frames.sh all
 ```
 
-Each run rewrites the PNGs and the `*-taps.json` of that slide. When a tap moves
-to a different place, copy the new coordinates from the JSON into
-`onboardingSteps.ts`.
+Or capture one slide at a time with `couple`, `spaces`, or `invite` instead
+of `all`. Each run rewrites only the PNGs of that slide.
 
-Two adjustments are made by hand after copying, and both are on purpose:
-
-- a coordinate that lands on the label of a wide button is nudged onto its icon
-  or onto its empty side, so the ring never sits on top of the words;
-- a coordinate outside the cropped band (a button that the crop leaves out) is
-  dropped: that frame simply has no ring.
+If the capture device's status bar or gesture bar has a different height than
+the one this script was tuned on (1080×2400, gesture navigation), the crop
+will clip the app or leave a sliver of system UI in frame — adjust
+`CROP_TOP`/`CROP_BOTTOM` at the top of the script and copy the new aspect
+ratio (`1080 / (CROP_BOTTOM - CROP_TOP)`) into every slide's `aspect` in
+`src/app/components/onboarding/onboardingSteps.ts`.
