@@ -6,7 +6,7 @@ import { asyncStoragePreferencesStore } from '../../../../app/infrastructure/pre
 import { sanitizeAppPreferences } from '../../../../app/domain/AppPreferences';
 import { sweepProjectActivity } from '../../application/useCases/checkProjectActivity';
 import { sanitizeLists } from '../../domain/TaskList';
-import { asyncStorageListStore } from '../storage/asyncStorageStores';
+import { createLocalTaskStores } from '../storage/asyncStorageStores';
 import { firestoreShareGateway } from '../sharing/firestoreShareGateway';
 import { asyncStorageActivityLedger } from './asyncStorageActivityLedger';
 import { notifeeActivityNotifier } from './notifeeActivityNotifier';
@@ -64,7 +64,11 @@ export async function runActivitySweep(): Promise<number> {
   );
   if (!preferences.projectActivityNotifications) return 0;
 
-  const lists = sanitizeLists(await asyncStorageListStore.load());
+  // The keys carry the account's uid, so a headless run reads the same
+  // workspace the app does — and never another account's.
+  const lists = sanitizeLists(
+    await createLocalTaskStores(uid).listStore.load(),
+  );
 
   return sweepProjectActivity(lists, firestoreShareGateway, {
     ledger: asyncStorageActivityLedger,

@@ -23,15 +23,8 @@ import { systemClock } from '../features/tasks/infrastructure/clock/systemClock'
 import { systemHaptics } from '../features/tasks/infrastructure/haptics/systemHaptics';
 import { firestoreShareGateway } from '../features/tasks/infrastructure/sharing/firestoreShareGateway';
 import { systemClipboard } from '../features/tasks/infrastructure/sharing/systemClipboard';
-import {
-  asyncStorageGroupStreakStore,
-  asyncStorageListStore,
-  asyncStorageProgressStore,
-  asyncStorageTaskStore,
-  asyncStorageTrioStore,
-  clearDataOwner,
-  clearLocalTaskData,
-} from '../features/tasks/infrastructure/storage/asyncStorageStores';
+import { createLocalTaskStores } from '../features/tasks/infrastructure/storage/asyncStorageStores';
+import { firestoreWorkspaceBackup } from '../features/tasks/infrastructure/storage/firestoreWorkspaceBackup';
 import { consoleUsageReporter } from '../features/tasks/infrastructure/usage/consoleUsageReporter';
 import { deriveMemberIdentity } from '../features/tasks/presentation/models/memberIdentity';
 import { FocusScreen } from '../features/tasks/presentation/screens/FocusScreen';
@@ -58,28 +51,15 @@ import {
 } from './components/OnboardingScreen';
 import { APP_VERSION } from './config/appMetadata';
 import { asyncStoragePreferencesStore } from './infrastructure/preferences/asyncStoragePreferencesStore';
-import { useLocalDataOwner } from './session/useLocalDataOwner';
+import { useIncomingInvite } from './session/useIncomingInvite';
+import { useLocalWorkspace } from './session/useLocalWorkspace';
+import { useWorkspaceBackup } from './session/useWorkspaceBackup';
 import { getAppTheme } from './theme/theme';
 import type { AppearanceMode } from './theme/theme';
 import {
   useAppViewModel,
   type AppViewModel,
 } from './view-models/useAppViewModel';
-
-/**
- * Everything the account that just left wrote here, removed.
- *
- * The wait is not cosmetic: the last save of a session is emitted by the
- * persistence subscriber's cleanup while the screens unmount, so the removals
- * have to be queued behind it or the wiped keys come straight back.
- */
-async function wipeLocalSession(): Promise<void> {
-  await new Promise<void>(resolve => {
-    setTimeout(resolve, 0);
-  });
-  await clearLocalTaskData();
-  await clearDataOwner();
-}
 
 /**
  * The composition root.
@@ -135,6 +115,15 @@ function AppContent({
     [auth.user, app.copy, profile.visibleProfile],
   );
 
+  // Every key this account reads and writes carries its uid, so two accounts
+  // on one phone keep two workspaces and neither has to be erased for the
+  // other. The shell remounts this component on a new uid, so the stores are
+  // rebuilt with it.
+  const stores = useMemo(
+    () => createLocalTaskStores(auth.user?.uid ?? 'anon'),
+    [auth.user?.uid],
+  );
+
   // The confirmation is a line in the account group, not a screen of its own:
   // it says the save landed and then gets out of the way.
   const { status: profileStatus, dismissSaved } = profile;
@@ -160,13 +149,13 @@ function AppContent({
     bus,
     clock: systemClock,
     haptics: systemHaptics,
-    listStore: asyncStorageListStore,
-    progressStore: asyncStorageProgressStore,
-    taskStore: asyncStorageTaskStore,
-    trioStore: asyncStorageTrioStore,
+    listStore: stores.listStore,
+    progressStore: stores.progressStore,
+    taskStore: stores.taskStore,
+    trioStore: stores.trioStore,
     usageReporter: consoleUsageReporter,
     shareGateway: firestoreShareGateway,
-    groupStreakStore: asyncStorageGroupStreakStore,
+    groupStreakStore: stores.groupStreakStore,
     clipboard: systemClipboard,
     identity,
     language: app.language,
@@ -253,17 +242,22 @@ function AppContent({
     selectTab('lists');
   }, [inviteIntent, selectTab, tasks.isRestored]);
 
-  // Leaving the account takes this account's data off the device with it. The
-  // wipe is deferred past this tick on purpose: ending the session unmounts the
-  // screens, and the persistence subscriber flushes one last save on the way
-  // out — running the removals first would only have them written back.
-  // A refused sign-out keeps both the session and its data: nothing was left
-  // behind for anybody else to read, and there is no server copy to restore
-  // from, so wiping there would only destroy the day of the person still
-  // signed in. Sessions that end any other way are covered by the shell.
+  // A tapped invite link goes to the same place, for the same reason: the
+  // sheet that opens on it lives on the spaces tab.
+  const incomingInvite = useIncomingInvite();
+
+  useEffect(() => {
+    if (incomingInvite.token == null || !tasks.isRestored) return;
+
+    selectTab('lists');
+  }, [incomingInvite.token, selectTab, tasks.isRestored]);
+
+  // Leaving the account leaves its data alone. Each account's keys carry its
+  // own uid, so the next person to sign in on this phone reads their own set
+  // and never this one — the wipe that used to run here was what made signing
+  // back in open an empty app.
   const signOut = useCallback(async () => {
     await auth.signOut();
-    await wipeLocalSession();
   }, [auth]);
 
   const behindProfile = youRoute === 'profile';
@@ -313,8 +307,10 @@ function AppContent({
             <ListsScreen
               autoInvite={inviteIntent}
               copy={app.copy}
+              incomingInviteToken={incomingInvite.token}
               language={app.language}
               onAutoInviteDone={onInviteIntentDone}
+              onIncomingInviteHandled={incomingInvite.clear}
               notificationPrompt={{
                 // The ask happens where the news comes from, and only for
                 // someone who actually shares a project.
@@ -467,28 +463,18 @@ function AppShell({
   const authStatus =
     auth.status === 'checking' && authTimedOut ? 'signedOut' : auth.status;
   const personId = auth.user?.uid ?? null;
-  const hadSession = useRef(false);
-
-  // The session can also end without the settings button: a revoked token, a
-  // deleted account. However it ends, the device stops holding that account's
-  // day — and this runs after the screens have unmounted and flushed.
-  useEffect(() => {
-    if (authStatus === 'signedIn') {
-      hadSession.current = true;
-      return;
-    }
-
-    if (authStatus !== 'signedOut' || !hadSession.current) return;
-
-    hadSession.current = false;
-    wipeLocalSession().catch(() => {
-      // The next sign-in checks the owner again and wipes there.
-    });
-  }, [authStatus]);
-  // Nothing of the previous account may be drawn before this answers: a
-  // different owner wipes the device's copy first.
-  const dataOwnerStatus = useLocalDataOwner(
+  // Nothing of this account may be drawn before this answers: the walk from
+  // the pre-namespace keys, and the restore from the server backup when this
+  // device has nothing of its own, both happen behind it.
+  const workspaceStatus = useLocalWorkspace(
     authStatus === 'signedIn' ? personId : null,
+    firestoreWorkspaceBackup,
+  );
+
+  useWorkspaceBackup(
+    authStatus === 'signedIn' ? personId : null,
+    firestoreWorkspaceBackup,
+    bus,
   );
   const isAuthResolved = authStatus !== 'checking';
   const isShellReady = app.isRestored && isAuthResolved;
@@ -530,7 +516,7 @@ function AppShell({
       >
         {isShellReady &&
         authStatus === 'signedIn' &&
-        dataOwnerStatus === 'ready' ? (
+        workspaceStatus === 'ready' ? (
           <AppContent
             app={app}
             auth={auth}
@@ -549,6 +535,9 @@ function AppShell({
           <AuthGate
             auth={auth}
             copy={getAuthCopy(app.language)}
+            /* The entrance shows the same space the walk-through does, so the
+               words inside its cut-out come from the one dictionary. */
+            demo={app.copy.onboarding.demo}
             onReady={handleContentReady}
           />
         ) : null}
