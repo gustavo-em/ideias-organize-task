@@ -81,7 +81,12 @@ let setAutoInvite: (value: boolean) => void = () => undefined;
 
 function render(
   overrides: Partial<TasksViewModel> = {},
-  screenProps: { autoInvite?: boolean; onAutoInviteDone?: () => void } = {},
+  screenProps: {
+    autoInvite?: boolean;
+    onAutoInviteDone?: () => void;
+    incomingInviteToken?: string | null;
+    onIncomingInviteHandled?: () => void;
+  } = {},
 ) {
   const viewModel = {
     nowMs: NOW,
@@ -311,5 +316,70 @@ describe('creating a project that is already a group', () => {
     press(root, 'join-invite');
 
     expect(has(root, 'mock-join-sheet')).toBe(true);
+  });
+});
+
+describe('arriving with a tapped invite link', () => {
+  it('joins on arrival, without a field or a second confirmation', async () => {
+    const joined: string[] = [];
+    const handled: string[] = [];
+
+    const root = render(
+      {
+        isRestored: true,
+        joinSharedList: (input: string) => {
+          joined.push(input);
+          return Promise.resolve(true);
+        },
+      } as unknown as Partial<TasksViewModel>,
+      {
+        incomingInviteToken: '7k2xazjm',
+        onIncomingInviteHandled: () => handled.push('done'),
+      },
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(joined).toEqual(['7k2xazjm']);
+    // The token is never put in front of anybody to re-approve.
+    expect(has(root, 'mock-join-sheet')).toBe(false);
+    // And it is spent, so a re-render cannot join twice.
+    expect(handled).toEqual(['done']);
+  });
+
+  it('opens the sheet when the link cannot be joined', async () => {
+    const root = render(
+      {
+        isRestored: true,
+        joinSharedList: () => Promise.resolve(false),
+      } as unknown as Partial<TasksViewModel>,
+      { incomingInviteToken: '7k2xazjm' },
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // A dead or refused link needs somewhere to say so and to be retried from.
+    expect(has(root, 'mock-join-sheet')).toBe(true);
+  });
+
+  it('waits for the workspace before spending the token', () => {
+    const joined: string[] = [];
+
+    render(
+      {
+        isRestored: false,
+        joinSharedList: (input: string) => {
+          joined.push(input);
+          return Promise.resolve(true);
+        },
+      } as unknown as Partial<TasksViewModel>,
+      { incomingInviteToken: '7k2xazjm' },
+    );
+
+    expect(joined).toEqual([]);
   });
 });

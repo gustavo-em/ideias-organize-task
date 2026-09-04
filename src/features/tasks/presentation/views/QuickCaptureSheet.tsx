@@ -104,6 +104,15 @@ interface QuickCaptureSheetProps {
   nowMs: number;
   /** Used from a list's own “add task” action. */
   initialListId?: string | null;
+  /** Set when the capture was opened from inside a group: what is written here
+   * lands in that group, never loose in the space. */
+  initialGroupId?: string | null;
+  /** Offers "Grupo" beside "Tarefa" and "Lembrete". Present only where a group
+   * can be made — inside a space — so creating one is a sibling of creating a
+   * task instead of a menu tucked away somewhere. Choosing it hands the person
+   * over to the group sheet, which asks for the icon and the colour a task has
+   * no use for. */
+  onChooseGroup?: () => void;
   /** Present when editing. The text is then stored as written — nothing is
    * parsed out of it, because renaming a task to "ligar urgente" means those
    * words. */
@@ -148,7 +157,9 @@ export function QuickCaptureSheet({
   lists,
   nowMs,
   initialListId,
+  initialGroupId = null,
   editing,
+  onChooseGroup,
   onFocus,
   onCancel,
   onDelete,
@@ -337,12 +348,17 @@ export function QuickCaptureSheet({
     chosenList != null ||
     newListName != null ||
     (listOverride === undefined && draft.listName != null);
-  const priorityColor =
-    priority === 'high'
-      ? theme.colors.text
-      : priority === 'medium'
-      ? theme.colors.recognizedText
-      : theme.colors.muted;
+  // The same ladder `PriorityText` walks, for the same reason: a chosen chip
+  // is filled with ink, so anything drawn on it in ink disappears. "Alta" is
+  // the one that showed it — its glyph is the darkest of the three — but
+  // "baixa" and an explicitly chosen "média" sat on the same fill.
+  const priorityColor = priorityChosen
+    ? theme.colors.onSelected
+    : priority === 'high'
+    ? theme.colors.text
+    : priority === 'medium'
+    ? theme.colors.recognizedText
+    : theme.colors.muted;
   const dateLabel =
     dueAtMs == null
       ? copy.capture.noDate
@@ -533,6 +549,11 @@ export function QuickCaptureSheet({
           : newListName == null
           ? { listId: listOverride }
           : { newListName }),
+        // Only ever set by the group's own `+`: everywhere else a task is
+        // loose in its space and the field is left alone.
+        ...(initialGroupId == null || isEditing
+          ? {}
+          : { groupId: initialGroupId }),
       },
       Date.now() - openedAt.current,
     );
@@ -605,6 +626,25 @@ export function QuickCaptureSheet({
                       {copy.capture.kind.reminder}
                     </KindText>
                   </KindOption>
+                  {/* The third thing a space can hold. It never becomes the
+                      selected segment: tapping it hands over to the sheet that
+                      asks for an icon and a colour, which a task has no use
+                      for. */}
+                  {onChooseGroup == null || isEditing ? null : (
+                    <KindOption
+                      $active={false}
+                      accessibilityLabel={copy.capture.kind.group}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: false }}
+                      hitSlop={{ top: 6, bottom: 6 }}
+                      onPress={onChooseGroup}
+                      testID="capture-kind-group"
+                    >
+                      <KindText $active={false}>
+                        {copy.capture.kind.group}
+                      </KindText>
+                    </KindOption>
+                  )}
                 </KindRow>
 
                 {!isEditing && !isReminderKind ? (

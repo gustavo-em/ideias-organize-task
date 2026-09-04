@@ -7,7 +7,11 @@ import type {
   TaskKind,
   TaskPriority,
 } from '../../domain/Task';
-import type { TaskEvent, UseCaseResult } from '../../domain/TaskEvent';
+import type {
+  CaptureOrigin,
+  TaskEvent,
+  UseCaseResult,
+} from '../../domain/TaskEvent';
 import {
   createList,
   findListByName,
@@ -22,6 +26,9 @@ interface CaptureDependencies {
   createId: (atMs: number) => string;
   /** How long the person spent in the capture sheet, measured at the edge. */
   tookMs?: number | null;
+  /** Which screen opened the sheet. Only telemetry reads it: the task itself
+   * is the same wherever it was written. */
+  origin?: CaptureOrigin | null;
 }
 
 /**
@@ -40,6 +47,10 @@ export interface CaptureOverrides {
   /** A list can only be born from an explicit UI action, never from a guessed
    * `#name` in the task text. */
   newListName?: string;
+  /** Which group inside the space the task lands in. Set when the capture was
+   * opened from inside a group: the `+` there creates in it, never loose in
+   * the space by accident. */
+  groupId?: string | null;
   /** Steps written in the sheet before the task existed. They are titles, not
    * subtasks: the identifiers are minted here, with the task itself, so a
    * draft that was cancelled never leaves anything behind. */
@@ -66,7 +77,7 @@ export function captureTask(
 ): UseCaseResult {
   if (!isCaptureUsable(typed)) return { workspace, events: [] };
 
-  const { nowMs, createId, tookMs = null } = dependencies;
+  const { nowMs, createId, tookMs = null, origin = null } = dependencies;
   const draft = parseCapture(typed, nowMs);
   const chosenListId = overrides.listId;
   const existingList = findListByName(workspace.lists, draft.listName);
@@ -113,6 +124,9 @@ export function captureTask(
       ? null
       : clampRemindDays(dueAtMs, overrides.remindDaysBefore ?? null, nowMs),
     estimatedMinutes: isReminderItem ? null : draft.estimatedMinutes,
+    // Memory belongs to the space, never to a group: a reminder has nothing
+    // to finish, so it would sit in a group's bar as work that never closes.
+    groupId: isReminderItem ? null : overrides.groupId ?? null,
     createdAtMs: nowMs,
     completedAtMs: null,
     // Written with the task or added later, from the task itself. Either way
@@ -128,7 +142,7 @@ export function captureTask(
   const trio = refreshTrio(workspace.trio, tasks, nowMs);
   const next: Workspace = { ...workspace, tasks, lists, trio };
   const events: TaskEvent[] = [
-    { type: 'task.captured', at: nowMs, task, typed, tookMs },
+    { type: 'task.captured', at: nowMs, task, typed, tookMs, origin },
   ];
 
   if (trio !== workspace.trio) {

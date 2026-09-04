@@ -53,6 +53,24 @@ interface ThemeColors {
   /** Project accents stay distinct from destructive red. */
   projectCoral: string;
   projectOcean: string;
+  /**
+   * Ink for text written on a project's own tint.
+   *
+   * The same split `accent`/`accentInk` and `success`/`successInk` already
+   * make: an identity colour is a fill, not a tint for letters. Measured over
+   * the tinted ground itself — the colour at 12% flattened on paper — the pure
+   * accents land between 3.3:1 and 4.2:1 and fail AA at caption size, which is
+   * exactly the size a group's date and count are written in.
+   *
+   * In dark mode the tone is already the light half of the pair, so the ink is
+   * the token the theme uses for that colour's own ink and no new colour is
+   * invented for the wash.
+   */
+  projectSunInk: string;
+  projectGrapeInk: string;
+  projectMintInk: string;
+  projectCoralInk: string;
+  projectOceanInk: string;
   danger: string;
   /** Backdrop behind the capture sheet and the celebration. */
   scrim: string;
@@ -151,6 +169,13 @@ export const lightTheme: AppTheme = {
     successInk: '#077A52',
     projectCoral: '#B8653C',
     projectOcean: '#167B84',
+    // Contrast measured on each colour's own tint over `background`:
+    // 5.4, 5.4, 5.2, 5.3 and 5.2 to one.
+    projectSunInk: '#855700',
+    projectGrapeInk: '#8F4E19',
+    projectMintInk: '#066A47',
+    projectCoralInk: '#8A4A26',
+    projectOceanInk: '#0B4A50',
     danger: '#C93B25',
     scrim: 'rgba(27, 23, 16, 0.42)',
   },
@@ -189,6 +214,13 @@ export const darkTheme: AppTheme = {
     successInk: '#3FD69B',
     projectCoral: '#F29A72',
     projectOcean: '#5FC7CE',
+    // The tone is already light here, so each ink is the token that colour
+    // writes with everywhere else in the dark theme.
+    projectSunInk: '#FFB524',
+    projectGrapeInk: '#FFB870',
+    projectMintInk: '#3FD69B',
+    projectCoralInk: '#F29A72',
+    projectOceanInk: '#5FC7CE',
     danger: '#FF8A73',
     scrim: 'rgba(6, 4, 0, 0.62)',
   },

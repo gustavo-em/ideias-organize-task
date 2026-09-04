@@ -1,24 +1,23 @@
-export const listColors = ['sun', 'grape', 'mint', 'coral', 'ocean'] as const;
+import { sanitizeGroups, type TaskGroup } from './TaskGroup';
 
-export type ListColor = (typeof listColors)[number];
+export {
+  DEFAULT_PROJECT_ICON,
+  listColors,
+  normalizeListName,
+  projectIcons,
+  stripAccents,
+} from './ProjectIdentity';
+export type { ListColor, ProjectIcon } from './ProjectIdentity';
 
-export const projectIcons = [
-  'layers',
-  'home',
-  'briefcase',
-  'plane',
-  'book',
-  'heart',
-  'cart',
-  'wallet',
-  'dumbbell',
-  'bulb',
-  'calendar',
-  'inbox',
-] as const;
-
-export type ProjectIcon = (typeof projectIcons)[number];
-export const DEFAULT_PROJECT_ICON: ProjectIcon = 'layers';
+import {
+  listColors,
+  normalizeListName,
+  projectIcons,
+  stripAccents,
+  DEFAULT_PROJECT_ICON,
+  type ListColor,
+  type ProjectIcon,
+} from './ProjectIdentity';
 
 export const listRoles = ['owner', 'editor', 'viewer'] as const;
 export type ListRole = (typeof listRoles)[number];
@@ -57,6 +56,11 @@ export interface TaskList {
   icon: ProjectIcon;
   /** Absent means the project is only yours. */
   share?: ListShare;
+  /** The reasons inside the space: a birthday, a renovation. Absent on every
+   * space written before groups existed, which simply has none. Kept on the
+   * space rather than beside it so a shared project carries its groups over
+   * the same wire that already carries its name and its tasks. */
+  groups?: readonly TaskGroup[];
 }
 
 /**
@@ -77,13 +81,25 @@ export function buildInviteLink(token: string): string {
   return `${SHARE_LINK_ORIGIN}${SHARE_LINK_PATH}${token}`;
 }
 
-/** Accepts a bare token or a full link and reads the token out of it. Never
- * throws: a broken paste is `null`, for the sheet to show as an error. */
+/**
+ * Accepts a bare token, a full link, or the whole invite message with the
+ * link somewhere inside it. Never throws: a broken paste is `null`, for the
+ * sheet to show as an error.
+ *
+ * The message is what people actually copy — nobody selects the URL out of a
+ * WhatsApp bubble, they long-press and copy the lot — so the link is found
+ * inside the text rather than assumed to be all of it. Trailing punctuation
+ * comes along with a link at the end of a sentence and is not part of it.
+ */
 export function parseInviteToken(input: string): string | null {
   const trimmed = input.trim();
   if (trimmed.length === 0) return null;
 
-  const withoutQuery = trimmed.split(/[?#]/)[0];
+  const url = trimmed.match(/https?:\/\/\S+/i)?.[0] ?? null;
+  const candidate = url ?? (/\s/.test(trimmed) ? null : trimmed);
+  if (candidate == null) return null;
+
+  const withoutQuery = candidate.split(/[?#]/)[0].replace(/[.,;:!?)\]]+$/, '');
   const token = withoutQuery.includes('/')
     ? withoutQuery.split('/').filter(Boolean).pop() ?? ''
     : withoutQuery;
@@ -178,58 +194,6 @@ export const INBOX_LIST_ID = 'inbox';
 export const DEFAULT_LISTS: readonly TaskList[] = [
   { id: INBOX_LIST_ID, name: 'Caixa', color: 'sun', icon: 'inbox' },
 ];
-
-const ACCENTS: Record<string, string> = {
-  á: 'a',
-  à: 'a',
-  ã: 'a',
-  â: 'a',
-  ä: 'a',
-  é: 'e',
-  ê: 'e',
-  è: 'e',
-  ë: 'e',
-  í: 'i',
-  ì: 'i',
-  î: 'i',
-  ï: 'i',
-  ó: 'o',
-  õ: 'o',
-  ô: 'o',
-  ò: 'o',
-  ö: 'o',
-  ú: 'u',
-  ù: 'u',
-  û: 'u',
-  ü: 'u',
-  ç: 'c',
-  ñ: 'n',
-};
-
-/** Built from the table itself, so a letter added above is matched here
- * without a second list to keep in step. */
-const ACCENTED = new RegExp(`[${Object.keys(ACCENTS).join('')}]`, 'gi');
-
-/**
- * Accents removed by table rather than by `String.prototype.normalize`, which
- * is not available on every JavaScript engine this app runs on.
- */
-export function stripAccents(value: string): string {
-  return value.replace(ACCENTED, character => {
-    const lower = character.toLowerCase();
-    const replacement = ACCENTS[lower];
-
-    if (replacement == null) return character;
-
-    return character === lower ? replacement : replacement.toUpperCase();
-  });
-}
-
-/** A name typed after `#` is matched loosely: case and accents should not
- * decide whether a task lands in an existing list or invents a new one. */
-export function normalizeListName(name: string): string {
-  return stripAccents(name.trim().toLowerCase());
-}
 
 export function findListByName(
   lists: readonly TaskList[],
@@ -371,6 +335,9 @@ export function sanitizeLists(value: unknown): TaskList[] {
       // The Caixa is a single person's inbox; a `share` on it is discarded
       // rather than sanitized, so it can never surface as shareable.
       share: id === INBOX_LIST_ID ? undefined : sanitizeShare(candidate.share),
+      // The Caixa is where what has no space falls; giving it groups would
+      // make the safety net a place to organize in.
+      groups: id === INBOX_LIST_ID ? [] : sanitizeGroups(candidate.groups, id),
     });
   }
 

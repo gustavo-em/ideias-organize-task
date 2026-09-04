@@ -110,8 +110,13 @@ export function deleteTaskList(
   }
 
   const lists = workspace.lists.filter(list => list.id !== listId);
+  // The Caixa has no groups, so a task that fell into it from a deleted space
+  // comes out of the group it was in rather than pointing at one nothing can
+  // open.
   const tasks = workspace.tasks.map(task =>
-    task.listId === listId ? { ...task, listId: INBOX_LIST_ID } : task,
+    task.listId === listId
+      ? { ...task, listId: INBOX_LIST_ID, groupId: null }
+      : task,
   );
   return committed({ ...workspace, lists, tasks }, at);
 }

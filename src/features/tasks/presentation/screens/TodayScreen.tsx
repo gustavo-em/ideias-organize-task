@@ -17,12 +17,17 @@ import styled, { useTheme } from 'styled-components/native';
 
 import { markSheetPress, useRenderCount } from '../../../../app/perf/sheetPerf';
 import { type Task } from '../../domain/Task';
+import { findGroupById, type TaskGroup } from '../../domain/TaskGroup';
 import {
   INBOX_LIST_ID,
   type ListColor,
   type ProjectIcon,
 } from '../../domain/TaskList';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
+
+/** Shared, frozen: a new `[]` on every render is a new prop, and a new prop
+ * defeats the memo keeping the rows still. */
+const EMPTY_GROUPS: readonly TaskGroup[] = [];
 import { homeSections, type HomeGrouping } from '../models/homeSections';
 import { projectTone } from '../models/projectAppearance';
 import {
@@ -386,6 +391,13 @@ export function TodayScreen({
                       listColor={viewModel.listOf(task.listId)?.color ?? null}
                       listIcon={viewModel.listOf(task.listId)?.icon ?? null}
                       listName={viewModel.listOf(task.listId)?.name ?? null}
+                      // Seen from the day, a group's task is a sentence with
+                      // no context — "Confirmar o salão" for what? The pill
+                      // is what carries the reason out of the group with it.
+                      group={findGroupById(
+                        viewModel.listOf(task.listId)?.groups ?? EMPTY_GROUPS,
+                        task.groupId,
+                      )}
                       nowMs={viewModel.nowMs}
                       onEditTask={editTask}
                       onToggleTask={toggleTask}
@@ -415,7 +427,9 @@ export function TodayScreen({
           lists={viewModel.lists}
           nowMs={viewModel.nowMs}
           onCancel={() => setIsCapturing(false)}
-          onSubmit={viewModel.capture}
+          onSubmit={(typed, overrides, tookMs) =>
+            viewModel.capture(typed, overrides, tookMs, 'today')
+          }
         />
       ) : null}
 
@@ -497,6 +511,8 @@ export function TodayScreen({
  * behind it. */
 interface HomeTaskRowProps {
   copy: TaskCopy;
+  /** The group the task belongs to, so the row carries its pill outside it. */
+  group: TaskGroup | null;
   index: number;
   language: AppLanguage;
   lens: HomeGrouping;
@@ -520,6 +536,7 @@ interface HomeTaskRowProps {
  */
 const HomeTaskRow = memo(function HomeTaskRowView({
   copy,
+  group,
   index,
   language,
   lens,
@@ -543,6 +560,7 @@ const HomeTaskRow = memo(function HomeTaskRowView({
     <TaskRow
       copy={copy}
       focus={focus}
+      group={group}
       index={index}
       language={language}
       lens={lens}

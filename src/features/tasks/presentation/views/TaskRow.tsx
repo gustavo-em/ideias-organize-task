@@ -10,6 +10,7 @@ import {
   taskWeight,
   type Task,
 } from '../../domain/Task';
+import type { TaskGroup } from '../../domain/TaskGroup';
 import type { ListColor, ProjectIcon } from '../../domain/TaskList';
 import { rowEnter, rowExit, rowLayout } from '../../../../app/animation/motion';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
@@ -19,6 +20,7 @@ import { rowFact } from '../models/rowFact';
 import { projectTone } from '../models/projectAppearance';
 import { describeTask, taskFacts } from '../models/taskMeta';
 import { BellGlyph, ProjectGlyph } from './FieldGlyphs';
+import { GroupPill } from './GroupPill';
 import { FocusDot, focusStatusText, minutesLeft } from './FocusDot';
 import { PressableScale } from './PressableScale';
 import { TaskCheckbox } from './TaskCheckbox';
@@ -33,6 +35,10 @@ interface TaskRowProps {
   listIcon: ProjectIcon | null;
   nowMs: number;
   index: number;
+  /** The group this task belongs to, when the row is being read from outside
+   * that group — in the day, in Tarefas, in Foco. Null inside the group
+   * itself, where the whole screen already says which one it is. */
+  group?: TaskGroup | null;
   /** The lens the list is grouped by, so the row never repeats its heading. */
   lens: HomeGrouping;
   sectionId: string;
@@ -71,6 +77,7 @@ export function TaskRow({
   listName,
   listColor,
   listIcon,
+  group = null,
   nowMs,
   index,
   lens,
@@ -96,6 +103,11 @@ export function TaskRow({
   }
 
   const done = isCompleted(task);
+  // Said before the rest of the row: the group is the context the sentence
+  // needs, and the pill that carries it is inside a pressable whose own label
+  // would otherwise swallow it.
+  const groupSpoken =
+    group == null ? '' : `${copy.lists.groups.pill(group.name)}. `;
   const facts = taskFacts(task, nowMs, copy, listName);
   const fact = rowFact({
     facts,
@@ -124,8 +136,11 @@ export function TaskRow({
         accessibilityHint={focus == null ? undefined : copy.focus.openSession}
         accessibilityLabel={
           focus == null
-            ? `${task.title}. ${describeTask(facts)}`
-            : `${task.title}. ${focusStatusText(focus.phase, copy)}.`
+            ? `${task.title}. ${groupSpoken}${describeTask(facts)}`
+            : `${task.title}. ${groupSpoken}${focusStatusText(
+                focus.phase,
+                copy,
+              )}.`
         }
         accessibilityRole="button"
         /* The clock is a value, not a name: a label that changes every second
@@ -160,6 +175,21 @@ export function TaskRow({
             {`${facts.subtasks.done}/${facts.subtasks.total}`}
           </SubtaskCount>
         )}
+
+        {/* The reason it belongs to, carried with it. Without this, a task
+            pulled out of its group into the day is a sentence with no context:
+            "Confirmar o salão" for what? */}
+        {group == null ? null : (
+          <GroupTag
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <GroupPill
+              group={group}
+              label={copy.lists.groups.pill(group.name)}
+            />
+          </GroupTag>
+        )}
       </Main>
 
       {done ? (
@@ -190,6 +220,11 @@ export function TaskRow({
     </Row>
   );
 }
+
+const GroupTag = styled.View`
+  flex-direction: row;
+  margin-top: 3px;
+`;
 
 /**
  * A reminder, on the same line as everything else.

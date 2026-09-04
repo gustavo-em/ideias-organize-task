@@ -22,11 +22,19 @@ import {
 } from '../../domain/Task';
 import { dayKeyOf, type SharedMemberDay } from '../../domain/SharedMemberDay';
 import {
+  findGroupById,
+  isLooseInSpace,
+  sortedGroups,
+  type TaskGroup,
+} from '../../domain/TaskGroup';
+import {
   canEdit,
   canShare,
   INBOX_LIST_ID,
   isShared,
+  listColors,
   normalizeListName,
+  type ListColor,
   type ListMember,
   type TaskList,
 } from '../../domain/TaskList';
@@ -48,12 +56,19 @@ import {
   ProjectGlyph,
 } from '../views/FieldGlyphs';
 import { FloatingAction } from '../views/FloatingAction';
+import { GroupBlock } from '../views/GroupBlock';
+import { GroupEditorSheet, type GroupDraft } from '../views/GroupEditorSheet';
+import { GroupScreen } from '../views/GroupScreen';
 import { JoinInviteSheet } from '../views/JoinInviteSheet';
 import { ProjectEditorSheet } from '../views/ListNameSheet';
 import { MemberChip } from '../views/MemberChip';
 import { MemberStack } from '../views/MemberStack';
 import { memberDisplayName } from '../models/memberIdentity';
-import { projectTint, projectTone } from '../models/projectAppearance';
+import {
+  projectInk,
+  projectTint,
+  projectTone,
+} from '../models/projectAppearance';
 import { templateAppearance } from '../models/projectTemplates';
 import { PressableScale } from '../views/PressableScale';
 import { ProjectEmptyState } from '../views/ProjectEmptyState';
@@ -101,6 +116,14 @@ const EMPTY_TASKS: readonly Task[] = [];
 const EMPTY_DAY_RECORDS: readonly SharedMemberDay[] = [];
 const EMPTY_ASSIGNEES: readonly ListMember[] = [];
 const EMPTY_ASSIGNED_IDS: readonly string[] = [];
+const EMPTY_GROUPS: readonly TaskGroup[] = [];
+const EMPTY_MEMBERS: readonly ListMember[] = [];
+
+/** The colour a new group opens on: the next one along from what the space
+ * already holds, so two groups made in a row never look the same. */
+function nextGroupColor(groups: readonly TaskGroup[]): ListColor {
+  return listColors[groups.length % listColors.length];
+}
 
 /** Past this many people on one task, the rest reads as `+N`. */
 const ASSIGNEE_CAP = 3;
@@ -158,15 +181,33 @@ export function ListsScreen({
   const [capturingForList, setCapturingForList] = useState<TaskList | null>(
     null,
   );
+  // A group open on top of its space. The space stays open behind it: leaving
+  // the group lands back on the list it came from, never on the index.
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const [groupActionsOpen, setGroupActionsOpen] = useState(false);
+  const [creatingGroupFor, setCreatingGroupFor] = useState<TaskList | null>(
+    null,
+  );
+  const [editingGroup, setEditingGroup] = useState<TaskGroup | null>(null);
+  const [deletingGroup, setDeletingGroup] = useState<TaskGroup | null>(null);
+  const [capturingForGroup, setCapturingForGroup] = useState<TaskGroup | null>(
+    null,
+  );
   const [actionsForListId, setActionsForListId] = useState<string | null>(null);
   const [sharingList, setSharingList] = useState<TaskList | null>(null);
   const [leavingList, setLeavingList] = useState<TaskList | null>(null);
   const [joiningInvite, setJoiningInvite] = useState(false);
-  const [invitePrefill, setInvitePrefill] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   // Answered on this screen, so the line leaves the moment it is used and does
   // not wait for the setting to come back from storage.
   const [promptAnswered, setPromptAnswered] = useState(false);
+
+  // The sheet is opened with the space as it was then; a rename that lands
+  // while it is open has to reach both the sheet and the invite message.
+  const sharedList =
+    sharingList == null
+      ? null
+      : viewModel.lists.find(list => list.id === sharingList.id) ?? sharingList;
 
   const personId = viewModel.identity?.personId ?? null;
   const autoInviteRan = useRef(false);
@@ -174,15 +215,30 @@ export function ListsScreen({
   // A link tapped outside the app lands here. It waits for the account: on a
   // clean phone the link is what started the install, and there is a sign-in
   // between the tap and this screen.
+  //
+  // Tapping the link is the answer, so the space is joined on arrival. Showing
+  // the token in a field and asking for a second confirmation made somebody
+  // re-approve a decision they had already made, in the one place where the
+  // app knows exactly what they meant.
+  //
+  // The sheet is kept for the failure: a link that is expired, refused or
+  // simply offline needs somewhere to say so, and somewhere to try again from.
+  const { joinSharedList } = viewModel;
+
   useEffect(() => {
     if (incomingInviteToken == null) return;
     if (!viewModel.isRestored || personId == null) return;
 
-    setInvitePrefill(incomingInviteToken);
-    setJoiningInvite(true);
+    const token = incomingInviteToken;
+    // Taken before the request so a slow network cannot replay it.
     onIncomingInviteHandled?.();
+
+    joinSharedList(token).then(joined => {
+      if (!joined) setJoiningInvite(true);
+    });
   }, [
     incomingInviteToken,
+    joinSharedList,
     onIncomingInviteHandled,
     personId,
     viewModel.isRestored,
@@ -301,6 +357,25 @@ export function ListsScreen({
   const toggleOpen = useCallback((listId: string) => {
     setOpenListId(current => (current === listId ? null : listId));
     setActionsForListId(null);
+    setOpenGroupId(null);
+    setGroupActionsOpen(false);
+  }, []);
+  const openGroup = useCallback((group: TaskGroup) => {
+    setOpenGroupId(group.id);
+    setGroupActionsOpen(false);
+    setActionsForListId(null);
+  }, []);
+  const leaveGroup = useCallback(() => {
+    setOpenGroupId(null);
+    setGroupActionsOpen(false);
+  }, []);
+  const startGroup = useCallback((list: TaskList) => {
+    setCapturingForList(null);
+    setCreatingGroupFor(list);
+  }, []);
+  const captureInGroup = useCallback((group: TaskGroup) => {
+    markSheetPress('QuickCaptureSheet');
+    setCapturingForGroup(group);
   }, []);
   const toggleActions = useCallback((listId: string) => {
     setActionsForListId(current => (current === listId ? null : listId));
@@ -395,6 +470,18 @@ export function ListsScreen({
   const openListCanAdd =
     openList != null &&
     (openList.share == null || canEdit(openList, personId ?? ''));
+  // The group on screen, read from the space rather than kept beside it, so a
+  // rename or a repaint reaches the open screen without a second source.
+  const openGroupSubject =
+    openList == null
+      ? null
+      : findGroupById(openList.groups ?? EMPTY_GROUPS, openGroupId);
+  const openListIsViewer =
+    openList != null && openList.share != null && !openListCanAdd;
+  // The sheet is asked for by a space or by a group; either way it is that
+  // space's editor and the group being changed decides the title.
+  const groupSheetList =
+    creatingGroupFor ?? (editingGroup == null ? null : openList);
 
   // Who the reader is, for the ficha next to a space's own line. A space
   // with nobody else in it still has one person in it.
@@ -426,6 +513,8 @@ export function ListsScreen({
       onRenameList={openRename}
       onRetryDay={retryDay}
       onShare={openShare}
+      onNewGroup={startGroup}
+      onOpenGroup={openGroup}
       onToggleActions={toggleActions}
       onToggleOpen={toggleOpen}
       onToggleTask={toggleTask}
@@ -506,9 +595,36 @@ export function ListsScreen({
         }
         showsVerticalScrollIndicator={false}
       >
-        {openList != null ? renderBlock(openList, 0, true) : null}
+        {openList != null && openGroupSubject != null ? (
+          <GroupScreen
+            copy={copy}
+            group={openGroupSubject}
+            isViewer={openListIsViewer}
+            language={language}
+            list={openList}
+            nowMs={viewModel.nowMs}
+            onBack={leaveGroup}
+            onDeleteGroup={() => {
+              setGroupActionsOpen(false);
+              setDeletingGroup(openGroupSubject);
+            }}
+            onEditGroup={() => {
+              setGroupActionsOpen(false);
+              setEditingGroup(openGroupSubject);
+            }}
+            onEditTask={editTask}
+            onToggleActions={() => setGroupActionsOpen(open => !open)}
+            onToggleTask={toggleTask}
+            showingActions={groupActionsOpen}
+            tasks={tasksByList.get(openList.id) ?? EMPTY_TASKS}
+          />
+        ) : openList != null ? (
+          renderBlock(openList, 0, true)
+        ) : null}
 
-        {openList == null && showNotificationPrompt ? (
+        {openList == null &&
+        openGroupSubject == null &&
+        showNotificationPrompt ? (
           <PermissionRow entering={fadeEnter()} testID="activity-permission">
             <PermissionText>{copy.projectActivity.promptBody}</PermissionText>
             <PermissionActions>
@@ -564,7 +680,26 @@ export function ListsScreen({
       {/* The one floating thing on the tab, and only inside an open space: it
           adds a task to that space, the same as the line at the end of its
           list. The index has its actions at the end of the list instead. */}
-      {openList != null && openListCanAdd && capturingForList == null ? (
+      {openList != null &&
+      openGroupSubject != null &&
+      openListCanAdd &&
+      capturingForGroup == null ? (
+        /* Inside a group the plus prints what it makes. It is the one place
+           the gesture is ambiguous — a task here, or a task loose in the
+           space — so the button answers before it is pressed, in the group's
+           own colour. */
+        <FloatingAction
+          extended
+          ink={theme.colors.card}
+          label={copy.lists.groups.addTask}
+          onPress={() => captureInGroup(openGroupSubject)}
+          testID="add-task-in-group-fab"
+          tone={projectInk(theme, openGroupSubject.color)}
+        />
+      ) : openList != null &&
+        openGroupSubject == null &&
+        openListCanAdd &&
+        capturingForList == null ? (
         <FloatingAction
           label={copy.lists.addTask}
           onPress={() => openCapture(openList)}
@@ -637,9 +772,92 @@ export function ListsScreen({
           lists={viewModel.lists}
           nowMs={viewModel.nowMs}
           onCancel={() => setCapturingForList(null)}
-          onSubmit={(typed, overrides, tookMs) =>
-            viewModel.capture(typed, overrides, tookMs)
+          /* The Caixa holds no groups, so the third segment is not offered
+             there: an option that refuses is worse than no option. */
+          onChooseGroup={
+            capturingForList.id === INBOX_LIST_ID
+              ? undefined
+              : () => startGroup(capturingForList)
           }
+          onSubmit={(typed, overrides, tookMs) =>
+            viewModel.capture(typed, overrides, tookMs, 'list')
+          }
+        />
+      )}
+      {capturingForGroup == null || openList == null ? null : (
+        <QuickCaptureSheet
+          copy={copy}
+          initialGroupId={capturingForGroup.id}
+          initialListId={openList.id}
+          language={language}
+          lists={viewModel.lists}
+          nowMs={viewModel.nowMs}
+          onCancel={() => setCapturingForGroup(null)}
+          onSubmit={(typed, overrides, tookMs) =>
+            viewModel.capture(typed, overrides, tookMs, 'group')
+          }
+        />
+      )}
+      {groupSheetList == null ? null : (
+        <GroupEditorSheet
+          copy={copy}
+          editing={editingGroup}
+          language={language}
+          nowMs={viewModel.nowMs}
+          onCancel={() => {
+            setCreatingGroupFor(null);
+            setEditingGroup(null);
+          }}
+          onSubmit={(draft: GroupDraft) => {
+            if (editingGroup != null) {
+              return viewModel.editGroup(groupSheetList.id, editingGroup.id, {
+                name: draft.name,
+                color: draft.color,
+                icon: draft.icon,
+                eventAtMs: draft.eventAtMs,
+              });
+            }
+
+            const created = viewModel.createGroup(groupSheetList.id, {
+              name: draft.name,
+              color: draft.color,
+              icon: draft.icon,
+              eventAtMs: draft.eventAtMs,
+            });
+
+            // A group made from the index opens its space behind it, so the
+            // sheet closes onto the block it just created rather than onto a
+            // list that does not show it.
+            if (created != null) {
+              setOpenListId(groupSheetList.id);
+              setOpenGroupId(created.id);
+            }
+
+            return created != null;
+          }}
+          spaceName={groupSheetList.name}
+          suggestedColor={
+            editingGroup?.color ??
+            nextGroupColor(groupSheetList.groups ?? EMPTY_GROUPS)
+          }
+        />
+      )}
+      {deletingGroup == null || openList == null ? null : (
+        <ConfirmDialog
+          body={copy.lists.groups.deleteDetail}
+          cancelLabel={copy.today.removeCancel}
+          confirmLabel={copy.lists.groups.delete}
+          destructive
+          onCancel={() => setDeletingGroup(null)}
+          onConfirm={() => {
+            viewModel.deleteGroup(openList.id, deletingGroup.id);
+            setDeletingGroup(null);
+            setOpenGroupId(current =>
+              current === deletingGroup.id ? null : current,
+            );
+          }}
+          testID="group-confirm"
+          title={copy.lists.groups.deleteConfirm(deletingGroup.name)}
         />
       )}
       {editing == null || editingTask == null ? null : (
@@ -746,10 +964,7 @@ export function ListsScreen({
           copy={copy}
           errorKind={viewModel.shareErrorKind}
           language={language}
-          list={
-            viewModel.lists.find(list => list.id === sharingList.id) ??
-            sharingList
-          }
+          list={sharedList ?? sharingList}
           justCreated={shareJustCreated}
           onCancel={() => {
             setSharingList(null);
@@ -758,7 +973,16 @@ export function ListsScreen({
           onChangeInvitedAs={role =>
             viewModel.changeInvitedAs(sharingList.id, role)
           }
-          onCopyLink={token => viewModel.copyShareLink(token)}
+          onCopyLink={(token, invitedAs) =>
+            viewModel.copyShareLink(token, link =>
+              copy.lists.inviteMessage({
+                name: (sharedList ?? sharingList).name,
+                canEdit: invitedAs !== 'viewer',
+                link,
+                token,
+              }),
+            )
+          }
           onCreateLink={role => {
             viewModel.createShareLink(sharingList.id, role);
             // The project becomes shared right here, so it opens behind the
@@ -766,8 +990,15 @@ export function ListsScreen({
             // collapsed card hiding it.
             setOpenListId(sharingList.id);
           }}
-          onInvite={token =>
-            viewModel.inviteToShareLink(token, copy.lists.shareHint)
+          onInvite={(token, invitedAs) =>
+            viewModel.inviteToShareLink(token, link =>
+              copy.lists.inviteMessage({
+                name: (sharedList ?? sharingList).name,
+                canEdit: invitedAs !== 'viewer',
+                link,
+                token,
+              }),
+            )
           }
           onRemoveMember={memberId =>
             viewModel.removeShareMember(sharingList.id, memberId)
@@ -789,11 +1020,9 @@ export function ListsScreen({
       {!joiningInvite ? null : (
         <JoinInviteSheet
           copy={copy}
-          initialValue={invitePrefill}
           errorKind={viewModel.joinErrorKind}
           onCancel={() => {
             setJoiningInvite(false);
-            setInvitePrefill('');
             viewModel.dismissJoinError();
           }}
           onDismissError={viewModel.dismissJoinError}
@@ -966,6 +1195,8 @@ interface ProjectBlockProps {
   onDeleteList: (list: TaskList) => void;
   onEditTask: (task: Task) => void;
   onLeaveList: (list: TaskList) => void;
+  onNewGroup: (list: TaskList) => void;
+  onOpenGroup: (group: TaskGroup) => void;
   onRenameList: (list: TaskList) => void;
   onRetryDay: (listId: string) => Promise<unknown>;
   onShare: (list: TaskList) => void;
@@ -999,6 +1230,8 @@ const ProjectBlock = memo(function ProjectBlockView({
   onDeleteList,
   onEditTask,
   onLeaveList,
+  onNewGroup,
+  onOpenGroup,
   onRenameList,
   onRetryDay,
   onShare,
@@ -1022,6 +1255,17 @@ const ProjectBlock = memo(function ProjectBlockView({
   );
   const done = workTasks.filter(isCompleted).length;
   const openCount = workTasks.filter(isOpen).length;
+  // A space now holds two things. The groups are drawn as blocks and their
+  // work is counted inside them, so the lines under the heading are only what
+  // is loose — a task cannot be in both places at once.
+  const groups = useMemo(
+    () => sortedGroups(list.groups ?? EMPTY_GROUPS),
+    [list.groups],
+  );
+  const looseTasks = useMemo(
+    () => workTasks.filter(task => isLooseInSpace(task, groups)),
+    [groups, workTasks],
+  );
   const shared = list.share != null;
   const role = shared
     ? list.share!.members.find(member => member.personId === personId)?.role ??
@@ -1078,6 +1322,10 @@ const ProjectBlock = memo(function ProjectBlockView({
     [list, onDeleteList],
   );
   const handleCapture = useCallback(() => onCapture(list), [list, onCapture]);
+  const handleNewGroup = useCallback(
+    () => onNewGroup(list),
+    [list, onNewGroup],
+  );
   const handleRetryDay = useCallback(
     () => onRetryDay(list.id),
     [list.id, onRetryDay],
@@ -1366,13 +1614,46 @@ const ProjectBlock = memo(function ProjectBlockView({
         <SectionHeader
           collapseHint={copy.today.collapse}
           collapsible={false}
-          count={workTasks.length}
-          countLabel={copy.today.taskCount(workTasks.length)}
+          count={looseTasks.length}
+          countLabel={
+            groups.length === 0
+              ? copy.today.taskCount(looseTasks.length)
+              : copy.lists.groups.spaceContents(
+                  groups.length,
+                  looseTasks.length,
+                )
+          }
+          countText={
+            groups.length === 0
+              ? undefined
+              : copy.lists.groups.spaceContents(
+                  groups.length,
+                  looseTasks.length,
+                )
+          }
           expandHint={copy.today.expand}
           expanded
           onToggle={noop}
           title={copy.lists.inSpaceSection}
         />
+
+        {/* Groups first, and dated ones by how close the event is: a birthday
+            twelve days out has to sit above a renovation with no end in
+            sight. The loose lines follow, under the same heading — one space,
+            two shapes, no second section to hide one of them. */}
+        {groups.map((group, groupIndex) => (
+          <GroupBlock
+            copy={copy}
+            group={group}
+            index={groupIndex}
+            key={group.id}
+            language={language}
+            members={list.share?.members ?? EMPTY_MEMBERS}
+            nowMs={nowMs}
+            onOpen={onOpenGroup}
+            tasks={tasks}
+          />
+        ))}
 
         {tasks.length === 0 ? (
           shared ? (
@@ -1401,7 +1682,7 @@ const ProjectBlock = memo(function ProjectBlockView({
           </AllDoneBanner>
         ) : null}
 
-        {workTasks.map((task, taskIndex) => (
+        {looseTasks.map((task, taskIndex) => (
           <ProjectTask
             copy={copy}
             index={taskIndex}
@@ -1452,18 +1733,35 @@ const ProjectBlock = memo(function ProjectBlockView({
       )}
 
       {isViewer ? null : (
-        <AddTaskButton
-          accessibilityLabel={
-            tasks.length === 0 ? copy.lists.addFirstTask : copy.lists.addTask
-          }
-          onPress={handleCapture}
-          testID={`add-task-${list.id}`}
-        >
-          <PlusGlyph color={theme.colors.accentInk} />
-          <AddTaskText>
-            {tasks.length === 0 ? copy.lists.addFirstTask : copy.lists.addTask}
-          </AddTaskText>
-        </AddTaskButton>
+        <EndActions>
+          <AddTaskButton
+            accessibilityLabel={
+              tasks.length === 0 ? copy.lists.addFirstTask : copy.lists.addTask
+            }
+            onPress={handleCapture}
+            testID={`add-task-${list.id}`}
+          >
+            <PlusGlyph color={theme.colors.accentInk} />
+            <AddTaskText>
+              {tasks.length === 0
+                ? copy.lists.addFirstTask
+                : copy.lists.addTask}
+            </AddTaskText>
+          </AddTaskButton>
+          {/* The second way in, beside the first rather than behind a menu:
+              a space holds tasks and groups, and both are made from here. The
+              Caixa is where what has no space falls, so it never offers it. */}
+          {list.id === INBOX_LIST_ID ? null : (
+            <AddGroupButton
+              accessibilityLabel={copy.lists.groups.newGroup}
+              onPress={handleNewGroup}
+              testID={`add-group-${list.id}`}
+            >
+              <PlusGlyph color={theme.colors.mutedStrong} size={13} />
+              <AddGroupText>{copy.lists.groups.newGroup}</AddGroupText>
+            </AddGroupButton>
+          )}
+        </EndActions>
       )}
     </Space>
   );
@@ -1800,6 +2098,27 @@ const AddTaskText = styled.Text`
   color: ${({ theme }) => theme.colors.accentInk};
   font-size: ${({ theme }) => theme.type.label}px;
   font-weight: 800;
+`;
+/* The two ways to add to a space, on one line at the end of its list. The
+   second is quieter than the first: a group is the rarer of the two, and the
+   row must not read as two primary actions. */
+const EndActions = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.medium + 2}px;
+`;
+const AddGroupButton = styled(PressableScale)`
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 0px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
+  margin-bottom: ${({ theme }) => theme.spacing.small}px;
+`;
+const AddGroupText = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 700;
 `;
 /* The pair at the end of the index, side by side: the primary in ink with
    the paper-coloured label, the way in with a link drawn as the same shape

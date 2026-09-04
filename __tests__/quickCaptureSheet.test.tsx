@@ -391,3 +391,44 @@ describe('QuickCaptureSheet: the composer is not a step yet', () => {
     expect(submitted[0].subtaskTitles).toEqual(['caixas de papelão']);
   });
 });
+
+describe('the priority chip once it carries a choice', () => {
+  /** The glyph is drawn by `PriorityGlyph`, which takes its ink as a prop. */
+  function glyphColor(tree: ReturnType<typeof create>): unknown {
+    const chip = first(tree, 'capture-chip-priority');
+    return chip.findAll(node => typeof node.props?.level === 'number')[0].props
+      .color;
+  }
+
+  function editing(priority: 'low' | 'medium' | 'high') {
+    return {
+      editing: {
+        id: 'task-1',
+        title: 'ligar pro contador',
+        priority,
+        dueAtMs: null,
+        listId: null,
+        subtasks: [],
+      },
+    };
+  }
+
+  it('writes the glyph in the colour the fill was made for', () => {
+    // A chosen chip is filled with ink. Drawing the glyph in ink on top of
+    // that is what made "alta" look like a chip with no icon at all.
+    const tree = renderSheet(editing('high'));
+
+    expect(glyphColor(tree)).toBe(lightTheme.colors.onSelected);
+    expect(glyphColor(tree)).not.toBe(lightTheme.colors.text);
+  });
+
+  it('reads on the fill at every level, not only the one that showed it', () => {
+    // Editing seeds the override from the task, so the chip is filled for all
+    // three — "alta" only made it obvious, being the darkest glyph of them.
+    for (const level of ['low', 'medium', 'high'] as const) {
+      const tree = renderSheet(editing(level));
+
+      expect(glyphColor(tree)).toBe(lightTheme.colors.onSelected);
+    }
+  });
+});

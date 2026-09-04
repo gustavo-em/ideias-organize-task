@@ -105,6 +105,9 @@ export interface TaskCopy {
       label: string;
       task: string;
       reminder: string;
+      /** The third thing a space can hold. Creating a group is a sibling of
+       * creating a task, not a menu tucked away somewhere. */
+      group: string;
     };
     /** How often a reminder comes back, chosen on the reminder itself. */
     recurrence: {
@@ -218,6 +221,21 @@ export interface TaskCopy {
     copyLink: string;
     copyLinkAccessible: string;
     linkCopied: string;
+    /**
+     * What actually gets pasted into WhatsApp — by Copiar and by Convidar
+     * alike. A bare link says nothing about which space it opens or what the
+     * person will be able to do in it, and a link that fails to open (an old
+     * WhatsApp, a link stripped by a corporate mail filter) leaves the other
+     * side with nothing at all. So the message names the space, says what
+     * joining gives, and carries the code on its own line for the "Entrar em
+     * um espaço" field.
+     */
+    inviteMessage: (invite: {
+      name: string;
+      canEdit: boolean;
+      link: string;
+      token: string;
+    }) => string;
     /** Shown while the server has not confirmed the share, so nobody sends a
      * link that will not open. */
     linkNotPublished: string;
@@ -323,6 +341,76 @@ export interface TaskCopy {
     groupEmptyInvite: string;
     groupAllDone: string;
     viewerCannotAdd: string;
+    /**
+     * Groups: a reason inside a space, with an identity of its own.
+     *
+     * A space holds two things now — loose tasks and groups — and the words
+     * have to keep saying which is which without ever calling one of them a
+     * kind of the other.
+     */
+    groups: {
+      /** The count under the section heading: "2 grupos · 6 tarefas". */
+      spaceContents: (groups: number, tasks: number) => string;
+      groupCount: (count: number) => string;
+      newGroup: string;
+      newGroupIn: (space: string) => string;
+      editGroup: string;
+      create: string;
+      save: string;
+      namePlaceholder: string;
+      duplicateName: string;
+      iconLabel: string;
+      /** Said out loud next to the label: the icon is a field, not an
+       * ornament, and the primary action waits for it. */
+      iconRequired: string;
+      colorLabel: string;
+      dateLabel: string;
+      noDate: string;
+      /** What choosing a date buys, said once under the two chips. */
+      dateHint: string;
+      /** The event, and how far away it still is. */
+      eventToday: string;
+      eventTomorrow: string;
+      eventInDays: (days: number) => string;
+      eventPastDays: (days: number) => string;
+      /** How much of the group is finished. Never per person. */
+      progress: (done: number, total: number) => string;
+      progressShort: (done: number, total: number) => string;
+      allDone: string;
+      /** Spoken form of the block that opens the group. */
+      open: (name: string) => string;
+      /** The primary action inside a group names what it creates, so the `+`
+       * never drops a task loose in the space by accident. */
+      addTask: string;
+      addFirstTask: string;
+      empty: string;
+      /** The sections inside an open group, by how close the event is. */
+      sectionWeek: string;
+      sectionDay: string;
+      sectionLater: string;
+      sectionOpen: string;
+      sectionDone: string;
+      delete: string;
+      deleteConfirm: (name: string) => string;
+      /** Said before the tap: the work is not what is being deleted. */
+      deleteDetail: string;
+      /** Spoken form of the line that leaves an open group. */
+      backToSpace: (space: string) => string;
+      /** The pill a group's task carries when it is seen from outside the
+       * group — in the day, in Tarefas, in Foco. */
+      pill: (name: string) => string;
+    };
+  };
+  /** The rating prompt, asked once the app has closed a few tasks. */
+  review: {
+    title: string;
+    body: string;
+    thanks: string;
+    feedbackThanks: string;
+    later: string;
+    never: string;
+    /** Read out for each star, so the row is usable without seeing it. */
+    starLabel: (stars: number) => string;
   };
   focus: {
     title: string;
@@ -549,6 +637,7 @@ const ptBR: TaskCopy = {
       label: 'Tipo',
       task: 'Tarefa',
       reminder: 'Lembrete',
+      group: 'Grupo',
     },
     recurrence: {
       label: 'Quando repetir',
@@ -649,6 +738,9 @@ const ptBR: TaskCopy = {
       dumbbell: 'Treino',
       bulb: 'Ideias',
       calendar: 'Eventos',
+      cake: 'Aniversário',
+      gift: 'Presente',
+      tools: 'Reforma',
       inbox: 'Caixa',
     },
     share: 'Compartilhar',
@@ -656,8 +748,22 @@ const ptBR: TaskCopy = {
       'Convide quem divide isso com você. Quem abrir o link entra no espaço.',
     createLink: 'Criar link',
     copyLink: 'Copiar',
-    copyLinkAccessible: 'Copiar link do espaço',
-    linkCopied: 'Link copiado',
+    copyLinkAccessible: 'Copiar convite do espaço',
+    linkCopied: 'Convite copiado',
+    inviteMessage: ({ name, canEdit, link, token }) =>
+      [
+        `Te convidei para o espaço “${name}” no ${APP_NAME}.`,
+        '',
+        canEdit
+          ? 'É onde a gente organiza as tarefas junto — você pode ver, marcar e criar tarefas.'
+          : 'É onde a gente organiza as tarefas junto — você pode acompanhar tudo por lá.',
+        '',
+        'Toque para entrar:',
+        link,
+        '',
+        `Código do espaço: ${token}`,
+        'Se o link não abrir, cole esse código em “Entrar em um espaço”, no app.',
+      ].join('\n'),
     linkNotPublished: 'Link ainda não publicado.',
     readOnlyTag: 'Somente leitura',
     actionsFor: name => `Ações de ${name}`,
@@ -763,6 +869,57 @@ const ptBR: TaskCopy = {
     groupEmptyInvite: 'Convide alguém e comecem juntos.',
     groupAllDone: 'Tudo feito por aqui.',
     viewerCannotAdd: 'Você só pode ver este espaço.',
+    groups: {
+      spaceContents: (groups, tasks) =>
+        `${groups} ${groups === 1 ? 'grupo' : 'grupos'} · ${tasks} ${
+          tasks === 1 ? 'tarefa' : 'tarefas'
+        }`,
+      groupCount: count => `${count} ${count === 1 ? 'grupo' : 'grupos'}`,
+      newGroup: 'Novo grupo',
+      newGroupIn: space => `Novo grupo em ${space}`,
+      editGroup: 'Editar grupo',
+      create: 'Criar grupo',
+      save: 'Salvar',
+      namePlaceholder: 'Do que se trata?',
+      duplicateName: 'Já existe um grupo com esse nome neste espaço.',
+      iconLabel: 'Ícone',
+      iconRequired: '· obrigatório',
+      colorLabel: 'Cor',
+      dateLabel: 'Data do evento',
+      noDate: 'Sem data',
+      dateHint:
+        'Com data, o grupo avisa a semana do evento e organiza as tarefas por proximidade. Sem data, ele fica aberto, sem prazo.',
+      eventToday: 'é hoje',
+      eventTomorrow: 'é amanhã',
+      eventInDays: days => `faltam ${days} dias`,
+      eventPastDays: days => (days === 1 ? 'foi ontem' : `foi há ${days} dias`),
+      progress: (done, total) => `${done} de ${total} feitas`,
+      progressShort: (done, total) => `${done} de ${total}`,
+      allDone: 'Tudo pronto',
+      open: name => `Abrir ${name}`,
+      addTask: 'Tarefa no grupo',
+      addFirstTask: 'Primeira tarefa do grupo',
+      empty: 'Nada aqui ainda. A primeira tarefa dá o começo.',
+      sectionWeek: 'Esta semana',
+      sectionDay: 'No dia',
+      sectionLater: 'Depois',
+      sectionOpen: 'Em aberto',
+      sectionDone: 'Feitas',
+      delete: 'Excluir grupo',
+      deleteConfirm: name => `Excluir ${name}?`,
+      deleteDetail: 'As tarefas continuam no espaço, soltas.',
+      backToSpace: space => `Voltar para ${space}`,
+      pill: name => `Grupo ${name}`,
+    },
+  },
+  review: {
+    title: 'Está te ajudando?',
+    body: 'Sua nota é como outras pessoas encontram o app.',
+    thanks: 'Obrigado! Vamos abrir a avaliação.',
+    feedbackThanks: 'Obrigado por dizer. Vamos melhorar.',
+    later: 'Agora não',
+    never: 'Não perguntar de novo',
+    starLabel: stars => (stars === 1 ? '1 estrela' : `${stars} estrelas`),
   },
   focus: {
     title: 'Foco',
@@ -1021,6 +1178,7 @@ const enUS: TaskCopy = {
       label: 'Type',
       task: 'Task',
       reminder: 'Reminder',
+      group: 'Group',
     },
     recurrence: {
       label: 'How often',
@@ -1119,6 +1277,9 @@ const enUS: TaskCopy = {
       dumbbell: 'Workout',
       bulb: 'Ideas',
       calendar: 'Events',
+      cake: 'Birthday',
+      gift: 'Gift',
+      tools: 'Repairs',
       inbox: 'Inbox',
     },
     share: 'Share',
@@ -1126,8 +1287,22 @@ const enUS: TaskCopy = {
       'Invite whoever shares this with you. Whoever opens the link joins the space.',
     createLink: 'Create link',
     copyLink: 'Copy',
-    copyLinkAccessible: 'Copy the space link',
-    linkCopied: 'Link copied',
+    copyLinkAccessible: 'Copy the space invite',
+    linkCopied: 'Invite copied',
+    inviteMessage: ({ name, canEdit, link, token }) =>
+      [
+        `I invited you to the “${name}” space on ${APP_NAME}.`,
+        '',
+        canEdit
+          ? "It's where we organise the tasks together — you can view, tick and add tasks."
+          : "It's where we organise the tasks together — you can follow everything there.",
+        '',
+        'Tap to join:',
+        link,
+        '',
+        `Space code: ${token}`,
+        'If the link does not open, paste that code into “Join a space” in the app.',
+      ].join('\n'),
     linkNotPublished: 'Link not published yet.',
     readOnlyTag: 'Read only',
     actionsFor: name => `${name} actions`,
@@ -1175,7 +1350,7 @@ const enUS: TaskCopy = {
       days === 1 ? '1 day in a row' : `${days} days in a row`,
     dayBandOffline:
       'No connection right now — showing what was already on the phone.',
-    dayBandError: "Could not load your day together.",
+    dayBandError: 'Could not load your day together.',
     dayBandRetry: 'Try again',
     dayBandRetrying: 'Trying…',
     dayBandRetryFailed: 'Still no luck — try again',
@@ -1231,6 +1406,58 @@ const enUS: TaskCopy = {
     groupEmptyInvite: 'Invite someone and start together.',
     groupAllDone: 'All done here.',
     viewerCannotAdd: 'You can only view this space.',
+    groups: {
+      spaceContents: (groups, tasks) =>
+        `${groups} ${groups === 1 ? 'group' : 'groups'} · ${tasks} ${
+          tasks === 1 ? 'task' : 'tasks'
+        }`,
+      groupCount: count => `${count} ${count === 1 ? 'group' : 'groups'}`,
+      newGroup: 'New group',
+      newGroupIn: space => `New group in ${space}`,
+      editGroup: 'Edit group',
+      create: 'Create group',
+      save: 'Save',
+      namePlaceholder: 'What is it about?',
+      duplicateName: 'A group with this name already exists in this space.',
+      iconLabel: 'Icon',
+      iconRequired: '· required',
+      colorLabel: 'Colour',
+      dateLabel: 'Event date',
+      noDate: 'No date',
+      dateHint:
+        'With a date, the group flags the week of the event and orders its tasks by how close it is. Without one, it stays open, with no deadline.',
+      eventToday: 'is today',
+      eventTomorrow: 'is tomorrow',
+      eventInDays: days => `${days} days to go`,
+      eventPastDays: days =>
+        days === 1 ? 'was yesterday' : `was ${days} days ago`,
+      progress: (done, total) => `${done} of ${total} done`,
+      progressShort: (done, total) => `${done} of ${total}`,
+      allDone: 'All done',
+      open: name => `Open ${name}`,
+      addTask: 'Task in this group',
+      addFirstTask: 'First task of the group',
+      empty: 'Nothing here yet. The first task starts it.',
+      sectionWeek: 'This week',
+      sectionDay: 'On the day',
+      sectionLater: 'Later',
+      sectionOpen: 'Open',
+      sectionDone: 'Done',
+      delete: 'Delete group',
+      deleteConfirm: name => `Delete ${name}?`,
+      deleteDetail: 'The tasks stay in the space, loose.',
+      backToSpace: space => `Back to ${space}`,
+      pill: name => `Group ${name}`,
+    },
+  },
+  review: {
+    title: 'Is this helping?',
+    body: 'Your rating is how other people find the app.',
+    thanks: 'Thank you. Opening the rating now.',
+    feedbackThanks: 'Thank you for saying so. We will do better.',
+    later: 'Not now',
+    never: 'Do not ask again',
+    starLabel: stars => (stars === 1 ? '1 star' : `${stars} stars`),
   },
   focus: {
     title: 'Focus',
@@ -1409,5 +1636,6 @@ const COPY: Record<AppLanguage, TaskCopy> = { 'pt-BR': ptBR, 'en-US': enUS };
 export function getTaskCopy(language: AppLanguage): TaskCopy {
   return COPY[language] ?? ptBR;
 }
+import { APP_NAME } from '../../../../app/config/appMetadata';
 import type { ListColor, ProjectIcon } from '../../domain/TaskList';
 import type { ProjectTemplateId } from '../models/projectTemplates';

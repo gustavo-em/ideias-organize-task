@@ -1,5 +1,6 @@
 import type { EventBus } from '../../../shared/events/EventBus';
 import type { Task } from './Task';
+import type { TaskGroup } from './TaskGroup';
 import type { ListMember, TaskList } from './TaskList';
 import type { Workspace } from './Workspace';
 
@@ -13,12 +14,24 @@ import type { Workspace } from './Workspace';
  * any of them, and makes a new reaction a new subscriber instead of another
  * branch inside `completeTask`.
  */
+/**
+ * Where the capture sheet was opened from.
+ *
+ * A task written on the day screen and one written inside a space are the same
+ * task, but not the same habit: knowing which door people use is what says
+ * whether the spaces screen is a place they work in or only a place they look
+ * at.
+ */
+export type CaptureOrigin = 'today' | 'list' | 'group';
+
 export type TaskEvent =
   | {
       type: 'task.captured';
       at: number;
       task: Task;
       typed: string;
+      /** Which screen the sheet was opened from, or null when nothing said. */
+      origin: CaptureOrigin | null;
       /** How long the capture sheet was open, in milliseconds. The whole
        * product rests on this staying small — the research on abandoned task
        * apps puts the threshold around ten seconds — so the app measures it
@@ -50,6 +63,17 @@ export type TaskEvent =
       task: Task;
       before: Task;
     }
+  /** A reason was opened, repainted or closed inside a space. Named after the
+   * group and not after the space, because that is the fact: the space did not
+   * change. */
+  | { type: 'group.created'; at: number; group: TaskGroup }
+  | {
+      type: 'group.edited';
+      at: number;
+      group: TaskGroup;
+      before: TaskGroup;
+    }
+  | { type: 'group.deleted'; at: number; group: TaskGroup }
   | { type: 'trio.assembled'; at: number; taskIds: readonly string[] }
   | { type: 'trio.completed'; at: number; streakDays: number; points: number }
   | { type: 'level.reached'; at: number; level: number }
