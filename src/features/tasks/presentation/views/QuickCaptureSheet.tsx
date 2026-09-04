@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
-import { BackHandler, Dimensions, Keyboard } from 'react-native';
+import {
+  BackHandler,
+  Dimensions,
+  Keyboard,
+  useWindowDimensions,
+} from 'react-native';
 import Animated, {
   useAnimatedKeyboard,
   useAnimatedStyle,
@@ -12,6 +17,7 @@ import type { CaptureOverrides } from '../../application/useCases/captureTask';
 import { daysBetween, endOfDay } from '../../domain/Day';
 import {
   clampRemindDays,
+  reminderMorningAtMs,
   reminderDayOptions,
 } from '../../domain/DeadlineReminder';
 import { parseCapture } from '../../domain/QuickCapture';
@@ -31,7 +37,7 @@ import { nextOccurrenceAtMs } from '../../domain/Reminder';
 import { findListByName, type TaskList } from '../../domain/TaskList';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
 import { CalendarPanel } from './CalendarPanel';
-import { formatDateLabel } from '../models/dateLabel';
+import { formatDateLabel, formatDayLabel } from '../models/dateLabel';
 import {
   BellGlyph,
   CalendarGlyph,
@@ -48,7 +54,6 @@ import {
   requestActivityPermission,
 } from '../../infrastructure/notifications/notifeeActivityNotifier';
 import { ReminderPanel } from './ReminderPanel';
-import { projectTone } from '../models/projectAppearance';
 import {
   buttonTextAttrs,
   buttonTextMetrics,
@@ -56,7 +61,6 @@ import {
 import { PressableScale } from './PressableScale';
 import {
   SheetActionsRow,
-  SheetActionsSpacer,
   SheetCancelButton,
   SheetPrimaryButton,
 } from './SheetActions';
@@ -166,6 +170,13 @@ export function QuickCaptureSheet({
   const [typed, setTyped] = useState(editing?.title ?? '');
   const input = useRef<ComponentRef<typeof Field>>(null);
   const draft = useMemo(() => parseCapture(typed, nowMs), [nowMs, typed]);
+  const highlightedParts = useMemo(
+    () =>
+      isEditing
+        ? [{ text: typed, recognized: false }]
+        : captureHighlightParts(typed, draft.title),
+    [draft.title, isEditing, typed],
+  );
   // The sheet rides the keyboard on the UI thread. `KeyboardAvoidingView` is
   // not enough here: the app draws edge to edge, so the window never shrinks
   // and the sheet would sit behind the keys.
@@ -176,28 +187,49 @@ export function QuickCaptureSheet({
   // from an inset — was the strip of page that kept showing between the sheet
   // and the keys.
   const keyboard = useAnimatedKeyboard();
+  const { height: windowHeight } = useWindowDimensions();
   const overlay = useRef<ComponentRef<typeof Overlay>>(null);
   const distanceToWindowBottom = useSharedValue(0);
+  /** How tall the overlay itself is. The sheet grows inside this, not inside
+   * the window: the screens sit above the tab bar, in a safe area of their
+   * own, so measuring the window overstates the room by exactly that strip —
+   * and the sheet's head ended up behind the clock. */
+  const overlayHeight = useSharedValue(0);
   const restingBottomPadding = theme.spacing.large + 8;
   const keyboardBottomPadding = theme.spacing.medium;
   const measureOverlay = () => {
     overlay.current?.measureInWindow(
       (_x: number, y: number, _width: number, height: number) => {
-        const windowHeight = Dimensions.get('window').height;
+        // Measured rather than taken from the hook: this callback can land a
+        // frame after a rotation, and the stale value would leave the sheet
+        // sitting a keyboard's height away from where it belongs.
+        const measured = Dimensions.get('window').height;
 
-        distanceToWindowBottom.value = Math.max(0, windowHeight - (y + height));
+        distanceToWindowBottom.value = Math.max(0, measured - (y + height));
+        overlayHeight.value = height;
       },
     );
   };
+  // The sheet stands on the keys rather than being pushed up by them. Editing
+  // a task is taller than a phone, and translating a sheet that already fills
+  // the screen sends its head out through the status bar and leaves a strip of
+  // scrim under its feet. Margin moves the floor; the ceiling below decides
+  // what is left, and the body scrolls inside it.
   const lift = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY: -Math.max(
-          keyboard.height.value - distanceToWindowBottom.value,
-          0,
-        ),
-      },
-    ],
+    marginBottom: Math.max(
+      keyboard.height.value - distanceToWindowBottom.value,
+      0,
+    ),
+  }));
+  // What the sheet may take of the window: everything above the keys, less the
+  // room the status bar and the notch need to stay clear of its top edge.
+  const ceiling = useAnimatedStyle(() => ({
+    maxHeight: Math.max(
+      (overlayHeight.value > 0 ? overlayHeight.value : windowHeight) -
+        Math.max(keyboard.height.value - distanceToWindowBottom.value, 0) -
+        SHEET_HEADROOM,
+      240,
+    ),
   }));
   // Standing on the keys, the sheet needs less floor than it does standing on
   // the gesture bar; at rest the deeper padding comes back.
@@ -299,11 +331,17 @@ export function QuickCaptureSheet({
   // unset next to one that looks picked.
   const priorityChosen =
     priorityOverride != null || draft.priority !== 'medium';
+  // Whether the space chip carries a value, which is what decides both the
+  // ink fill and the white it is written in.
+  const listChipSet =
+    chosenList != null ||
+    newListName != null ||
+    (listOverride === undefined && draft.listName != null);
   const priorityColor =
     priority === 'high'
       ? theme.colors.text
       : priority === 'medium'
-      ? theme.colors.accentInk
+      ? theme.colors.recognizedText
       : theme.colors.muted;
   const dateLabel =
     dueAtMs == null
@@ -322,6 +360,11 @@ export function QuickCaptureSheet({
   // A deadline pulled closer takes the reminder with it, on screen and on
   // save: the chip never shows a lead time the date cannot hold.
   const remindDays = clampRemindDays(dueAtMs, remindDaysBefore, nowMs);
+  const reminderAtMs = reminderMorningAtMs(dueAtMs, remindDays, nowMs);
+  const reminderAtLabel =
+    reminderAtMs == null
+      ? null
+      : `${formatDayLabel(reminderAtMs, language)} · 9:00`;
   // A deadline today has no room for a warning ahead of it, so the chip says
   // that outright instead of offering a switch that cannot be turned on.
   //
@@ -343,7 +386,9 @@ export function QuickCaptureSheet({
 
   // A chip that already carries an answer shows itself, expanded or not: what
   // the text was understood as is never hidden behind a disclosure.
-  const showDate = isReminderKind || expanded || dueAtMs != null;
+  const dateWasChosen =
+    isEditing || dueOverride !== undefined || draft.dueAtMs != null;
+  const showDate = isReminderKind || expanded || dateWasChosen;
   const showPriority = !isReminderKind && (expanded || priorityChosen);
   const showList =
     expanded ||
@@ -351,9 +396,10 @@ export function QuickCaptureSheet({
     newListName != null ||
     (listOverride === undefined && draft.listName != null);
   // Nothing to count back from means nothing to offer: a task with no date
-  // never carries the control, and the smallest layer never does either.
-  const showReminder =
-    !isReminderKind && dueAtMs != null && (expanded || remindDays != null);
+  // never carries the control. With a date, the chip stands in the row from
+  // the start — "sem aviso" is an answer the person can read, not a setting
+  // to go looking for.
+  const showReminder = !isReminderKind && dueAtMs != null;
   const showChips =
     showDate ||
     showPriority ||
@@ -513,417 +559,511 @@ export function QuickCaptureSheet({
           entering={sheetSlideEnter()}
           exiting={sheetExit()}
           onLayout={traceOpen}
-          style={floor}
+          style={[floor, ceiling]}
         >
           <Grabber />
 
-          {/* What is being written, before what it says: a task is work with a
-              priority and steps, a reminder is a date that comes back. Two
-              options, one tap, always in the same place. */}
-          {canChooseKind ? (
-            <KindRow accessibilityRole="radiogroup">
-              <KindOption
-                $active={!isReminderKind}
-                accessibilityLabel={copy.capture.kind.task}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: !isReminderKind }}
-                onPress={() => setKind('task')}
-                testID="capture-kind-task"
-              >
-                <KindText $active={!isReminderKind}>
-                  {copy.capture.kind.task}
-                </KindText>
-              </KindOption>
-              <KindOption
-                $active={isReminderKind}
-                accessibilityLabel={copy.capture.kind.reminder}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: isReminderKind }}
-                onPress={() => {
-                  setKind('reminder');
-                  setPanel('none');
-                }}
-                testID="capture-kind-reminder"
-              >
-                <KindText $active={isReminderKind}>
-                  {copy.capture.kind.reminder}
-                </KindText>
-              </KindOption>
-            </KindRow>
-          ) : null}
+          <Body
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Type and writing help share one compact header. The segmented
+              control says "one of two" without making either kind look like
+              the sheet's primary action. */}
+            {canChooseKind ? (
+              <CaptureHeader>
+                <KindRow accessibilityRole="radiogroup">
+                  <KindOption
+                    $active={!isReminderKind}
+                    accessibilityLabel={copy.capture.kind.task}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: !isReminderKind }}
+                    hitSlop={{ top: 6, bottom: 6 }}
+                    onPress={() => setKind('task')}
+                    testID="capture-kind-task"
+                  >
+                    <KindText $active={!isReminderKind}>
+                      {copy.capture.kind.task}
+                    </KindText>
+                  </KindOption>
+                  <KindOption
+                    $active={isReminderKind}
+                    accessibilityLabel={copy.capture.kind.reminder}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isReminderKind }}
+                    hitSlop={{ top: 6, bottom: 6 }}
+                    onPress={() => {
+                      setKind('reminder');
+                      setPanel('none');
+                    }}
+                    testID="capture-kind-reminder"
+                  >
+                    {isReminderKind ? (
+                      <BellGlyph color={theme.colors.reminder} size={12} />
+                    ) : null}
+                    <KindText $active={isReminderKind}>
+                      {copy.capture.kind.reminder}
+                    </KindText>
+                  </KindOption>
+                </KindRow>
 
-          <Field
-            accessibilityLabel={copy.capture.placeholder}
-            autoCorrect={false}
-            blurOnSubmit={false}
-            multiline
-            onChangeText={setTyped}
-            onSubmitEditing={save}
-            placeholder={copy.capture.placeholder}
-            ref={input}
-            returnKeyType="done"
-            testID="capture-field"
-            value={typed}
-          />
+                {!isEditing && !isReminderKind ? (
+                  <SyntaxToggle
+                    $open={panel === 'syntax'}
+                    accessibilityLabel={copy.capture.syntaxTitle}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: panel === 'syntax' }}
+                    hitSlop={8}
+                    onPress={() =>
+                      setPanel(current =>
+                        current === 'syntax' ? 'none' : 'syntax',
+                      )
+                    }
+                    scaleTo={0.92}
+                    testID="capture-syntax"
+                  >
+                    <SyntaxToggleText $open={panel === 'syntax'}>
+                      ?
+                    </SyntaxToggleText>
+                  </SyntaxToggle>
+                ) : (
+                  <HeaderBalance />
+                )}
+              </CaptureHeader>
+            ) : null}
 
-          {showChips ? (
-            <Chips layout={sectionLayout()}>
-              {/* Three unrelated things, so three different shapes: a date is a
+            {/* The visible text is a passive overlay so recognized ranges can
+              carry the Mel highlight on both platforms. The real TextInput
+              stays above it with transparent glyphs, preserving its native
+              caret, selection, correction and keyboard behavior. */}
+            <FieldStage>
+              {typed.length === 0 ? null : (
+                <HighlightLine
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+                  testID="capture-highlight"
+                >
+                  {highlightedParts.map((part, index) =>
+                    part.recognized ? (
+                      <RecognizedText
+                        key={`${index}-${part.text}`}
+                        testID={`capture-recognized-${index}`}
+                      >
+                        {part.text}
+                      </RecognizedText>
+                    ) : (
+                      part.text
+                    ),
+                  )}
+                </HighlightLine>
+              )}
+              <Field
+                accessibilityLabel={copy.capture.placeholder}
+                autoCorrect={false}
+                blurOnSubmit={false}
+                multiline
+                onChangeText={setTyped}
+                onSubmitEditing={save}
+                placeholder={copy.capture.placeholder}
+                ref={input}
+                returnKeyType="done"
+                testID="capture-field"
+                textAlignVertical="top"
+                value={typed}
+              />
+            </FieldStage>
+
+            {showChips ? (
+              <Chips layout={sectionLayout()}>
+                {/* Three unrelated things, so three different shapes: a date is a
                 square-cornered field that opens a calendar, a priority is a
                 coloured attention mark, a list is a dot with a
                 name. Nothing here is a generic pill any more. */}
-              {showDate ? (
-                <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
-                  <DateChip
-                    $open={panel === 'date'}
-                    $set={dueAtMs != null}
-                    accessibilityLabel={dateLabel}
-                    accessibilityState={{ expanded: panel === 'date' }}
-                    onPress={() => openPanel('date')}
-                    testID="capture-chip-date"
-                  >
-                    <ChipGlyph>
-                      <CalendarGlyph
-                        color={
-                          dueAtMs == null
-                            ? theme.colors.muted
-                            : theme.colors.accentInk
-                        }
-                      />
-                    </ChipGlyph>
-                    <ChipText $color={dueAtMs == null ? 'muted' : 'accent'}>
-                      {dateLabel}
-                    </ChipText>
-                  </DateChip>
-                </ChipSlot>
-              ) : null}
-
-              {showReminder ? (
-                <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
-                  <DateChip
-                    $open={panel === 'reminder'}
-                    $set={remindDays != null}
-                    accessibilityLabel={`${copy.capture.reminder.label}: ${reminderSpokenLabel}`}
-                    accessibilityRole="button"
-                    accessibilityState={{
-                      disabled: reminderOptions.length === 0,
-                      expanded: panel === 'reminder',
-                      selected: remindDays != null,
-                    }}
-                    disabled={reminderOptions.length === 0}
-                    onPress={() => openPanel('reminder')}
-                    testID="capture-chip-reminder"
-                  >
-                    <ChipGlyph>
-                      <BellGlyph
-                        color={
-                          remindDays == null
-                            ? theme.colors.muted
-                            : theme.colors.accentInk
-                        }
-                      />
-                    </ChipGlyph>
-                    <ChipText $color={remindDays == null ? 'muted' : 'accent'}>
-                      {reminderLabel}
-                    </ChipText>
-                  </DateChip>
-                </ChipSlot>
-              ) : null}
-
-              {showPriority ? (
-                <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
-                  <PriorityChip
-                    $chosen={priorityChosen}
-                    $tone={priority}
-                    accessibilityLabel={copy.capture.priority[priority]}
-                    onPress={cyclePriority}
-                    testID="capture-chip-priority"
-                  >
-                    <ChipGlyph>
-                      <PriorityGlyph
-                        color={priorityColor}
-                        level={
-                          priority === 'low' ? 1 : priority === 'medium' ? 2 : 3
-                        }
-                        size={16}
-                      />
-                    </ChipGlyph>
-                    <PriorityText $tone={priority}>
-                      {copy.capture.priority[priority]}
-                    </PriorityText>
-                  </PriorityChip>
-                </ChipSlot>
-              ) : null}
-
-              {showList ? (
-                <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
-                  <ListChip
-                    $open={panel === 'list'}
-                    accessibilityLabel={listLabel}
-                    accessibilityState={{ expanded: panel === 'list' }}
-                    onPress={() => openPanel('list')}
-                    testID="capture-chip-list"
-                  >
-                    <ChipGlyph>
-                      {chosenList == null || newListName != null ? (
-                        <TagGlyph color={theme.colors.muted} />
-                      ) : (
-                        <ProjectGlyph
-                          color={projectTone(theme, chosenList.color)}
-                          icon={chosenList.icon}
+                {showDate ? (
+                  <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
+                    <DateChip
+                      $open={panel === 'date'}
+                      $set={dueAtMs != null}
+                      accessibilityLabel={dateLabel}
+                      accessibilityState={{ expanded: panel === 'date' }}
+                      onPress={() => openPanel('date')}
+                      testID="capture-chip-date"
+                    >
+                      <ChipGlyph>
+                        <CalendarGlyph
+                          color={
+                            dueAtMs == null && panel !== 'date'
+                              ? theme.colors.muted
+                              : theme.colors.onSelected
+                          }
                         />
-                      )}
-                    </ChipGlyph>
-                    <ChipText $color={chosenList == null ? 'muted' : 'text'}>
-                      {listLabel}
-                    </ChipText>
-                  </ListChip>
-                </ChipSlot>
-              ) : null}
+                      </ChipGlyph>
+                      <ChipText
+                        $color={
+                          dueAtMs == null && panel !== 'date'
+                            ? 'muted'
+                            : 'onSelected'
+                        }
+                      >
+                        {dateLabel}
+                      </ChipText>
+                    </DateChip>
+                  </ChipSlot>
+                ) : null}
 
-              {estimateMinutes == null ? null : (
-                <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
-                  <ListChip $open={false} accessibilityLabel={estimateLabel}>
-                    <ChipText $color="muted">{estimateLabel}</ChipText>
-                  </ListChip>
-                </ChipSlot>
-              )}
-            </Chips>
-          ) : null}
+                {showReminder ? (
+                  <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
+                    <DateChip
+                      $open={panel === 'reminder'}
+                      $set={remindDays != null}
+                      accessibilityLabel={`${copy.capture.reminder.label}: ${reminderSpokenLabel}`}
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        disabled: reminderOptions.length === 0,
+                        expanded: panel === 'reminder',
+                        selected: remindDays != null,
+                      }}
+                      disabled={reminderOptions.length === 0}
+                      onPress={() => openPanel('reminder')}
+                      testID="capture-chip-reminder"
+                    >
+                      <ChipGlyph>
+                        <BellGlyph
+                          color={
+                            remindDays == null && panel !== 'reminder'
+                              ? theme.colors.muted
+                              : theme.colors.onSelected
+                          }
+                        />
+                      </ChipGlyph>
+                      <ChipText
+                        $color={
+                          remindDays == null && panel !== 'reminder'
+                            ? 'muted'
+                            : 'onSelected'
+                        }
+                      >
+                        {reminderLabel}
+                      </ChipText>
+                    </DateChip>
+                  </ChipSlot>
+                ) : null}
 
-          {/* How often it comes back, and when it next speaks. Four answers,
+                {showPriority ? (
+                  <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
+                    <PriorityChip
+                      $chosen={priorityChosen}
+                      $tone={priority}
+                      accessibilityLabel={copy.capture.priority[priority]}
+                      onPress={cyclePriority}
+                      testID="capture-chip-priority"
+                    >
+                      <ChipGlyph>
+                        <PriorityGlyph
+                          color={priorityColor}
+                          level={
+                            priority === 'low'
+                              ? 1
+                              : priority === 'medium'
+                              ? 2
+                              : 3
+                          }
+                          size={16}
+                        />
+                      </ChipGlyph>
+                      <PriorityText $chosen={priorityChosen} $tone={priority}>
+                        {copy.capture.priority[priority]}
+                      </PriorityText>
+                    </PriorityChip>
+                  </ChipSlot>
+                ) : null}
+
+                {showList ? (
+                  <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
+                    <ListChip
+                      $open={panel === 'list'}
+                      $set={listChipSet}
+                      accessibilityLabel={listLabel}
+                      accessibilityState={{ expanded: panel === 'list' }}
+                      onPress={() => openPanel('list')}
+                      testID="capture-chip-list"
+                    >
+                      <ChipGlyph>
+                        {chosenList == null || newListName != null ? (
+                          <TagGlyph
+                            color={
+                              listChipSet
+                                ? theme.colors.onSelected
+                                : theme.colors.muted
+                            }
+                          />
+                        ) : (
+                          /* A chosen space always fills the chip, and on ink the
+                           project's own tone drops below anything readable —
+                           so the glyph goes white with the name. The colour
+                           still names the space everywhere else it appears. */
+                          <ProjectGlyph
+                            color={theme.colors.onSelected}
+                            icon={chosenList.icon}
+                          />
+                        )}
+                      </ChipGlyph>
+                      <ChipText $color={listChipSet ? 'onSelected' : 'muted'}>
+                        {listLabel}
+                      </ChipText>
+                    </ListChip>
+                  </ChipSlot>
+                ) : null}
+
+                {estimateMinutes == null ? null : (
+                  <ChipSlot entering={disclosureEnter()} exiting={fadeExit()}>
+                    <EstimateChip
+                      accessibilityLabel={estimateLabel}
+                      accessibilityRole="text"
+                    >
+                      <ChipText $color="onSelected">{estimateLabel}</ChipText>
+                    </EstimateChip>
+                  </ChipSlot>
+                )}
+              </Chips>
+            ) : null}
+
+            {/* How often it comes back, and when it next speaks. Four answers,
               all on screen: a reminder has no fifth one to hide behind a
               disclosure. */}
-          {isReminderKind ? (
-            <Recurrence layout={sectionLayout()}>
-              <RecurrenceOptions>
-                {reminderRecurrences.map(option => {
-                  const active = option === recurrence;
+            {isReminderKind ? (
+              <Recurrence layout={sectionLayout()}>
+                <RecurrenceTitle>
+                  {copy.capture.recurrence.label}
+                </RecurrenceTitle>
+                <RecurrenceOptions>
+                  {reminderRecurrences.map(option => {
+                    const active = option === recurrence;
 
-                  return (
-                    <RecurrenceOption
-                      $active={active}
-                      accessibilityLabel={copy.capture.recurrence[option]}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: active }}
-                      key={option}
-                      onPress={() => setRecurrence(option)}
-                      testID={`reminder-recurrence-${option}`}
-                    >
-                      <RecurrenceText $active={active}>
-                        {copy.capture.recurrence[option]}
-                      </RecurrenceText>
-                    </RecurrenceOption>
-                  );
-                })}
-              </RecurrenceOptions>
-              <NextAlert testID="capture-next-alert">
-                {nextAlertAtMs == null
-                  ? dueAtMs == null
-                    ? copy.capture.reminderNeedsDate
-                    : // A one-off whose day has passed: the date is there, and
-                      // it simply has nothing left to say.
-                      copy.reminderItem.noNext
-                  : copy.capture.nextAlert(
-                      formatDateLabel(nextAlertAtMs, language, nowMs),
-                    )}
-              </NextAlert>
-            </Recurrence>
-          ) : null}
+                    return (
+                      <RecurrenceOption
+                        $active={active}
+                        accessibilityLabel={copy.capture.recurrence[option]}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: active }}
+                        hitSlop={{ top: 7, bottom: 7 }}
+                        key={option}
+                        onPress={() => setRecurrence(option)}
+                        testID={`reminder-recurrence-${option}`}
+                      >
+                        <RecurrenceText $active={active}>
+                          {copy.capture.recurrence[option]}
+                        </RecurrenceText>
+                      </RecurrenceOption>
+                    );
+                  })}
+                </RecurrenceOptions>
+                <NextAlert testID="capture-next-alert">
+                  <BellGlyph color={theme.colors.reminder} size={12} />
+                  <NextAlertText>
+                    {nextAlertAtMs == null
+                      ? dueAtMs == null
+                        ? copy.capture.reminderNeedsDate
+                        : // A one-off whose day has passed: the date is there, and
+                          // it simply has nothing left to say.
+                          copy.reminderItem.noNext
+                      : copy.capture.nextAlert(
+                          formatDateLabel(nextAlertAtMs, language, nowMs),
+                        )}
+                  </NextAlertText>
+                </NextAlert>
+              </Recurrence>
+            ) : null}
 
-          <Controls>
-            {/* A reminder has nothing extra to disclose — every control it
-                owns is already on screen, so the toggle would expand into
-                nothing. */}
-            {isReminderKind ? null : (
-              <MoreToggle
-                accessibilityLabel={
-                  expanded ? copy.capture.lessOptions : copy.capture.moreOptions
-                }
-                accessibilityRole="button"
-                accessibilityState={{ expanded }}
-                onPress={toggleExpanded}
-                scaleTo={0.96}
-                testID="capture-more"
-              >
-                <ChevronGlyph color={theme.colors.mutedStrong} up={expanded} />
-                <MoreToggleText>
-                  {expanded
-                    ? copy.capture.lessOptions
-                    : copy.capture.moreOptions}
-                </MoreToggleText>
-              </MoreToggle>
-            )}
-
-            {isEditing || isReminderKind ? null : (
-              <SyntaxToggle
-                $open={panel === 'syntax'}
-                accessibilityLabel={copy.capture.syntaxTitle}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: panel === 'syntax' }}
-                onPress={() =>
-                  setPanel(current =>
-                    current === 'syntax' ? 'none' : 'syntax',
-                  )
-                }
-                scaleTo={0.92}
-                testID="capture-syntax"
-              >
-                <SyntaxToggleText $open={panel === 'syntax'}>
-                  ?
-                </SyntaxToggleText>
-              </SyntaxToggle>
-            )}
-          </Controls>
-
-          {panel === 'date' ? (
-            <CalendarPanel
-              copy={copy}
-              language={language}
-              nowMs={nowMs}
-              onSelect={due => {
-                setDueOverride(due);
-                setPanel('none');
-              }}
-              selectedMs={dueAtMs}
-            />
-          ) : null}
-
-          {panel === 'reminder' ? (
-            <ReminderPanel
-              blocked={isReminderBlocked}
-              copy={copy}
-              onOpenSettings={() => {
-                openSystemNotificationSettings().catch(() => undefined);
-              }}
-              onSelect={chooseReminder}
-              options={reminderOptions}
-              selected={remindDays}
-            />
-          ) : null}
-
-          {panel === 'list' ? (
-            <ListPanel
-              copy={copy}
-              lists={lists}
-              onSelect={id => {
-                setListOverride(id);
-                setNewListName(null);
-                setPanel('none');
-              }}
-              onCreateNew={() => setPanel('listNew')}
-              selectedId={listId}
-            />
-          ) : null}
-
-          {panel === 'listNew' ? (
-            <NewListComposer>
-              <NewListField
-                autoCapitalize="sentences"
-                autoCorrect
-                autoFocus
-                onChangeText={value => setNewListName(value)}
-                placeholder={copy.lists.namePlaceholder}
-                testID="capture-new-list-field"
-                value={newListName ?? ''}
+            {panel === 'date' ? (
+              <CalendarPanel
+                copy={copy}
+                language={language}
+                nowMs={nowMs}
+                onSelect={due => {
+                  setDueOverride(due);
+                  setPanel('none');
+                }}
+                selectedMs={dueAtMs}
               />
-              <NewListActions>
-                <NewListCancel
-                  accessibilityLabel={copy.capture.cancel}
-                  onPress={() => {
-                    setNewListName(null);
-                    setPanel('list');
-                  }}
-                >
-                  <NewListCancelText>{copy.capture.cancel}</NewListCancelText>
-                </NewListCancel>
-                <NewListUse
-                  accessibilityLabel={copy.lists.create}
-                  disabled={(newListName ?? '').trim().length === 0}
-                  onPress={() => setPanel('none')}
-                >
-                  <NewListUseText>{copy.lists.create}</NewListUseText>
-                </NewListUse>
-              </NewListActions>
-            </NewListComposer>
-          ) : null}
+            ) : null}
 
-          {panel === 'syntax' ? (
-            <SyntaxPanel entering={disclosureEnter()} exiting={fadeExit()}>
-              <SyntaxTitle>{copy.capture.syntaxTitle}</SyntaxTitle>
-              {copy.capture.examples.map(example => (
-                <SyntaxLine key={example}>{example}</SyntaxLine>
-              ))}
-              <SyntaxHelp>{copy.capture.syntaxHelp}</SyntaxHelp>
-            </SyntaxPanel>
-          ) : null}
+            {panel === 'reminder' ? (
+              <ReminderPanel
+                blocked={isReminderBlocked}
+                copy={copy}
+                onOpenSettings={() => {
+                  openSystemNotificationSettings().catch(() => undefined);
+                }}
+                onSelect={chooseReminder}
+                options={reminderOptions}
+                scheduledLabel={reminderAtLabel}
+                selected={remindDays}
+              />
+            ) : null}
 
-          {/* Steps belong to a task that exists, so the block only appears
+            {panel === 'list' ? (
+              <ListPanel
+                copy={copy}
+                lists={lists}
+                onSelect={id => {
+                  setListOverride(id);
+                  setNewListName(null);
+                  setPanel('none');
+                }}
+                onCreateNew={() => setPanel('listNew')}
+                selectedId={listId}
+              />
+            ) : null}
+
+            {panel === 'listNew' ? (
+              <NewListComposer>
+                <NewListField
+                  autoCapitalize="sentences"
+                  autoCorrect
+                  autoFocus
+                  onChangeText={value => setNewListName(value)}
+                  placeholder={copy.lists.namePlaceholder}
+                  testID="capture-new-list-field"
+                  value={newListName ?? ''}
+                />
+                <NewListActions>
+                  <NewListCancel
+                    accessibilityLabel={copy.capture.cancel}
+                    onPress={() => {
+                      setNewListName(null);
+                      setPanel('list');
+                    }}
+                  >
+                    <NewListCancelText>{copy.capture.cancel}</NewListCancelText>
+                  </NewListCancel>
+                  <NewListUse
+                    accessibilityLabel={copy.lists.create}
+                    disabled={(newListName ?? '').trim().length === 0}
+                    onPress={() => setPanel('none')}
+                  >
+                    <NewListUseText>{copy.lists.create}</NewListUseText>
+                  </NewListUse>
+                </NewListActions>
+              </NewListComposer>
+            ) : null}
+
+            {panel === 'syntax' ? (
+              <SyntaxPanel entering={disclosureEnter()} exiting={fadeExit()}>
+                <SyntaxTitle>{copy.capture.syntaxTitle}</SyntaxTitle>
+                {copy.capture.examples.map(example => (
+                  <SyntaxLine key={example}>{example}</SyntaxLine>
+                ))}
+                <SyntaxHelp>{copy.capture.syntaxHelp}</SyntaxHelp>
+              </SyntaxPanel>
+            ) : null}
+
+            {/* A reminder has nothing extra to disclose — every control it owns
+              is already on screen. For tasks this sits after the active panel,
+              matching the visual order "chips → panel → more". */}
+            {isReminderKind ? null : (
+              <Controls>
+                <MoreToggle
+                  accessibilityLabel={
+                    expanded
+                      ? copy.capture.lessOptions
+                      : copy.capture.moreOptions
+                  }
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded }}
+                  onPress={toggleExpanded}
+                  scaleTo={0.96}
+                  testID="capture-more"
+                >
+                  <ChevronGlyph
+                    color={theme.colors.mutedStrong}
+                    up={expanded}
+                  />
+                  <MoreToggleText>
+                    {expanded
+                      ? copy.capture.lessOptions
+                      : copy.capture.moreOptions}
+                  </MoreToggleText>
+                </MoreToggle>
+              </Controls>
+            )}
+
+            {/* Steps belong to a task that exists, so the block only appears
               while editing one; the capture sheet stays a single field. It
               stands below the chips and above the hint, and nothing inside it
               opens a list of its own. */}
-          {isEditing &&
-          !isReminderKind &&
-          editing != null &&
-          onAddSubtask != null &&
-          onRenameSubtask != null &&
-          onToggleSubtask != null &&
-          onDeleteSubtask != null ? (
-            <SubtaskList
-              copy={copy}
-              onAdd={onAddSubtask}
-              onDelete={onDeleteSubtask}
-              onRename={onRenameSubtask}
-              onToggle={onToggleSubtask}
-              shouldKeepPending={() => savedByButton.current}
-              subtasks={editing.subtasks}
-            />
-          ) : null}
+            {isEditing &&
+            !isReminderKind &&
+            editing != null &&
+            onAddSubtask != null &&
+            onRenameSubtask != null &&
+            onToggleSubtask != null &&
+            onDeleteSubtask != null ? (
+              <SubtaskList
+                copy={copy}
+                onAdd={onAddSubtask}
+                onDelete={onDeleteSubtask}
+                onRename={onRenameSubtask}
+                onToggle={onToggleSubtask}
+                shouldKeepPending={() => savedByButton.current}
+                subtasks={editing.subtasks}
+              />
+            ) : null}
 
-          {/* The same block while the task is still being written. It belongs
+            {/* The same block while the task is still being written. It belongs
               to the second layer: the sheet opens on one field, and only
               "Mais opções" brings the steps into view. */}
-          {!isEditing && expanded && !isReminderKind ? (
-            <SubtaskList
-              copy={copy}
-              mode="draft"
-              onAdd={title =>
-                setDraftSubtasks(current =>
-                  addSubtask(
-                    current,
-                    title,
-                    Date.now(),
-                    `draft-${(draftSubtaskSeq.current += 1)}`,
-                  ),
-                )
-              }
-              onDelete={subtaskId =>
-                setDraftSubtasks(current => removeSubtask(current, subtaskId))
-              }
-              onDraftChange={text => {
-                pendingSubtaskText.current = text;
-              }}
-              onRename={(subtaskId, title) =>
-                setDraftSubtasks(current =>
-                  renameSubtask(current, subtaskId, title),
-                )
-              }
-              subtasks={draftSubtasks}
-            />
-          ) : null}
+            {!isEditing && expanded && !isReminderKind ? (
+              <SubtaskList
+                copy={copy}
+                mode="draft"
+                onAdd={title =>
+                  setDraftSubtasks(current =>
+                    addSubtask(
+                      current,
+                      title,
+                      Date.now(),
+                      `draft-${(draftSubtaskSeq.current += 1)}`,
+                    ),
+                  )
+                }
+                onDelete={subtaskId =>
+                  setDraftSubtasks(current => removeSubtask(current, subtaskId))
+                }
+                onDraftChange={text => {
+                  pendingSubtaskText.current = text;
+                }}
+                onRename={(subtaskId, title) =>
+                  setDraftSubtasks(current =>
+                    renameSubtask(current, subtaskId, title),
+                  )
+                }
+                subtasks={draftSubtasks}
+              />
+            ) : null}
 
-          {/* Who took it, for a task inside a shared project. Nothing is
+            {/* Who took it, for a task inside a shared project. Nothing is
               reserved for it anywhere else. */}
-          {isEditing && !isReminderKind && assignment != null ? (
-            <TaskAssignSection assignment={assignment} copy={copy} />
-          ) : null}
+            {isEditing && !isReminderKind && assignment != null ? (
+              <TaskAssignSection assignment={assignment} copy={copy} />
+            ) : null}
 
-          {panel === 'none' && expanded && !isEditing ? (
-            <Hint>{copy.capture.hint}</Hint>
-          ) : null}
+            {panel === 'none' && expanded && !isEditing ? (
+              <Hint>{copy.capture.hint}</Hint>
+            ) : null}
+          </Body>
 
           <ActionsShift layout={sectionLayout()}>
-            <SheetActionsRow>
+            <SheetActionsRow compact>
+              <SheetPrimaryButton
+                disabled={!canSave}
+                grow={!isEditing}
+                label={isEditing ? copy.capture.save : copy.capture.add}
+                onPress={save}
+                testID="capture-save"
+              />
+
               <SheetCancelButton
                 label={copy.capture.cancel}
                 onPress={onCancel}
@@ -953,20 +1093,96 @@ export function QuickCaptureSheet({
                   <PlayGlyph color={theme.colors.accentInk} size={16} />
                 </FocusAction>
               ) : null}
-
-              <SheetActionsSpacer />
-              <SheetPrimaryButton
-                disabled={!canSave}
-                label={copy.capture.save}
-                onPress={save}
-                testID="capture-save"
-              />
             </SheetActionsRow>
           </ActionsShift>
         </Sheet>
       </Lift>
     </Overlay>
   );
+}
+
+interface CaptureHighlightPart {
+  text: string;
+  recognized: boolean;
+}
+
+/**
+ * Finds the ranges the parser removed without teaching the presentation layer
+ * a second copy of the parser's vocabulary. The cleaned title is an ordered
+ * subsequence of what was typed; everything outside its longest common
+ * subsequence is the date, priority, space, estimate, or formatting whitespace
+ * that the parser understood.
+ */
+function captureHighlightParts(
+  inputValue: string,
+  parsedTitle: string,
+): CaptureHighlightPart[] {
+  const inputChars = Array.from(inputValue);
+  const titleChars = Array.from(parsedTitle);
+
+  if (inputChars.length === 0) return [];
+  if (inputValue === parsedTitle) {
+    return [{ text: inputValue, recognized: false }];
+  }
+
+  const lengths = Array.from({ length: inputChars.length + 1 }, () =>
+    Array<number>(titleChars.length + 1).fill(0),
+  );
+
+  for (
+    let inputIndex = inputChars.length - 1;
+    inputIndex >= 0;
+    inputIndex -= 1
+  ) {
+    for (
+      let titleIndex = titleChars.length - 1;
+      titleIndex >= 0;
+      titleIndex -= 1
+    ) {
+      lengths[inputIndex][titleIndex] =
+        inputChars[inputIndex] === titleChars[titleIndex]
+          ? lengths[inputIndex + 1][titleIndex + 1] + 1
+          : Math.max(
+              lengths[inputIndex + 1][titleIndex],
+              lengths[inputIndex][titleIndex + 1],
+            );
+    }
+  }
+
+  const marked: { char: string; recognized: boolean }[] = [];
+  let inputIndex = 0;
+  let titleIndex = 0;
+
+  while (inputIndex < inputChars.length) {
+    if (
+      titleIndex < titleChars.length &&
+      inputChars[inputIndex] === titleChars[titleIndex]
+    ) {
+      marked.push({ char: inputChars[inputIndex], recognized: false });
+      inputIndex += 1;
+      titleIndex += 1;
+    } else if (
+      titleIndex >= titleChars.length ||
+      lengths[inputIndex + 1][titleIndex] >= lengths[inputIndex][titleIndex + 1]
+    ) {
+      marked.push({ char: inputChars[inputIndex], recognized: true });
+      inputIndex += 1;
+    } else {
+      titleIndex += 1;
+    }
+  }
+
+  return marked.reduce<CaptureHighlightPart[]>((parts, item) => {
+    const previous = parts[parts.length - 1];
+
+    if (previous?.recognized === item.recognized) {
+      previous.text += item.char;
+    } else {
+      parts.push({ text: item.char, recognized: item.recognized });
+    }
+
+    return parts;
+  }, []);
 }
 
 function formatChipDate(
@@ -999,6 +1215,12 @@ function formatChipDate(
   return `${day} · ${time}`;
 }
 
+/** Room kept clear above the sheet: the status bar, and enough of the scrim
+ * that the sheet still reads as a sheet and not as a screen. Without it the
+ * first thing at the top — the Tarefa/Lembrete switch — ended up under the
+ * clock, where it cannot be tapped. */
+const SHEET_HEADROOM = 96;
+
 const Overlay = styled.View`
   position: absolute;
   top: 0px;
@@ -1026,49 +1248,78 @@ const Lift = styled(Animated.View)`
 `;
 
 const Sheet = styled(Animated.View)`
-  background-color: ${({ theme }) => theme.colors.background};
+  background-color: ${({ theme }) => theme.colors.card};
   border-top-left-radius: ${({ theme }) => theme.radii.extraLarge}px;
   border-top-right-radius: ${({ theme }) => theme.radii.extraLarge}px;
   /* The floor is animated above: deep at rest, to clear the gesture bar, and
      shallower on the keys. */
-  padding: ${({ theme }) => theme.spacing.medium}px
-    ${({ theme }) => theme.spacing.large}px 0px;
+  padding: 12px ${({ theme }) => theme.spacing.medium + 4}px 0px;
 `;
 
-/* The same "pick one of these" language the list and lead-time panels use:
-   48 tall, an outline when chosen, no new shape invented for two options. */
-const KindRow = styled.View`
+/* Everything between the grabber and the buttons scrolls. The buttons stay
+   put: saving is what the sheet is for, and having to scroll down to find it
+   is how a change gets lost. */
+const Body = styled.ScrollView`
+  flex-grow: 0;
+  flex-shrink: 1;
+`;
+
+const CaptureHeader = styled.View`
+  min-height: 38px;
   flex-direction: row;
-  gap: ${({ theme }) => theme.spacing.small - 2}px;
-  margin-bottom: ${({ theme }) => theme.spacing.small}px;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.small + 4}px;
 `;
 
-/* The chosen kind speaks the same language as the field under it: white card
-   with the accent ring, not a tinted fill. */
-const KindOption = styled(PressableScale)<{ $active: boolean }>`
+/* A compact segmented control: neutral track, raised card for the active kind.
+   The hit area grows vertically to 48 without making the control look bulky. */
+const KindRow = styled.View`
   flex: 1;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: ${({ theme }) => theme.radii.small + 2}px;
+  background-color: ${({ theme }) => theme.colors.cardNeutral};
+`;
+
+const KindOption = styled(PressableScale)<{ $active: boolean }>`
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  padding: 0px ${({ theme }) => theme.spacing.medium}px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  border: 2px solid
-    ${({ theme, $active }) =>
-      $active ? theme.colors.accent : theme.colors.border};
+  flex: 1;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0px 14px;
+  border-radius: ${({ theme }) => theme.radii.small - 1}px;
   background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.cardElevated : 'transparent'};
+    $active ? theme.colors.card : 'transparent'};
+  shadow-color: ${({ theme }) => theme.colors.text};
+  shadow-offset: 0px 1px;
+  shadow-opacity: ${({ $active }) => ($active ? 0.1 : 0)};
+  shadow-radius: 2px;
+  elevation: ${({ $active }) => ($active ? 1 : 0)};
 `;
 
 const KindText = styled.Text<{ $active: boolean }>`
   font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: ${({ $active }) => ($active ? 800 : 500)};
+  font-weight: ${({ $active }) => ($active ? 700 : 600)};
   color: ${({ theme, $active }) =>
-    $active ? theme.colors.text : theme.colors.mutedStrong};
+    $active ? theme.colors.text : theme.colors.muted};
 `;
 
 const Recurrence = styled(Animated.View)`
   margin-top: ${({ theme }) => theme.spacing.medium}px;
   gap: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const RecurrenceTitle = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
 `;
 
 const RecurrenceOptions = styled.View`
@@ -1080,27 +1331,37 @@ const RecurrenceOptions = styled.View`
 const RecurrenceOption = styled(PressableScale)<{ $active: boolean }>`
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  padding: 0px ${({ theme }) => theme.spacing.medium}px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
+  min-height: 34px;
+  padding: 0px 12px;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
   border: 1px solid
     ${({ theme, $active }) =>
-      $active ? theme.colors.accent : theme.colors.border};
+      $active ? theme.colors.text : theme.colors.border};
   background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.cardElevated : 'transparent'};
+    $active ? theme.colors.text : theme.colors.card};
 `;
 
 const RecurrenceText = styled.Text<{ $active: boolean }>`
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: ${({ $active }) => ($active ? 800 : 500)};
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  font-weight: ${({ $active }) => ($active ? 700 : 600)};
   color: ${({ theme, $active }) =>
-    $active ? theme.colors.text : theme.colors.mutedStrong};
+    $active ? theme.colors.background : theme.colors.mutedStrong};
 `;
 
-/* A statement about the reminder, in the quietest ink on the sheet. */
-const NextAlert = styled.Text`
-  color: ${({ theme }) => theme.colors.mutedStrong};
+const NextAlert = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  padding: 10px 12px;
+  border-radius: ${({ theme }) => theme.radii.small + 2}px;
+  background-color: ${({ theme }) => theme.colors.background};
+`;
+
+const NextAlertText = styled.Text`
+  flex-shrink: 1;
+  color: ${({ theme }) => theme.colors.reminder};
   font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 600;
 `;
 
 const Grabber = styled.View`
@@ -1112,42 +1373,56 @@ const Grabber = styled.View`
   margin-bottom: ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const Field = styled.TextInput.attrs(({ theme }) => ({
-  placeholderTextColor: theme.colors.muted,
-  // The caret and selection speak the brand, not the platform default teal.
-  cursorColor: theme.colors.accent,
-  selectionColor: theme.colors.accent,
-}))`
-  border: 2px solid ${({ theme }) => theme.colors.accent};
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  background-color: ${({ theme }) => theme.colors.card};
-  color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ theme }) => theme.type.body + 1}px;
-  padding: 13px 14px;
-  min-height: 52px;
+const FieldStage = styled.View`
+  position: relative;
+  min-height: 62px;
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
 `;
 
-/* One line, always. Wrapping put a second row under the field in Portuguese
-   and pushed everything below it down; the chips now slide sideways instead. */
-const Chips = styled(Animated.ScrollView).attrs(({ theme }) => ({
-  horizontal: true,
-  showsHorizontalScrollIndicator: false,
-  keyboardShouldPersistTaps: 'handled' as const,
-  contentContainerStyle: {
-    alignItems: 'center' as const,
-    gap: theme.spacing.small - 2,
-    // Room past the last chip, so whatever ends the row stops short of the
-    // edge instead of being read as cut off by it.
-    paddingRight: theme.spacing.large,
-  },
+const fieldText = `
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 27px;
+  letter-spacing: -0.3px;
+`;
+
+const HighlightLine = styled.Text`
+  ${fieldText}
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  min-height: 56px;
+  color: ${({ theme }) => theme.colors.text};
+`;
+
+const RecognizedText = styled.Text`
+  ${fieldText}
+  color: ${({ theme }) => theme.colors.recognizedText};
+  background-color: ${({ theme }) => theme.colors.cardElevated};
+  border-radius: ${({ theme }) => theme.spacing.tiny}px;
+`;
+
+const Field = styled.TextInput.attrs(({ theme }) => ({
+  placeholderTextColor: theme.colors.muted,
+  // Glyphs are painted by HighlightLine. The native field keeps the caret,
+  // selection, correction and keyboard behavior above that drawing.
+  cursorColor: theme.colors.text,
+  selectionColor: theme.colors.accent,
 }))`
-  flex-grow: 0;
-  /* A scroller measured by its content made the whole column as wide as the
-     chips inside it, and everything below inherited that width — which is how
-     the help button ended up past the right edge of the phone. */
-  align-self: stretch;
-  width: 100%;
-  margin-top: ${({ theme }) => theme.spacing.small + 4}px;
+  ${fieldText}
+  min-height: 56px;
+  padding: 0px;
+  color: transparent;
+`;
+
+const Chips = styled(Animated.View)`
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: ${({ theme }) => theme.spacing.small}px;
+  row-gap: 0px;
+  margin-top: ${({ theme }) => theme.spacing.small + 2}px;
 `;
 
 /* Each chip's own slot in the scrolling row. It has to refuse to shrink as
@@ -1156,11 +1431,15 @@ const Chips = styled(Animated.ScrollView).attrs(({ theme }) => ({
 const ChipSlot = styled(Animated.View)`
   flex-shrink: 0;
   flex-grow: 0;
+  min-height: 48px;
+  justify-content: center;
 `;
 
 /** Shared skeleton. What differs between the three is deliberate, and lives
  * in the components below. */
-const ChipBase = styled(PressableScale)`
+const ChipBase = styled(PressableScale).attrs({
+  hitSlop: { top: 8, bottom: 8, left: 2, right: 2 },
+})`
   flex-direction: row;
   align-items: center;
   justify-content: center;
@@ -1170,18 +1449,28 @@ const ChipBase = styled(PressableScale)`
      the right edge — a target nobody can hit and a label nobody can read. */
   flex-shrink: 0;
   flex-grow: 0;
-  min-height: 48px;
-  padding: 0px ${({ theme }) => theme.spacing.medium}px;
+  min-height: 32px;
+  padding: 0px 12px;
   border-width: 1px;
 `;
 
 /** Square-cornered, like a field you fill in — and it opens a calendar. */
+/* A chip holding a value is filled with ink and written in white. The butter
+   yellow it used to wear put a second brand surface next to every field, and
+   the accent belongs to the one band that decides the day. The open chip
+   keeps the ink and rings itself in the accent, so "this panel is open" and
+   "this value is set" stay two different pictures. */
 const DateChip = styled(ChipBase)<{ $open: boolean; $set: boolean }>`
-  border-radius: ${({ theme }) => theme.radii.small}px;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  border-width: ${({ $open }) => ($open ? 2 : 1)}px;
   border-color: ${({ theme, $open, $set }) =>
-    $open || $set ? theme.colors.accent : theme.colors.border};
-  background-color: ${({ theme, $open }) =>
-    $open ? theme.colors.cardElevated : 'transparent'};
+    $open
+      ? theme.colors.accent
+      : $set
+      ? theme.colors.selected
+      : theme.colors.border};
+  background-color: ${({ theme, $open, $set }) =>
+    $open || $set ? theme.colors.selected : theme.colors.card};
 `;
 
 /** The only chip that carries colour, because priority is the only one of the
@@ -1191,36 +1480,45 @@ const PriorityChip = styled(ChipBase)<{
   $chosen: boolean;
 }>`
   border-radius: ${({ theme }) => theme.radii.pill}px;
-  border-color: ${({ theme, $tone, $chosen }) =>
-    !$chosen
-      ? theme.colors.border
-      : $tone === 'high'
-      ? theme.colors.text
-      : $tone === 'medium'
-      ? theme.colors.accentInk
-      : theme.colors.border};
-  background-color: transparent;
+  border-color: ${({ theme, $chosen }) =>
+    $chosen ? theme.colors.selected : theme.colors.border};
+  background-color: ${({ theme, $chosen }) =>
+    $chosen ? theme.colors.selected : theme.colors.card};
 `;
 
 /** A rounded tag, carrying the list's own colour as its dot. */
-const ListChip = styled(ChipBase)<{ $open: boolean }>`
+const ListChip = styled(ChipBase)<{ $open: boolean; $set: boolean }>`
   border-radius: ${({ theme }) => theme.radii.pill}px;
-  border-color: ${({ theme, $open }) =>
-    $open ? theme.colors.accent : theme.colors.border};
-  background-color: ${({ theme, $open }) =>
-    $open ? theme.colors.cardElevated : 'transparent'};
+  border-width: ${({ $open }) => ($open ? 2 : 1)}px;
+  border-color: ${({ theme, $open, $set }) =>
+    $open
+      ? theme.colors.accent
+      : $set
+      ? theme.colors.selected
+      : theme.colors.border};
+  background-color: ${({ theme, $open, $set }) =>
+    $open || $set ? theme.colors.selected : theme.colors.card};
+`;
+
+const EstimateChip = styled.View`
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0px 12px;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  background-color: ${({ theme }) => theme.colors.selected};
 `;
 
 const ChipText = styled.Text.attrs(buttonTextAttrs)<{
-  $color: 'muted' | 'text' | 'accent';
+  $color: 'muted' | 'text' | 'onSelected';
 }>`
-  ${({ theme }) => buttonTextMetrics(theme.type.caption)}
+  ${({ theme }) => buttonTextMetrics(theme.type.caption + 1)}
   font-weight: 700;
   color: ${({ theme, $color }) =>
     $color === 'muted'
       ? theme.colors.muted
-      : $color === 'accent'
-      ? theme.colors.accentInk
+      : $color === 'onSelected'
+      ? theme.colors.onSelected
       : theme.colors.text};
 `;
 
@@ -1234,15 +1532,18 @@ const ChipGlyph = styled.View`
 `;
 
 const PriorityText = styled.Text.attrs(buttonTextAttrs)<{
+  $chosen: boolean;
   $tone: TaskPriority;
 }>`
   ${({ theme }) => buttonTextMetrics(theme.type.caption)}
   font-weight: 700;
-  color: ${({ theme, $tone }) =>
-    $tone === 'high'
+  color: ${({ theme, $chosen, $tone }) =>
+    $chosen
+      ? theme.colors.onSelected
+      : $tone === 'high'
       ? theme.colors.text
       : $tone === 'medium'
-      ? theme.colors.accentInk
+      ? theme.colors.recognizedText
       : theme.colors.muted};
 `;
 
@@ -1258,12 +1559,8 @@ const Hint = styled.Text`
 const Controls = styled.View`
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
-  /* Bound to the sheet's own width, so the control on the right lands inside
-     the padding instead of past the screen. */
-  align-self: stretch;
-  width: 100%;
-  margin-top: ${({ theme }) => theme.spacing.small + 4}px;
+  align-self: flex-start;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 
 const MoreToggle = styled(PressableScale)`
@@ -1281,34 +1578,43 @@ const MoreToggleText = styled.Text.attrs(buttonTextAttrs)`
   color: ${({ theme }) => theme.colors.mutedStrong};
 `;
 
-/** Help is a question, so it looks like one: a quiet round target, lit the same
- * way an open chip is. */
+const HeaderBalance = styled.View`
+  width: 30px;
+  height: 30px;
+`;
+
+/** Help is a question, so it looks like one: a quiet round target beside the
+ * segmented type control. Its drawn 30px circle has a 46px hit area. */
 const SyntaxToggle = styled(PressableScale)<{ $open: boolean }>`
-  width: 48px;
-  height: 48px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: ${({ theme }) => theme.radii.pill}px;
   border: 1px solid
-    ${({ theme, $open }) => ($open ? theme.colors.accent : theme.colors.border)};
+    ${({ theme, $open }) =>
+      $open ? theme.colors.selected : theme.colors.border};
   background-color: ${({ theme, $open }) =>
-    $open ? theme.colors.cardElevated : 'transparent'};
+    $open ? theme.colors.selected : 'transparent'};
 `;
 
 const SyntaxToggleText = styled.Text.attrs(buttonTextAttrs)<{
   $open: boolean;
 }>`
   ${({ theme }) => buttonTextMetrics(theme.type.caption)}
-  font-weight: 800;
+  font-weight: 700;
   color: ${({ theme, $open }) =>
-    $open ? theme.colors.accentInk : theme.colors.muted};
+    $open ? theme.colors.onSelected : theme.colors.muted};
 `;
 
 /** Takes the slot the calendar and the list panel use, so the sheet never
  * grows two things at once. */
 const SyntaxPanel = styled(Animated.View)`
   margin-top: ${({ theme }) => theme.spacing.medium}px;
+  padding: 14px;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  background-color: ${({ theme }) => theme.colors.background};
   gap: ${({ theme }) => theme.spacing.tiny}px;
 `;
 
@@ -1338,6 +1644,9 @@ const ActionsShift = styled(Animated.View)`
 
 const NewListComposer = styled.View`
   margin-top: ${({ theme }) => theme.spacing.medium}px;
+  padding: 14px;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  background-color: ${({ theme }) => theme.colors.background};
 `;
 
 const NewListField = styled.TextInput.attrs(({ theme }) => ({
@@ -1346,7 +1655,7 @@ const NewListField = styled.TextInput.attrs(({ theme }) => ({
   cursorColor: theme.colors.accent,
   selectionColor: theme.colors.accent,
 }))`
-  border: 1px solid ${({ theme }) => theme.colors.accentInk};
+  border: 1px solid ${({ theme }) => theme.colors.text};
   border-radius: ${({ theme }) => theme.radii.medium}px;
   background-color: ${({ theme }) => theme.colors.card};
   color: ${({ theme }) => theme.colors.text};
