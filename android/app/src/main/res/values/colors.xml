@@ -7,5 +7,7 @@
     <color name="brand_cream">#F6F3EC</color>
     <color name="brand_launch_background">#F6F3EC</color>
     <!-- The launcher icon keeps its light background in both appearances. -->
-    <color name="brand_icon_background">#F6F3EC</color>
+    <!-- O chão do ícone é o Sol da marca: tocar no ícone e ver a splash
+         tem de ser o mesmo gesto continuando. -->
+    <color name="brand_icon_background">#FFC63D</color>
 </resources>
