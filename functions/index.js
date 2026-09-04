@@ -109,6 +109,10 @@ async function tokensOf(uid) {
   return snapshot.docs.map(doc => doc.id);
 }
 
+// The public preview behind an invite link. Lives in its own file: it has
+// nothing to do with notifications beyond sharing this project.
+exports.invite = require('./invite').invite;
+
 exports.onSharedProjectWritten = onDocumentWritten(
   'sharedLists/{token}',
   async event => {

@@ -1,22 +1,25 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, RefreshControl, StyleSheet } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
 import {
-  DISCLOSURE,
   disclosureEnter,
   fadeEnter,
   rowEnter,
+  rowExit,
+  rowLayout,
+  screenEnter,
 } from '../../../../app/animation/motion';
 import { markSheetPress, useRenderCount } from '../../../../app/perf/sheetPerf';
-import { endOfDay, isSameDay } from '../../domain/Day';
 import { sortedReminders } from '../../domain/Reminder';
-import { isCompleted, isOpen, isReminder, type Task } from '../../domain/Task';
+import {
+  isCompleted,
+  isOpen,
+  isOverdue,
+  isReminder,
+  type Task,
+} from '../../domain/Task';
 import { dayKeyOf, type SharedMemberDay } from '../../domain/SharedMemberDay';
 import {
   canEdit,
@@ -37,8 +40,8 @@ import {
 import type { TasksViewModel } from '../view-models/useTasksViewModel';
 import { ConfirmDialog } from '../views/ConfirmDialog';
 import {
+  CheckGlyph,
   ChevronGlyph,
-  LinkGlyph,
   MoreGlyph,
   PeopleGlyph,
   PlusGlyph,
@@ -47,17 +50,18 @@ import {
 import { FloatingAction } from '../views/FloatingAction';
 import { JoinInviteSheet } from '../views/JoinInviteSheet';
 import { ProjectEditorSheet } from '../views/ListNameSheet';
+import { MemberChip } from '../views/MemberChip';
 import { MemberStack } from '../views/MemberStack';
-import { projectTone } from '../models/projectAppearance';
+import { memberDisplayName } from '../models/memberIdentity';
+import { projectTint, projectTone } from '../models/projectAppearance';
 import { templateAppearance } from '../models/projectTemplates';
 import { PressableScale } from '../views/PressableScale';
 import { ProjectEmptyState } from '../views/ProjectEmptyState';
 import { QuickCaptureSheet } from '../views/QuickCaptureSheet';
-import { ScreenHeader } from '../views/ScreenHeader';
 import { SectionHeader } from '../views/SectionHeader';
 import { SharedDayBand } from '../views/SharedDayBand';
 import { ShareSheet } from '../views/ShareSheet';
-import { TaskCard } from '../views/TaskCard';
+import { TaskCheckbox } from '../views/TaskCheckbox';
 import { TaskRow } from '../views/TaskRow';
 
 interface ListsScreenProps {
@@ -66,12 +70,21 @@ interface ListsScreenProps {
    * screen after the account is the invite itself. */
   autoInvite?: boolean;
   onAutoInviteDone?: () => void;
+  /** A token that arrived from a tapped invite link. The sheet opens on it
+   * with the field already filled, so the link is confirmed rather than
+   * retyped — and rather than acted on without anybody seeing what it was. */
+  incomingInviteToken?: string | null;
+  onIncomingInviteHandled?: () => void;
   copy: TaskCopy;
   language: AppLanguage;
   /** The signed-in account's own profile as this device knows it, reservation
    * or not: their own row never waits on the network to show the name and
    * handle they chose. */
-  ownProfile: { displayName: string; handle: string | null } | null;
+  ownProfile: {
+    displayName: string;
+    handle: string | null;
+    photoURL?: string | null;
+  } | null;
   /** The one-time ask for the notification permission, shown only when there
    * is a shared project on screen — never on a cold start. */
   notificationPrompt: {
@@ -86,19 +99,16 @@ interface ListsScreenProps {
  * new prop defeats the memo that keeps the projects still. */
 const EMPTY_TASKS: readonly Task[] = [];
 const EMPTY_DAY_RECORDS: readonly SharedMemberDay[] = [];
-const EMPTY_DAY_TASK_IDS: readonly string[] = [];
 const EMPTY_ASSIGNEES: readonly ListMember[] = [];
 const EMPTY_ASSIGNED_IDS: readonly string[] = [];
+
+/** Past this many people on one task, the rest reads as `+N`. */
+const ASSIGNEE_CAP = 3;
 
 /** A heading that never collapses still asks for a handler, and a reminder row
  * has nothing to tick. */
 const noop = () => undefined;
 const EMPTY_DAY_ENTRIES: ReturnType<typeof sharedDay> = [];
-
-function memberFor(list: TaskList, id: string | null): ListMember | null {
-  if (id == null || list.share == null) return null;
-  return list.share.members.find(member => member.personId === id) ?? null;
-}
 
 /** A group streak only counts while it is today's. */
 function streakDaysOf(
@@ -113,6 +123,8 @@ function streakDaysOf(
 /** Lists hold the next steps of something bigger, opening in place for comparison. */
 export function ListsScreen({
   autoInvite = false,
+  incomingInviteToken = null,
+  onIncomingInviteHandled,
   onAutoInviteDone,
   copy,
   language,
@@ -129,6 +141,13 @@ export function ListsScreen({
   // Whether the project being created is meant for other people. Decided in
   // the sheet, answered right after saving by the invite itself.
   const [createShared, setCreateShared] = useState(false);
+  // What the invite made with the space gives whoever opens it.
+  const [createInvitedAs, setCreateInvitedAs] = useState<'editor' | 'viewer'>(
+    'editor',
+  );
+  // The share sheet opened by the space being made stays on the invite: it is
+  // the last step of creating, not the menu of an existing group.
+  const [shareJustCreated, setShareJustCreated] = useState(false);
   // Only set when the invite from the walk-through could not name a space by
   // itself: the editor opens on that name, not on the template list.
   const [inviteFallbackName, setInviteFallbackName] = useState<string | null>(
@@ -143,6 +162,7 @@ export function ListsScreen({
   const [sharingList, setSharingList] = useState<TaskList | null>(null);
   const [leavingList, setLeavingList] = useState<TaskList | null>(null);
   const [joiningInvite, setJoiningInvite] = useState(false);
+  const [invitePrefill, setInvitePrefill] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   // Answered on this screen, so the line leaves the moment it is used and does
   // not wait for the setting to come back from storage.
@@ -150,6 +170,23 @@ export function ListsScreen({
 
   const personId = viewModel.identity?.personId ?? null;
   const autoInviteRan = useRef(false);
+
+  // A link tapped outside the app lands here. It waits for the account: on a
+  // clean phone the link is what started the install, and there is a sign-in
+  // between the tap and this screen.
+  useEffect(() => {
+    if (incomingInviteToken == null) return;
+    if (!viewModel.isRestored || personId == null) return;
+
+    setInvitePrefill(incomingInviteToken);
+    setJoiningInvite(true);
+    onIncomingInviteHandled?.();
+  }, [
+    incomingInviteToken,
+    onIncomingInviteHandled,
+    personId,
+    viewModel.isRestored,
+  ]);
 
   // The invite asked for before the account, made the moment there is one: a
   // space named after the Casa template, already shared, with the sheet open on
@@ -197,6 +234,7 @@ export function ListsScreen({
 
     setOpenListId(created.id);
     markSheetPress('ShareSheet');
+    setShareJustCreated(true);
     setSharingList(created);
     viewModel.createShareLink(created.id, 'editor');
     onAutoInviteDone?.();
@@ -269,6 +307,7 @@ export function ListsScreen({
   }, []);
   const openShare = useCallback((list: TaskList) => {
     markSheetPress('ShareSheet');
+    setShareJustCreated(false);
     setSharingList(list);
     setActionsForListId(null);
   }, []);
@@ -292,7 +331,6 @@ export function ListsScreen({
     markSheetPress('QuickCaptureSheet');
     setEditing(task);
   }, []);
-  const deleteTask = useCallback((task: Task) => setDeleting(task), []);
   // What the sheet shows comes from the workspace, not from the snapshot that
   // opened it: a step added inside the sheet has to appear in it.
   const editingTask =
@@ -329,39 +367,137 @@ export function ListsScreen({
         ),
     };
   }, [editingShare, editingTask, identityId, viewModel]);
-  // Taking a task into the day is two things at once, and only one of them was
-  // happening: it joins the day's chosen few, and it becomes due today. Without
-  // the date the task went on sitting under "sem prazo" on the other tab, which
-  // read as the button doing nothing at all.
-  const moveIntoDay = useCallback(
-    (taskId: string) => {
-      const nowMs = viewModel.nowMs;
-      // The day can refuse: a full day, or one already closed, keeps the task
-      // where it is, and then nothing else should change either. A task the day
-      // already holds is not a refusal — it produces no event, and its date
-      // still has to say today, or the card reads "No dia" next to "amanhã".
-      const wasAlreadyInDay = (
-        viewModel.dayTaskIds ?? EMPTY_DAY_TASK_IDS
-      ).includes(taskId);
-      const committed = viewModel.moveIntoDay(taskId);
-
-      if (!committed && !wasAlreadyInDay) return;
-
-      const task = viewModel.tasks.find(candidate => candidate.id === taskId);
-
-      if (
-        task != null &&
-        (task.dueAtMs == null || !isSameDay(task.dueAtMs, nowMs))
-      )
-        viewModel.edit(taskId, { dueAtMs: endOfDay(nowMs) });
-    },
-    [viewModel],
+  // The space on screen, or none: the index and the open space are two views
+  // of the same tab, never both at once.
+  const openList =
+    openListId == null
+      ? null
+      : viewModel.lists.find(list => list.id === openListId) ?? null;
+  // The index in the order the eye reads it: the inbox, then what is shared
+  // with somebody, then what is only yours.
+  const inboxList =
+    viewModel.lists.find(list => list.id === INBOX_LIST_ID) ?? null;
+  const sharedLists = useMemo(
+    () =>
+      viewModel.lists.filter(
+        list => list.id !== INBOX_LIST_ID && list.share != null,
+      ),
+    [viewModel.lists],
   );
+  const ownLists = useMemo(
+    () =>
+      viewModel.lists.filter(
+        list => list.id !== INBOX_LIST_ID && list.share == null,
+      ),
+    [viewModel.lists],
+  );
+  // The FAB of an open space adds a task to it; a viewer has no such thing.
+  const openListCanAdd =
+    openList != null &&
+    (openList.share == null || canEdit(openList, personId ?? ''));
+
+  // Who the reader is, for the ficha next to a space's own line. A space
+  // with nobody else in it still has one person in it.
+  const viewer = useMemo(
+    () =>
+      personId == null
+        ? null
+        : {
+            personId,
+            name: ownProfile?.displayName ?? copy.lists.memberYou,
+            photoURL: ownProfile?.photoURL ?? null,
+          },
+    [copy.lists.memberYou, ownProfile, personId],
+  );
+
+  const renderBlock = (list: TaskList, index: number, open: boolean) => (
+    <ProjectBlock
+      copy={copy}
+      dayRecords={viewModel.sharedDays[list.id] ?? EMPTY_DAY_RECORDS}
+      index={index}
+      key={list.id}
+      language={language}
+      list={list}
+      nowMs={viewModel.nowMs}
+      onCapture={openCapture}
+      onDeleteList={openDeleteList}
+      onEditTask={editTask}
+      onLeaveList={openLeave}
+      onRenameList={openRename}
+      onRetryDay={retryDay}
+      onShare={openShare}
+      onToggleActions={toggleActions}
+      onToggleOpen={toggleOpen}
+      onToggleTask={toggleTask}
+      open={open}
+      personId={personId}
+      showingActions={actionsForListId === list.id}
+      status={viewModel.sharedDayStatus[list.id] ?? 'ok'}
+      streakDays={streakDaysOf(
+        viewModel.groupStreaks[list.id],
+        viewModel.nowMs,
+      )}
+      tasks={tasksByList.get(list.id) ?? EMPTY_TASKS}
+      viewer={viewer}
+    />
+  );
+
+  // The two ways to get a space, at the end of the list where the eye lands
+  // after reading it — never floating over it.
+  const indexActions = (
+    <IndexActions testID="lists-index-actions">
+      <NewSpaceButton
+        accessibilityLabel={copy.lists.newList}
+        accessibilityRole="button"
+        onPress={() => {
+          setCreateShared(false);
+          setCreateInvitedAs('editor');
+          setCreatingList(true);
+        }}
+        scaleTo={0.98}
+        testID="new-list"
+      >
+        <PlusGlyph color={theme.colors.background} size={14} />
+        <NewSpaceLabel>{copy.lists.newList}</NewSpaceLabel>
+      </NewSpaceButton>
+      <JoinButton
+        accessibilityLabel={copy.lists.joinInvite}
+        accessibilityRole="button"
+        onPress={() => {
+          markSheetPress('JoinInviteSheet');
+          setJoiningInvite(true);
+        }}
+        scaleTo={0.98}
+        testID="join-invite"
+      >
+        <JoinButtonText>{copy.lists.joinInvite}</JoinButtonText>
+      </JoinButton>
+    </IndexActions>
+  );
+
+  const renderSection = (title: string, lists: readonly TaskList[]) =>
+    lists.length === 0 ? null : (
+      <IndexSection>
+        <SectionHeader
+          collapseHint={copy.today.collapse}
+          collapsible={false}
+          count={lists.length}
+          countLabel={copy.lists.indexSpaceCount(lists.length)}
+          expandHint={copy.today.expand}
+          expanded
+          onToggle={noop}
+          title={title}
+        />
+        {lists.map((list, index) => renderBlock(list, index, false))}
+      </IndexSection>
+    );
 
   return (
     <Screen>
       <Content
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={
+          openList != null ? styles.scroll : styles.scrollIndex
+        }
         refreshControl={
           <RefreshControl
             onRefresh={handlePullRefresh}
@@ -370,18 +506,9 @@ export function ListsScreen({
         }
         showsVerticalScrollIndicator={false}
       >
-        <ScreenHeader
-          count={viewModel.lists.length}
-          eyebrow={copy.tabs.lists}
-          subtitle={copy.lists.subtitle(
-            viewModel.lists.length,
-            viewModel.openTaskCount,
-          )}
-          testID="lists-header"
-          title={copy.lists.title}
-        />
+        {openList != null ? renderBlock(openList, 0, true) : null}
 
-        {showNotificationPrompt ? (
+        {openList == null && showNotificationPrompt ? (
           <PermissionRow entering={fadeEnter()} testID="activity-permission">
             <PermissionText>{copy.projectActivity.promptBody}</PermissionText>
             <PermissionActions>
@@ -415,72 +542,35 @@ export function ListsScreen({
           </PermissionRow>
         ) : null}
 
-        {viewModel.lists.map((list, index) => (
-          <ProjectBlock
-            copy={copy}
-            dayRecords={viewModel.sharedDays[list.id] ?? EMPTY_DAY_RECORDS}
-            dayTaskIds={viewModel.dayTaskIds ?? EMPTY_DAY_TASK_IDS}
-            index={index}
-            key={list.id}
-            language={language}
-            list={list}
-            nowMs={viewModel.nowMs}
-            onCapture={openCapture}
-            onDeleteList={openDeleteList}
-            onDeleteTask={deleteTask}
-            onEditTask={editTask}
-            onLeaveList={openLeave}
-            onMoveIntoDay={moveIntoDay}
-            onRenameList={openRename}
-            onRetryDay={retryDay}
-            onShare={openShare}
-            onToggleActions={toggleActions}
-            onToggleOpen={toggleOpen}
-            onToggleTask={toggleTask}
-            open={openListId === list.id}
-            personId={personId}
-            showingActions={actionsForListId === list.id}
-            status={viewModel.sharedDayStatus[list.id] ?? 'ok'}
-            streakDays={streakDaysOf(
-              viewModel.groupStreaks[list.id],
-              viewModel.nowMs,
+        {openList == null ? (
+          <>
+            {inboxList == null ? null : renderBlock(inboxList, 0, false)}
+            {renderSection(copy.lists.indexSharedSection, sharedLists)}
+            {renderSection(copy.lists.indexOwnSection, ownLists)}
+            {sharedLists.length + ownLists.length === 0 ? (
+              <ProjectEmptyState
+                illustrated={false}
+                message={copy.lists.indexEmptyHint}
+              >
+                {indexActions}
+              </ProjectEmptyState>
+            ) : (
+              indexActions
             )}
-            tasks={tasksByList.get(list.id) ?? EMPTY_TASKS}
-          />
-        ))}
+          </>
+        ) : null}
       </Content>
 
-      {/* Whoever arrives holding a link is not looking for "new project":
-          the way in stays on screen, in reach, just above the primary action
-          and never scrolling away with the list. Its place does not move when
-          the floating action steps aside, so the target holds still. */}
-      <JoinDock pointerEvents="box-none">
-        <JoinButton
-          accessibilityLabel={copy.lists.joinInvite}
-          onPress={() => {
-            markSheetPress('JoinInviteSheet');
-            setJoiningInvite(true);
-          }}
-          testID="join-invite"
-        >
-          <LinkGlyph color={theme.colors.accentInk} size={14} />
-          <JoinButtonText>{copy.lists.joinInvite}</JoinButtonText>
-        </JoinButton>
-      </JoinDock>
-
-      {/* The primary action never leaves the screen — hiding it while a
-          project is open made it look like creating had moved somewhere else.
-          Only a sheet on top takes its place. */}
-      {creatingList || renamingList != null ? null : (
+      {/* The one floating thing on the tab, and only inside an open space: it
+          adds a task to that space, the same as the line at the end of its
+          list. The index has its actions at the end of the list instead. */}
+      {openList != null && openListCanAdd && capturingForList == null ? (
         <FloatingAction
-          label={copy.lists.newList}
-          onPress={() => {
-            setCreateShared(false);
-            setCreatingList(true);
-          }}
-          testID="new-list"
+          label={copy.lists.addTask}
+          onPress={() => openCapture(openList)}
+          testID="add-task-fab"
         />
-      )}
+      ) : null}
 
       {creatingList ? (
         <ProjectEditorSheet
@@ -505,15 +595,21 @@ export function ListsScreen({
             // and the button to try again.
             if (created != null && createShared) {
               markSheetPress('ShareSheet');
+              setShareJustCreated(true);
               setSharingList(created);
-              viewModel.createShareLink(created.id, 'editor');
+              viewModel.createShareLink(created.id, createInvitedAs);
             }
             // A refused name keeps the sheet open, and the choice in it.
             if (created != null) setCreateShared(false);
             if (created != null) setInviteFallbackName(null);
             return created != null;
           }}
-          shareOption={{ value: createShared, onChange: setCreateShared }}
+          shareOption={{
+            value: createShared,
+            onChange: setCreateShared,
+            invitedAs: createInvitedAs,
+            onInvitedAsChange: setCreateInvitedAs,
+          }}
           submitLabel={copy.lists.create}
           templates={inviteFallbackName == null}
           title={copy.lists.newList}
@@ -654,7 +750,11 @@ export function ListsScreen({
             viewModel.lists.find(list => list.id === sharingList.id) ??
             sharingList
           }
-          onCancel={() => setSharingList(null)}
+          justCreated={shareJustCreated}
+          onCancel={() => {
+            setSharingList(null);
+            setShareJustCreated(false);
+          }}
           onChangeInvitedAs={role =>
             viewModel.changeInvitedAs(sharingList.id, role)
           }
@@ -689,9 +789,11 @@ export function ListsScreen({
       {!joiningInvite ? null : (
         <JoinInviteSheet
           copy={copy}
+          initialValue={invitePrefill}
           errorKind={viewModel.joinErrorKind}
           onCancel={() => {
             setJoiningInvite(false);
+            setInvitePrefill('');
             viewModel.dismissJoinError();
           }}
           onDismissError={viewModel.dismissJoinError}
@@ -715,77 +817,40 @@ export function ListsScreen({
 interface ProjectTaskProps {
   copy: TaskCopy;
   index: number;
-  /** Whether the day itself holds this task — membership, not a date. */
-  isInDay: boolean;
   isViewer: boolean;
+  language: AppLanguage;
   list: TaskList;
   nowMs: number;
-  personId: string | null;
   task: Task;
-  onDeleteTask: (task: Task) => void;
   onEditTask: (task: Task) => void;
-  onMoveIntoDay: (taskId: string) => void;
   onToggleTask: (taskId: string) => void;
 }
 
 /**
- * One task card inside a project.
+ * One task line inside a space.
  *
- * The card is wrapped so its props hold still: the action object and the three
- * handlers used to be rebuilt on every render of the project, which meant a
- * project opening a menu re-rendered every card under it.
+ * The line is the same `TaskRow` every list draws. What the space adds is who
+ * took the task: the row has one slot on the right, and a task somebody took
+ * shows their ficha there instead of a date. The row cannot be told that, so
+ * the taken line is drawn here to the same rule — box 26, gap 14, title in the
+ * body size — with the fichas in the slot. A viewer's line is drawn here too,
+ * because only this one can refuse the tick.
  */
 const ProjectTask = memo(function ProjectTaskView({
   copy,
   index,
-  isInDay,
   isViewer,
+  language,
   list,
   nowMs,
-  personId,
   task,
-  onDeleteTask,
   onEditTask,
-  onMoveIntoDay,
   onToggleTask,
 }: ProjectTaskProps) {
-  const handleDelete = useCallback(
-    () => onDeleteTask(task),
-    [onDeleteTask, task],
-  );
   const handleEdit = useCallback(() => onEditTask(task), [onEditTask, task]);
   const handleToggle = useCallback(
     () => onToggleTask(task.id),
     [onToggleTask, task.id],
-  );
-  // The slot answers instead of asking only when both halves are true: the day
-  // holds the task and the task is due today. A task the day picked up while
-  // still due tomorrow would otherwise read "No dia" beside "amanhã", so the
-  // offer stands and taking it sets the date.
-  const isSettledForToday =
-    isInDay && task.dueAtMs != null && isSameDay(task.dueAtMs, nowMs);
-  const action = useMemo(
-    () =>
-      !isViewer && isOpen(task)
-        ? isSettledForToday
-          ? {
-              label: copy.lists.inDay,
-              disabled: true,
-              onPress: () => undefined,
-            }
-          : {
-              label: copy.lists.addToDay,
-              onPress: () => onMoveIntoDay(task.id),
-            }
-        : undefined,
-    [
-      copy.lists.addToDay,
-      copy.lists.inDay,
-      isSettledForToday,
-      isViewer,
-      onMoveIntoDay,
-      task,
-    ],
   );
 
   // The people who took it, in the project's own order, so the stack never
@@ -799,37 +864,92 @@ const ProjectTask = memo(function ProjectTaskView({
           ),
     [list.share, task.assignedIds],
   );
+  const done = isCompleted(task);
+
+  // Closing a task used to drop it back to the plain row, which threw away
+  // the fichas of whoever had taken it and put the weight badge where their
+  // faces had been. Who did it is the one thing worth keeping on a line that
+  // is already done, so the taken line stays taken.
+  if (!isViewer && assignees.length === 0) {
+    return (
+      <TaskRow
+        copy={copy}
+        index={index}
+        language={language}
+        lens="list"
+        listColor={null}
+        listIcon={null}
+        listName={null}
+        nowMs={nowMs}
+        onEdit={handleEdit}
+        onToggle={handleToggle}
+        sectionId={`space-${list.id}`}
+        task={task}
+      />
+    );
+  }
+
+  const shown = assignees.slice(0, ASSIGNEE_CAP);
+  const overflow = assignees.length - shown.length;
 
   return (
-    <TaskCard
-      action={action}
-      assignees={assignees}
-      completedByMember={
-        isCompleted(task) && task.completedBy !== personId
-          ? memberFor(list, task.completedBy ?? null)
-          : null
-      }
-      copy={copy}
-      disabled={isViewer}
-      index={index}
-      listColor={null}
-      listIcon={null}
-      listName={null}
-      nowMs={nowMs}
-      onDelete={isViewer ? undefined : handleDelete}
-      onEdit={isViewer ? undefined : handleEdit}
-      onToggle={handleToggle}
-      task={task}
-    />
+    <TakenRow
+      entering={rowEnter(index)}
+      exiting={rowExit()}
+      layout={rowLayout()}
+    >
+      <TaskCheckbox
+        accessibilityLabel={task.title}
+        checked={done}
+        disabled={isViewer}
+        hitSlop={11}
+        onToggle={handleToggle}
+        testID={`task-checkbox-${task.id}`}
+      />
+      <TakenMain
+        accessibilityLabel={
+          assignees.length === 0
+            ? task.title
+            : `${task.title}. ${copy.lists.assignedTo(assignees.length)}`
+        }
+        accessibilityRole="button"
+        disabled={isViewer}
+        onPress={handleEdit}
+        scaleTo={0.99}
+        testID={`task-${task.id}`}
+      >
+        <TakenTitle $done={done} numberOfLines={1}>
+          {task.title}
+        </TakenTitle>
+      </TakenMain>
+      {shown.length === 0 ? null : (
+        <Takers
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          testID={`task-assignees-${task.id}`}
+        >
+          {shown.map((member, position) => (
+            <MemberChip
+              key={member.personId}
+              name={memberDisplayName(member, copy.lists.memberSomeone)}
+              personId={member.personId}
+              photoURL={member.photoURL ?? null}
+              size="fact"
+              stacked={position > 0}
+            />
+          ))}
+          {overflow > 0 ? (
+            <TakersOverflow>{`+${overflow}`}</TakersOverflow>
+          ) : null}
+        </Takers>
+      )}
+    </TakenRow>
   );
 });
 
 interface ProjectBlockProps {
   copy: TaskCopy;
   dayRecords: readonly SharedMemberDay[];
-  /** The ids the day holds right now, so a card can tell being in the day from
-   * merely carrying today's date. */
-  dayTaskIds: readonly string[];
   index: number;
   language: AppLanguage;
   list: TaskList;
@@ -840,12 +960,12 @@ interface ProjectBlockProps {
   showingActions: boolean;
   streakDays: number;
   tasks: readonly Task[];
+  /** The reader, so a space that is only theirs still shows a face. */
+  viewer: { personId: string; name: string; photoURL: string | null } | null;
   onCapture: (list: TaskList) => void;
   onDeleteList: (list: TaskList) => void;
-  onDeleteTask: (task: Task) => void;
   onEditTask: (task: Task) => void;
   onLeaveList: (list: TaskList) => void;
-  onMoveIntoDay: (taskId: string) => void;
   onRenameList: (list: TaskList) => void;
   onRetryDay: (listId: string) => Promise<unknown>;
   onShare: (list: TaskList) => void;
@@ -855,16 +975,15 @@ interface ProjectBlockProps {
 }
 
 /**
- * One project on the screen.
+ * One space: its card on the index, or the whole screen once it is open.
  *
  * It is its own component so that opening a sheet — which only changes state
- * that lives on the screen — does not re-render every project and every task
- * card in the same frame the sheet is trying to animate in.
+ * that lives on the screen — does not re-render every space and every task
+ * line in the same frame the sheet is trying to animate in.
  */
 const ProjectBlock = memo(function ProjectBlockView({
   copy,
   dayRecords,
-  dayTaskIds,
   index,
   language,
   list,
@@ -875,12 +994,11 @@ const ProjectBlock = memo(function ProjectBlockView({
   showingActions,
   streakDays,
   tasks,
+  viewer,
   onCapture,
   onDeleteList,
-  onDeleteTask,
   onEditTask,
   onLeaveList,
-  onMoveIntoDay,
   onRenameList,
   onRetryDay,
   onShare,
@@ -903,6 +1021,7 @@ const ProjectBlock = memo(function ProjectBlockView({
     [nowMs, tasks],
   );
   const done = workTasks.filter(isCompleted).length;
+  const openCount = workTasks.filter(isOpen).length;
   const shared = list.share != null;
   const role = shared
     ? list.share!.members.find(member => member.personId === personId)?.role ??
@@ -927,6 +1046,17 @@ const ProjectBlock = memo(function ProjectBlockView({
   );
   const tookSomethingToday = dayEntries.some(
     entry => entry.member.personId === personId && entry.state !== 'absent',
+  );
+  // Everyone else in the space, by the name they go by: the heading reads
+  // "Você e Júlia", never the reader's own name back at them.
+  const others = useMemo(
+    () =>
+      list.share == null
+        ? []
+        : list.share.members
+            .filter(member => member.joined && member.personId !== personId)
+            .map(member => memberDisplayName(member, copy.lists.memberSomeone)),
+    [copy.lists.memberSomeone, list.share, personId],
   );
 
   const handleToggleOpen = useCallback(
@@ -953,273 +1083,389 @@ const ProjectBlock = memo(function ProjectBlockView({
     [list.id, onRetryDay],
   );
 
-  // The chevron turns over as the project opens. `DISCLOSURE` carries
-  // `ReduceMotion.System`, so a phone asking for less movement gets the final
-  // angle straight away and the arrow still says which way it points.
-  const chevronSpin = useSharedValue(open ? 180 : 0);
+  const moreButton = canManage ? (
+    <MoreButton
+      accessibilityLabel={copy.lists.moreActions(list.name)}
+      // Drawn at 38px, so the touch area is widened to the 48px
+      // the design guide asks for.
+      hitSlop={5}
+      onPress={handleToggleActions}
+      testID={`list-actions-${list.id}`}
+    >
+      <MoreGlyph color={theme.colors.mutedStrong} />
+    </MoreButton>
+  ) : null;
 
-  useEffect(() => {
-    chevronSpin.value = withTiming(open ? 180 : 0, DISCLOSURE);
-  }, [chevronSpin, open]);
+  const actions = showingActions ? (
+    <ListActions entering={disclosureEnter()} testID="list-actions-open">
+      {/* Floating in the gap, the row belonged to no project in
+          particular. Naming the project ties the actions back to the card
+          that opened them. */}
+      <ActionsOwner numberOfLines={1}>
+        {copy.lists.actionsFor(list.name)}
+      </ActionsOwner>
+      {canShare(list) ? (
+        <ActionButton
+          accessibilityLabel={copy.lists.share}
+          onPress={handleShare}
+          // Only one menu is open at a time, so the anchor does
+          // not need the generated project id to be unique.
+          testID="list-share"
+        >
+          <ActionText>{copy.lists.share}</ActionText>
+        </ActionButton>
+      ) : null}
+      {canManageAppearance ? (
+        <ActionButton
+          accessibilityLabel={copy.lists.rename}
+          onPress={handleRename}
+        >
+          <ActionText>{copy.lists.rename}</ActionText>
+        </ActionButton>
+      ) : null}
+      {canLeave ? (
+        // Sair de um projeto não é a ação destrutiva: o vermelho fica com
+        // Excluir, e sair lê no mesmo tom de Compartilhar e Renomear.
+        <ActionButton
+          accessibilityLabel={copy.lists.leaveProject}
+          onPress={handleLeave}
+        >
+          <ActionText>{copy.lists.leaveProject}</ActionText>
+        </ActionButton>
+      ) : null}
+      {canDeleteList ? (
+        <ActionButton
+          $danger
+          accessibilityLabel={copy.lists.delete}
+          onPress={handleDeleteList}
+        >
+          <ActionText $danger>{copy.lists.delete}</ActionText>
+        </ActionButton>
+      ) : null}
+    </ListActions>
+  ) : null;
 
-  const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${chevronSpin.value}deg` }],
-  }));
+  if (!open) {
+    if (list.id === INBOX_LIST_ID) {
+      // Not a space: where what has no space falls. A card, so it reads
+      // apart from the lines under it.
+      return (
+        <InboxCard entering={rowEnter(index)}>
+          <InboxRow
+            accessibilityLabel={`${list.name}, ${copy.lists.indexInboxFact(
+              openCount,
+            )}`}
+            accessibilityRole="button"
+            onPress={handleToggleOpen}
+            scaleTo={0.99}
+            testID={`list-${list.id}`}
+          >
+            <InboxBadge>
+              <ProjectGlyph
+                color={theme.colors.mutedStrong}
+                icon="inbox"
+                size={20}
+              />
+            </InboxBadge>
+            <RowTexts>
+              <RowName numberOfLines={1}>{list.name}</RowName>
+              <RowFact numberOfLines={1}>
+                {copy.lists.indexInboxFact(openCount)}
+              </RowFact>
+            </RowTexts>
+            <RowChevron>
+              <ChevronGlyph color={theme.colors.muted} size={16} />
+            </RowChevron>
+          </InboxRow>
+        </InboxCard>
+      );
+    }
+
+    const overdue = workTasks.filter(task => isOverdue(task, nowMs)).length;
+    const focusing =
+      dayEntries.find(entry => entry.state === 'focusing') ?? null;
+    // A link made and nobody through it yet: the invite is what the fact
+    // has to say, not a count of one.
+    const invitePending =
+      shared &&
+      !list.share!.members.some(
+        member => member.joined && member.personId !== personId,
+      );
+    const openText = copy.lists.indexOpenCount(openCount);
+    const fact = shared ? (
+      <RowFact numberOfLines={1}>
+        {`${openText} · `}
+        {focusing != null ? (
+          <RowFactFocus>
+            {copy.lists.indexInFocus(
+              memberDisplayName(focusing.member, copy.lists.memberSomeone),
+            )}
+          </RowFactFocus>
+        ) : invitePending ? (
+          copy.lists.indexPendingInvite
+        ) : (
+          copy.lists.sharedWith(list.share!.members.length)
+        )}
+      </RowFact>
+    ) : (
+      <RowFact numberOfLines={1}>
+        {overdue > 0
+          ? `${openText} · ${copy.lists.indexOverdue(overdue)}`
+          : openCount === 0
+          ? copy.lists.indexAllClear
+          : `${openText} · ${copy.lists.indexAllClear}`}
+      </RowFact>
+    );
+
+    // A line, not a card: the same rule as a task. The slot on the right says
+    // one thing — who is in it, or how many are late — never a progress bar.
+    return (
+      <RowBlock entering={rowEnter(index)}>
+        <SpaceRow>
+          <RowMain
+            accessibilityLabel={
+              isViewer
+                ? `${list.name}, ${copy.lists.viewerCannotAdd}`
+                : list.name
+            }
+            accessibilityRole="button"
+            accessibilityState={{ selected: open }}
+            onPress={handleToggleOpen}
+            scaleTo={0.99}
+            testID={`list-${list.id}`}
+          >
+            <RowBadge $tint={projectTint(theme, list.color)}>
+              <ProjectGlyph
+                color={projectTone(theme, list.color)}
+                icon={list.icon}
+                size={20}
+              />
+            </RowBadge>
+            <RowTexts>
+              <RowName numberOfLines={1}>{list.name}</RowName>
+              {fact}
+            </RowTexts>
+            <RowSlot>
+              {shared ? (
+                <MemberStack
+                  members={list.share!.members}
+                  sharedWithLabel={copy.lists.sharedWith(
+                    list.share!.members.length,
+                  )}
+                  size="row"
+                />
+              ) : overdue > 0 ? (
+                <RowOverdue
+                  accessibilityLabel={copy.lists.indexOverdue(overdue)}
+                >
+                  {overdue}
+                </RowOverdue>
+              ) : (
+                <CheckGlyph color={theme.colors.successInk} size={16} />
+              )}
+            </RowSlot>
+          </RowMain>
+          {/* The menu stays where it was reachable, as a quiet glyph past the
+              slot rather than a boxed button. */}
+          {canManage ? (
+            <RowMoreButton
+              accessibilityLabel={copy.lists.moreActions(list.name)}
+              hitSlop={8}
+              onPress={handleToggleActions}
+              testID={`list-actions-${list.id}`}
+            >
+              <MoreGlyph color={theme.colors.muted} size={16} />
+            </RowMoreButton>
+          ) : null}
+        </SpaceRow>
+
+        {actions}
+      </RowBlock>
+    );
+  }
 
   return (
-    <ListBlock entering={rowEnter(index)}>
-      <ListHeader>
-        <Row
-          accessibilityLabel={
-            isViewer ? `${list.name}, ${copy.lists.viewerCannotAdd}` : list.name
-          }
-          accessibilityState={{ selected: open }}
-          onPress={handleToggleOpen}
-          testID={`list-${list.id}`}
-        >
-          <ProjectBadge $tone={projectTone(theme, list.color)}>
-            <ProjectGlyph
-              color={projectTone(theme, list.color)}
-              icon={list.icon}
-              size={18}
-            />
-          </ProjectBadge>
-          <Name numberOfLines={1}>{list.name}</Name>
+    <Space entering={screenEnter()} testID={`space-${list.id}`}>
+      {/* The way back is the eyebrow itself: the tab's name, with the chevron
+          pointing where the tap goes. Pressing anywhere on the line leaves. */}
+      <BackLine
+        accessibilityLabel={copy.lists.backToSpaces}
+        accessibilityRole="button"
+        hitSlop={{ bottom: 8, left: 8, right: 8, top: 8 }}
+        onPress={handleToggleOpen}
+        scaleTo={0.98}
+        testID={`list-back-${list.id}`}
+      >
+        <BackChevron>
+          <ChevronGlyph color={theme.colors.muted} size={14} />
+        </BackChevron>
+        <BackEyebrow>{copy.tabs.lists}</BackEyebrow>
+      </BackLine>
+
+      <SpaceHeader>
+        <SpaceTitles>
+          <SpaceName accessibilityRole="header" numberOfLines={2}>
+            {list.name}
+          </SpaceName>
+          {/* "Só você · 1 aberta" was a sentence about people with nobody
+              in it. The fichas of whoever is in the space go in front of the
+              words, so who is here is read before it is spelled out. */}
+          <SpaceWho>
+            {/* A shared space already carries its stack beside the name, so
+                only a space with nobody else in it needs a face here. */}
+            {shared || viewer == null ? null : (
+              <MemberChip
+                initials={copy.lists.memberYouInitials}
+                name={viewer.name}
+                personId={viewer.personId}
+                photoURL={viewer.photoURL}
+                ring="background"
+                size="row"
+              />
+            )}
+            <SpaceSubtitle numberOfLines={2}>
+              {copy.lists.spaceSubtitle(others, openCount)}
+            </SpaceSubtitle>
+          </SpaceWho>
+          {isViewer ? (
+            <ReadOnlyTag>{copy.lists.readOnlyTag}</ReadOnlyTag>
+          ) : null}
+        </SpaceTitles>
+        <SpaceTrailing>
           {isShared(list) ? (
             <MemberStack
               members={list.share!.members}
               sharedWithLabel={copy.lists.sharedWith(
                 list.share!.members.length,
               )}
+              size="header"
             />
           ) : null}
-          {/* Names the state the screen is already in: without it, a viewer
-              taps a disabled checkbox and gets silence. */}
-          {isViewer ? (
-            <ReadOnlyTag>{copy.lists.readOnlyTag}</ReadOnlyTag>
-          ) : null}
-          <Count>{copy.lists.progress(done, workTasks.length)}</Count>
-          <Track>
-            <Fill
-              style={{
-                width: `${
-                  workTasks.length === 0 ? 0 : (done / workTasks.length) * 100
-                }%`,
-              }}
-            />
-          </Track>
-        </Row>
-        {/* Sharing a project is the one action people come looking for, so it
-            stops hiding behind the three dots. The menu keeps its entry: this
-            is a shortcut, not a move. */}
-        {canShare(list) ? (
-          <ShareButton
-            accessibilityLabel={copy.lists.share}
-            accessibilityRole="button"
-            hitSlop={5}
-            onPress={handleShare}
-            testID="list-share-inline"
-          >
-            <PeopleGlyph color={theme.colors.mutedStrong} size={18} />
-          </ShareButton>
-        ) : null}
-        {canManage ? (
-          <MoreButton
-            accessibilityLabel={copy.lists.moreActions(list.name)}
-            // Drawn at 38px, so the touch area is widened to the 48px
-            // the design guide asks for.
-            hitSlop={5}
-            onPress={handleToggleActions}
-            testID={`list-actions-${list.id}`}
-          >
-            <MoreGlyph color="#756b56" />
-          </MoreButton>
-        ) : null}
-        {/* Until now nothing on the card said it opened. The chevron sits
-            where a disclosure belongs — last on the row — and carries the
-            state out loud for a screen reader. */}
-        <ChevronButton
-          accessibilityLabel={
-            open
-              ? copy.lists.collapseProject(list.name)
-              : copy.lists.expandProject(list.name)
-          }
-          accessibilityRole="button"
-          accessibilityState={{ expanded: open }}
-          onPress={handleToggleOpen}
-          testID={`list-chevron-${list.id}`}
-        >
-          <ChevronSpin style={chevronStyle}>
-            <ChevronGlyph color={theme.colors.muted} size={18} />
-          </ChevronSpin>
-        </ChevronButton>
-      </ListHeader>
+          {moreButton}
+        </SpaceTrailing>
+      </SpaceHeader>
 
-      {showingActions ? (
-        <ListActions entering={disclosureEnter()} testID="list-actions-open">
-          {/* Floating in the gap, the row belonged to no project in
-              particular. Naming the project ties the actions back to the card
-              that opened them. */}
-          <ActionsOwner numberOfLines={1}>
-            {copy.lists.actionsFor(list.name)}
-          </ActionsOwner>
-          {canShare(list) ? (
-            <ActionButton
-              accessibilityLabel={copy.lists.share}
-              onPress={handleShare}
-              // Only one menu is open at a time, so the anchor does
-              // not need the generated project id to be unique.
-              testID="list-share"
-            >
-              <ActionText>{copy.lists.share}</ActionText>
-            </ActionButton>
-          ) : null}
-          {canManageAppearance ? (
-            <ActionButton
-              accessibilityLabel={copy.lists.rename}
-              onPress={handleRename}
-            >
-              <ActionText>{copy.lists.rename}</ActionText>
-            </ActionButton>
-          ) : null}
-          {canLeave ? (
-            // Sair de um projeto não é a ação destrutiva: o vermelho fica com
-            // Excluir, e sair lê no mesmo tom de Compartilhar e Renomear.
-            <ActionButton
-              accessibilityLabel={copy.lists.leaveProject}
-              onPress={handleLeave}
-            >
-              <ActionText>{copy.lists.leaveProject}</ActionText>
-            </ActionButton>
-          ) : null}
-          {canDeleteList ? (
-            <ActionButton
-              $danger
-              accessibilityLabel={copy.lists.delete}
-              onPress={handleDeleteList}
-            >
-              <ActionText $danger>{copy.lists.delete}</ActionText>
-            </ActionButton>
-          ) : null}
-        </ListActions>
+      {actions}
+
+      {shared ? (
+        <SharedDayBand
+          allDone={isGroupDayClosed(list.share!.members, dayEntries)}
+          copy={copy}
+          entries={dayEntries}
+          language={language}
+          onRetry={handleRetryDay}
+          onTakeOne={isViewer || tookSomethingToday ? undefined : handleCapture}
+          status={status}
+          streakDays={streakDays}
+        />
       ) : null}
 
-      {open ? (
-        <Expanded entering={fadeEnter()}>
-          {shared ? (
-            <SharedDayBand
-              allDone={isGroupDayClosed(list.share!.members, dayEntries)}
+      {/* The tasks of the space, under one heading and its rule. No card
+          around them: the day card above is the only card on the screen. */}
+      <SpaceSection>
+        <SectionHeader
+          collapseHint={copy.today.collapse}
+          collapsible={false}
+          count={workTasks.length}
+          countLabel={copy.today.taskCount(workTasks.length)}
+          expandHint={copy.today.expand}
+          expanded
+          onToggle={noop}
+          title={copy.lists.inSpaceSection}
+        />
+
+        {tasks.length === 0 ? (
+          shared ? (
+            <GroupEmpty>
+              <EmptyText>{copy.lists.groupEmpty}</EmptyText>
+              {list.share!.members.length <= 1 ? (
+                <InviteHighlight
+                  accessibilityLabel={copy.lists.share}
+                  onPress={handleShare}
+                >
+                  <PeopleGlyph color={theme.colors.accentInk} size={16} />
+                  <InviteHighlightText>
+                    {copy.lists.groupEmptyInvite}
+                  </InviteHighlightText>
+                </InviteHighlight>
+              ) : null}
+            </GroupEmpty>
+          ) : (
+            <ProjectEmptyState message={copy.lists.empty} />
+          )
+        ) : null}
+
+        {workTasks.length > 0 && shared && done === workTasks.length ? (
+          <AllDoneBanner>
+            <AllDoneText>{copy.lists.groupAllDone}</AllDoneText>
+          </AllDoneBanner>
+        ) : null}
+
+        {workTasks.map((task, taskIndex) => (
+          <ProjectTask
+            copy={copy}
+            index={taskIndex}
+            isViewer={isViewer}
+            key={task.id}
+            language={language}
+            list={list}
+            nowMs={nowMs}
+            onEditTask={onEditTask}
+            onToggleTask={onToggleTask}
+            task={task}
+          />
+        ))}
+      </SpaceSection>
+
+      {/* Memory, at the end of the work. One heading, a rule and air —
+          never a box around rows that already sit on the screen's floor. */}
+      {reminders.length === 0 ? null : (
+        <Reminders>
+          <SectionHeader
+            collapseHint={copy.today.collapse}
+            collapsible={false}
+            count={reminders.length}
+            countLabel={copy.today.taskCount(reminders.length)}
+            expandHint={copy.today.expand}
+            expanded
+            onToggle={noop}
+            title={copy.reminderItem.sectionTitle}
+          />
+          {reminders.map((reminder, reminderIndex) => (
+            <TaskRow
               copy={copy}
-              entries={dayEntries}
-              onRetry={handleRetryDay}
-              onTakeOne={
-                isViewer || tookSomethingToday ? undefined : handleCapture
-              }
-              status={status}
-              streakDays={streakDays}
-            />
-          ) : null}
-
-          {tasks.length === 0 ? (
-            shared ? (
-              <GroupEmpty>
-                <EmptyText>{copy.lists.groupEmpty}</EmptyText>
-                {list.share!.members.length <= 1 ? (
-                  <InviteHighlight
-                    accessibilityLabel={copy.lists.share}
-                    onPress={handleShare}
-                  >
-                    <PeopleGlyph color={theme.colors.accentInk} size={16} />
-                    <InviteHighlightText>
-                      {copy.lists.groupEmptyInvite}
-                    </InviteHighlightText>
-                  </InviteHighlight>
-                ) : null}
-              </GroupEmpty>
-            ) : (
-              <ProjectEmptyState message={copy.lists.empty} />
-            )
-          ) : null}
-
-          {workTasks.length > 0 && shared && done === workTasks.length ? (
-            <AllDoneBanner>
-              <AllDoneText>{copy.lists.groupAllDone}</AllDoneText>
-            </AllDoneBanner>
-          ) : null}
-
-          {workTasks.map((task, taskIndex) => (
-            <ProjectTask
-              copy={copy}
-              index={taskIndex}
-              isInDay={dayTaskIds.includes(task.id)}
-              isViewer={isViewer}
-              key={task.id}
-              list={list}
+              index={reminderIndex}
+              key={reminder.id}
+              language={language}
+              lens="deadline"
+              listColor={null}
+              listIcon={null}
+              listName={null}
               nowMs={nowMs}
-              onDeleteTask={onDeleteTask}
-              onEditTask={onEditTask}
-              onMoveIntoDay={onMoveIntoDay}
-              onToggleTask={onToggleTask}
-              personId={personId}
-              task={task}
+              onEdit={isViewer ? undefined : () => onEditTask(reminder)}
+              onToggle={noop}
+              sectionId="reminders"
+              task={reminder}
             />
           ))}
+        </Reminders>
+      )}
 
-          {/* Memory, at the end of the work. One heading, a rule and air —
-              never a box around rows that already sit on the space's card. */}
-          {reminders.length === 0 ? null : (
-            <Reminders>
-              <SectionHeader
-                collapseHint={copy.today.collapse}
-                collapsible={false}
-                count={reminders.length}
-                countLabel={copy.today.taskCount(reminders.length)}
-                expandHint={copy.today.expand}
-                expanded
-                onToggle={noop}
-                title={copy.reminderItem.sectionTitle}
-              />
-              {reminders.map((reminder, reminderIndex) => (
-                <TaskRow
-                  copy={copy}
-                  index={reminderIndex}
-                  key={reminder.id}
-                  language={language}
-                  lens="deadline"
-                  listColor={null}
-                  listIcon={null}
-                  listName={null}
-                  nowMs={nowMs}
-                  onEdit={isViewer ? undefined : () => onEditTask(reminder)}
-                  onToggle={noop}
-                  sectionId="reminders"
-                  task={reminder}
-                />
-              ))}
-            </Reminders>
-          )}
-
-          {isViewer ? null : (
-            <AddTaskButton
-              accessibilityLabel={
-                tasks.length === 0
-                  ? copy.lists.addFirstTask
-                  : copy.lists.addTask
-              }
-              onPress={handleCapture}
-              testID={`add-task-${list.id}`}
-            >
-              <PlusGlyph color="#6d5314" />
-              <AddTaskText>
-                {tasks.length === 0
-                  ? copy.lists.addFirstTask
-                  : copy.lists.addTask}
-              </AddTaskText>
-            </AddTaskButton>
-          )}
-        </Expanded>
-      ) : null}
-    </ListBlock>
+      {isViewer ? null : (
+        <AddTaskButton
+          accessibilityLabel={
+            tasks.length === 0 ? copy.lists.addFirstTask : copy.lists.addTask
+          }
+          onPress={handleCapture}
+          testID={`add-task-${list.id}`}
+        >
+          <PlusGlyph color={theme.colors.accentInk} />
+          <AddTaskText>
+            {tasks.length === 0 ? copy.lists.addFirstTask : copy.lists.addTask}
+          </AddTaskText>
+        </AddTaskButton>
+      )}
+    </Space>
   );
 });
 
@@ -1228,11 +1474,6 @@ const FLOATING_ACTION_HEIGHT = 54;
 
 /** `theme.spacing.large`, for the one style built outside the theme. */
 const SPACING_LARGE = 24;
-
-/** The secondary action's own height, and the gap it keeps from the primary
- * one below it. */
-const JOIN_BUTTON_HEIGHT = 48;
-const JOIN_BUTTON_GAP = 12;
 
 /** The tab column under the screen: its rows are 48 tall over the padding the
  * bar keeps above them. Without it in the clearance the last block of an open
@@ -1246,12 +1487,11 @@ const TAB_BAR_HEIGHT = 58;
    it. */
 const styles = StyleSheet.create({
   scroll: {
-    paddingBottom:
-      FLOATING_ACTION_HEIGHT +
-      JOIN_BUTTON_HEIGHT +
-      JOIN_BUTTON_GAP +
-      TAB_BAR_HEIGHT +
-      SPACING_LARGE * 2,
+    paddingBottom: FLOATING_ACTION_HEIGHT + TAB_BAR_HEIGHT + SPACING_LARGE * 2,
+  },
+  /* Nothing floats over the index, so it only has to clear the tab bar. */
+  scrollIndex: {
+    paddingBottom: TAB_BAR_HEIGHT + SPACING_LARGE,
   },
 });
 
@@ -1297,39 +1537,99 @@ const PermissionActionLabel = styled.Text<{ $primary?: boolean }>`
   font-weight: 700;
 `;
 
-const ListBlock = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.small + 1}px;
+/* A section of the index: its heading, its rule and its lines, with air
+   above to set it apart from what came before. */
+const IndexSection = styled.View`
+  margin-top: ${({ theme }) => theme.spacing.large - 4}px;
 `;
-const ListHeader = styled.View`
-  flex-direction: row;
-  align-items: center;
+/* The inbox: a card by the common rule, white, radius 20, no border and no
+   shadow, so it reads apart from the lines of spaces under it. */
+const InboxCard = styled(Animated.View)`
+  margin-top: ${({ theme }) => theme.spacing.small}px;
   background-color: ${({ theme }) => theme.colors.card};
-  border: 1px solid ${({ theme }) => theme.colors.borderSubtle};
   border-radius: ${({ theme }) => theme.radii.large}px;
-  padding: ${({ theme }) => theme.spacing.medium}px;
-  elevation: 2;
-  shadow-color: #1b1710;
-  shadow-opacity: ${({ theme }) => (theme.mode === 'dark' ? 0 : 0.07)};
-  shadow-radius: 14px;
-  shadow-offset: 0px 5px;
 `;
-const Row = styled(PressableScale)`
-  flex: 1;
+const InboxRow = styled(PressableScale)`
   flex-direction: row;
   align-items: center;
-  flex-wrap: wrap;
-  gap: ${({ theme }) => theme.spacing.small + 3}px;
+  gap: ${({ theme }) => theme.spacing.small + 6}px;
+  padding: ${({ theme }) => theme.spacing.medium - 2}px
+    ${({ theme }) => theme.spacing.medium}px;
+  border-radius: ${({ theme }) => theme.radii.large}px;
 `;
-/* Same box as the three dots beside it, so the two read as one pair of
-   controls rather than a button and an afterthought. */
-const ShareButton = styled(PressableScale)`
-  width: 38px;
-  height: 38px;
+/* The square every line starts with: 44, radius 14. The inbox gets the
+   neutral surface — it is not a space and has no colour of its own. */
+const InboxBadge = styled.View`
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
   align-items: center;
   justify-content: center;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  margin-left: ${({ theme }) => theme.spacing.tiny}px;
+  background-color: ${({ theme }) => theme.colors.cardNeutral};
 `;
+const RowBadge = styled.View<{ $tint: string }>`
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  align-items: center;
+  justify-content: center;
+  background-color: ${({ $tint }) => $tint};
+`;
+const RowTexts = styled.View`
+  flex: 1;
+  min-width: 0px;
+`;
+const RowName = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.heading - 2}px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+`;
+const RowFact = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  font-weight: 500;
+  margin-top: 2px;
+`;
+/* Who is in focus, in Uva: the one word of the fact that is happening now. */
+const RowFactFocus = styled.Text`
+  color: ${({ theme }) => theme.colors.reminder};
+  font-weight: 600;
+`;
+/* The glyph points down by default; turned a quarter it points into the
+   inbox, where the tap goes. */
+const RowChevron = styled.View`
+  align-items: center;
+  justify-content: center;
+  transform: rotate(-90deg);
+`;
+/* One space on the index: a line on the floor with no rule under it. */
+const RowBlock = styled(Animated.View)``;
+const SpaceRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+const RowMain = styled(PressableScale)`
+  flex: 1;
+  min-width: 0px;
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small + 6}px;
+  padding: ${({ theme }) => theme.spacing.medium - 2}px 0px;
+`;
+const RowSlot = styled.View`
+  flex-shrink: 0;
+  min-width: 28px;
+  align-items: flex-end;
+  justify-content: center;
+`;
+/* How many are late, in ink: a number, not an alarm. */
+const RowOverdue = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  font-weight: 700;
+`;
+/* The menu of an open space, in the header beside the stack. */
 const MoreButton = styled(PressableScale)`
   width: 38px;
   height: 38px;
@@ -1338,60 +1638,21 @@ const MoreButton = styled(PressableScale)`
   border-radius: ${({ theme }) => theme.radii.medium}px;
   margin-left: ${({ theme }) => theme.spacing.small}px;
 `;
-/* The disclosure gets its 48px as a real box rather than as hit slop: the
-   affordance people are meant to find is also the target they are meant to
-   hit, and only a real box measures as one. No ground of its own. */
-const ChevronButton = styled(PressableScale)`
-  width: 48px;
-  height: 48px;
+const RowMoreButton = styled(PressableScale)`
+  width: 32px;
+  height: 44px;
   align-items: center;
   justify-content: center;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
   margin-left: ${({ theme }) => theme.spacing.tiny}px;
 `;
-const ChevronSpin = styled(Animated.View)`
-  align-items: center;
-  justify-content: center;
-`;
-const ProjectBadge = styled.View<{ $tone: string }>`
-  width: 32px;
-  height: 32px;
-  border-radius: ${({ theme }) => theme.radii.small}px;
-  align-items: center;
-  justify-content: center;
-  background-color: ${({ $tone }) => `${$tone}1F`};
-`;
-const Name = styled.Text`
-  flex: 1;
-  color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ theme }) => theme.type.heading - 2}px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
-`;
-const Count = styled.Text`
-  color: ${({ theme }) => theme.colors.muted};
-  font-size: ${({ theme }) => theme.type.caption}px;
-`;
-/* Same neutral metadata voice as the count beside it: it states the role, it
-   does not warn. */
+/* Same neutral metadata voice as the subtitle beside it: it states the role,
+   it does not warn. */
 const ReadOnlyTag = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
   font-weight: 700;
   letter-spacing: 0.4px;
   text-transform: uppercase;
-`;
-const Track = styled.View`
-  width: 100%;
-  height: 4px;
-  border-radius: ${({ theme }) => theme.radii.pill}px;
-  background-color: ${({ theme }) => theme.colors.cardNeutral};
-  overflow: hidden;
-`;
-const Fill = styled.View`
-  height: 100%;
-  border-radius: ${({ theme }) => theme.radii.pill}px;
-  background-color: ${({ theme }) => theme.colors.accent};
 `;
 /* Tight under the card it belongs to, never adrift in the gap before the next
    one. No ground of its own: the card above is the only surface here. */
@@ -1420,30 +1681,117 @@ const ActionText = styled.Text<{ $danger?: boolean }>`
   font-size: ${({ theme }) => theme.type.caption}px;
   font-weight: 800;
 `;
-/* The tasks belong to the project above them, and eight points of indent were
-   not saying so. A rule down the left carries the project into its list — the
-   same hairline the section headings use, turned on its side — with the indent
-   behind it. No fill, no border around them, no second card: continuity is
-   drawn, not boxed. */
-const Expanded = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.small}px;
+/* The open space takes the whole tab: no card around it, the screen's own
+   floor under everything, and one card — the day — inside. */
+const Space = styled(Animated.View)`
   padding-bottom: ${({ theme }) => theme.spacing.small}px;
-  margin-left: ${({ theme }) => theme.spacing.medium}px;
-  padding-left: ${({ theme }) => theme.spacing.medium}px;
-  border-left-width: 1px;
-  border-left-color: ${({ theme }) => theme.colors.borderSubtle};
+`;
+/* The way back, drawn as the eyebrow every screen starts with. */
+const BackLine = styled(PressableScale)`
+  flex-direction: row;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  min-height: 26px;
+`;
+const BackChevron = styled.View`
+  align-items: center;
+  justify-content: center;
+  transform: rotate(90deg);
+`;
+const BackEyebrow = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+`;
+const SpaceHeader = styled.View`
+  flex-direction: row;
+  align-items: flex-start;
+  gap: ${({ theme }) => theme.spacing.small + 4}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
+`;
+const SpaceTitles = styled.View`
+  flex: 1;
+  min-width: 0px;
+`;
+const SpaceName = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.display}px;
+  font-weight: 800;
+  letter-spacing: -1.1px;
+  line-height: ${({ theme }) => theme.type.display}px;
+`;
+const SpaceWho = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const SpaceSubtitle = styled.Text`
+  flex-shrink: 1;
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 500;
+`;
+/* Who is in the space and the menu, on the name's line. The stack lands at
+   the height of the name, not of the subtitle under it. */
+const SpaceTrailing = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.tiny}px;
+  margin-top: ${({ theme }) => theme.spacing.tiny}px;
+`;
+/* Air above the heading is the whole separation from the card: the rows sit
+   on the floor, with no second card drawn around them. */
+const SpaceSection = styled.View`
+  margin-top: ${({ theme }) => theme.spacing.large - 2}px;
 `;
 const EmptyText = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 500;
   padding: ${({ theme }) => theme.spacing.medium}px 0px;
+`;
+/* A task somebody took, drawn to the row's own rule: box 26, gap 14, title
+   in the body size, and the fichas of who took it where the date would go. */
+const TakenRow = styled(Animated.View)`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small + 6}px;
+  padding: ${({ theme }) => theme.spacing.medium - 3}px 0px;
+`;
+const TakenMain = styled(PressableScale)`
+  flex: 1;
+  min-width: 0px;
+`;
+const TakenTitle = styled.Text<{ $done: boolean }>`
+  flex-shrink: 1;
+  color: ${({ theme, $done }) =>
+    $done ? theme.colors.muted : theme.colors.text};
+  font-size: ${({ theme }) => theme.type.body}px;
+  font-weight: 500;
+  text-decoration-line: ${({ $done }) => ($done ? 'line-through' : 'none')};
+`;
+const Takers = styled.View`
+  flex-shrink: 0;
+  flex-direction: row;
+  align-items: center;
+`;
+const TakersOverflow = styled.Text`
+  margin-left: 4px;
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 700;
 `;
 const AddTaskButton = styled(PressableScale)`
   flex-direction: row;
   align-self: flex-start;
   align-items: center;
   gap: 7px;
-  padding: 11px 10px;
+  padding: 11px 0px;
   margin-top: ${({ theme }) => theme.spacing.small}px;
   margin-bottom: ${({ theme }) => theme.spacing.small}px;
   border-radius: ${({ theme }) => theme.radii.medium}px;
@@ -1453,41 +1801,44 @@ const AddTaskText = styled.Text`
   font-size: ${({ theme }) => theme.type.label}px;
   font-weight: 800;
 `;
-/* The secondary half of the pair at the bottom right: same right edge as the
-   floating action, one gap above it. Card and border instead of yellow — only
-   one action on this screen is the primary one. */
-/* The pill has to keep its own width. Left floating on its own, the absolute
-   box grew back to the left edge of the screen and the button bled past the
-   margin every card respects; the dock takes the positioning and the pill
-   only sizes itself, ending flush with the floating action's right edge. */
-const JoinDock = styled.View`
-  position: absolute;
-  right: ${({ theme }) => theme.spacing.large}px;
-  bottom: ${SPACING_LARGE + FLOATING_ACTION_HEIGHT + JOIN_BUTTON_GAP}px;
-  align-items: flex-end;
+/* The pair at the end of the index, side by side: the primary in ink with
+   the paper-coloured label, the way in with a link drawn as the same shape
+   with a hairline. Both 48 tall, radius 15, one gap between them. */
+const IndexActions = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
 `;
-
-const JoinButton = styled(PressableScale)`
-  align-self: flex-end;
+const NewSpaceButton = styled(PressableScale)`
+  flex: 1;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: ${JOIN_BUTTON_HEIGHT}px;
-  padding: 0px 18px;
-  border-radius: ${({ theme }) => theme.radii.pill}px;
+  min-height: 48px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  background-color: ${({ theme }) => theme.colors.text};
+`;
+const NewSpaceLabel = styled.Text`
+  color: ${({ theme }) => theme.colors.background};
+  font-size: ${({ theme }) => theme.type.label + 1}px;
+  font-weight: 800;
+`;
+const JoinButton = styled(PressableScale)`
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
+  border-radius: ${({ theme }) => theme.radii.medium}px;
   border: 1px solid ${({ theme }) => theme.colors.border};
-  background-color: ${({ theme }) => theme.colors.card};
-  elevation: 2;
-  shadow-color: #1b1710;
-  shadow-opacity: ${({ theme }) => (theme.mode === 'dark' ? 0 : 0.07)};
-  shadow-radius: 10px;
-  shadow-offset: 0px 4px;
 `;
 const JoinButtonText = styled.Text`
-  color: ${({ theme }) => theme.colors.accentInk};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 800;
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.label + 1}px;
+  font-weight: 700;
 `;
 const GroupEmpty = styled.View`
   padding: ${({ theme }) => theme.spacing.medium}px 0px;
@@ -1520,4 +1871,5 @@ const AllDoneBanner = styled.View`
 const AllDoneText = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 500;
 `;
