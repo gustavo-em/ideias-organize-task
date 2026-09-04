@@ -13,11 +13,14 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import Svg, { Path } from 'react-native-svg';
 import styled from 'styled-components/native';
 
 import { brandGround } from '../theme/brandGround';
-import { ALUZA_BODY, ALUZA_SPARK, ALUZA_VIEW_BOX } from './AluzaSymbol';
+
+/** The mark in two layers, cut from the brand artwork: the letter opens first,
+ * and the rays only arrive once the three task rows have landed on them. */
+const LETTER = require('../../../assets/brand/aluza-mark-letter.png');
+const RAYS = require('../../../assets/brand/aluza-mark-rays.png');
 
 interface AppSplashProps {
   /** Held for later: the wipe already lands after everything the shell needs,
@@ -93,34 +96,41 @@ const MARK_SIZE = 176;
 
 /** Where the letter opens from: the middle of its bowl, not the middle of the
  * image. */
-const OPEN_AT = { x: 58 / FRAME, y: 96 / FRAME };
+const OPEN_AT = { x: 0.375, y: 0.534 };
 
-/** The three rows, in the order they arrive. Each one starts off to the left
- * as a 64pt task row and lands as a 26pt ray, rotated onto the mark. */
+/**
+ * The three rows, in the order they arrive. Each one starts off to the left as
+ * a task row and lands on a ray, rotated onto the mark.
+ *
+ * `at` is the centre of each ray, measured on the artwork itself rather than
+ * copied from the spec's frame — the rows have to land *on* the rays, and a
+ * few points off reads as three bars parked next to a mark. Redraw the mark
+ * and these have to be measured again.
+ */
 const ROWS = [
   {
-    from: { x: -182.7, y: 51.3 },
-    at: { x: 110.7, y: 4.7 },
-    angle: -80,
+    from: { x: -1.011, y: 0.214 },
+    at: { x: 0.668, y: 0.115 },
+    angle: -70,
     lead: 0,
   },
   {
-    from: { x: -211.4, y: 64.2 },
-    at: { x: 139.4, y: 21.8 },
-    angle: -36,
+    from: { x: -1.165, y: 0.263 },
+    at: { x: 0.833, y: 0.245 },
+    angle: -40,
     lead: 0.03,
   },
   {
-    from: { x: -219.2, y: 63.6 },
-    at: { x: 147.2, y: 52.4 },
-    angle: 6,
+    from: { x: -1.227, y: 0.265 },
+    at: { x: 0.9, y: 0.425 },
+    angle: -12,
     lead: 0.06,
   },
 ] as const;
 
 const ROW_HEIGHT = 9 / FRAME;
 const ROW_WIDTH_START = 64 / FRAME;
-const ROW_WIDTH_END = 26 / FRAME;
+const ROW_WIDTH_END = 32 / FRAME;
 
 /** One row: ink while it waits, light while it flies. */
 function Row({
@@ -176,8 +186,8 @@ function Row({
         [brandGround.tinta, '#FFFFFF'],
       ),
       transform: [
-        { translateX: (row.from.x / FRAME) * size * travel },
-        { translateY: (row.from.y / FRAME) * size * travel },
+        { translateX: row.from.x * size * travel },
+        { translateY: row.from.y * size * travel },
         {
           rotate: `${interpolate(
             t.value,
@@ -195,8 +205,8 @@ function Row({
     <RowBar
       style={[
         {
-          left: (row.at.x / FRAME) * size,
-          top: (row.at.y / FRAME) * size,
+          left: row.at.x * size - (ROW_WIDTH_END * size) / 2,
+          top: row.at.y * size - (ROW_HEIGHT * size) / 2,
           borderRadius: (5 / FRAME) * size,
         },
         style,
@@ -363,17 +373,13 @@ export function AppSplash({ onFinished }: AppSplashProps) {
         <Animated.View style={[{ width: size, height: size }, letterStyle]}>
           <Opening style={openStyle}>
             <Inside style={insideStyle}>
-              <Svg height={size} viewBox={ALUZA_VIEW_BOX} width={size}>
-                <Path d={ALUZA_BODY} fill={brandGround.tinta} />
-              </Svg>
+              <Art source={LETTER} style={{ width: size, height: size }} />
             </Inside>
           </Opening>
         </Animated.View>
 
         <Sparks pointerEvents="none" style={sparkStyle}>
-          <Svg height={size} viewBox={ALUZA_VIEW_BOX} width={size}>
-            <Path d={ALUZA_SPARK} fill="#FFFFFF" fillRule="evenodd" />
-          </Svg>
+          <Art source={RAYS} style={{ width: size, height: size }} />
         </Sparks>
 
         {ROWS.map((_, index) => (
@@ -409,6 +415,10 @@ const Opening = styled(Animated.View)`
 
 const Inside = styled(Animated.View)`
   position: absolute;
+`;
+
+const Art = styled.Image`
+  resize-mode: contain;
 `;
 
 const Sparks = styled(Animated.View)`

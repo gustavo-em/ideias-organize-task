@@ -9,5 +9,5 @@
     <!-- The launcher icon keeps its light background in both appearances. -->
     <!-- O chão do ícone é o Sol da marca: tocar no ícone e ver a splash
          tem de ser o mesmo gesto continuando. -->
-    <color name="brand_icon_background">#FFC63D</color>
+    <color name="brand_icon_background">#FAA805</color>
 </resources>
