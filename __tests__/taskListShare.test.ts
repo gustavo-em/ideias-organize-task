@@ -89,6 +89,22 @@ describe('shared project rules', () => {
     expect(parseInviteToken('not a token at all!!')).toBeNull();
   });
 
+  it('reads the token out of the address people actually receive', () => {
+    // The link is a real https address now, so it survives being tapped in a
+    // message instead of copied out of one. Everything that used to be
+    // accepted still is: an old link, or the bare token by itself.
+    expect(
+      parseInviteToken('https://ideiasorganizetask.web.app/e/7k2xazjm'),
+    ).toBe('7k2xazjm');
+    expect(parseInviteToken('https://aluza.app/e/7k2xazjm')).toBe('7k2xazjm');
+    expect(parseInviteToken(' https://aluza.app/e/7k2xazjm?s=whatsapp ')).toBe(
+      '7k2xazjm',
+    );
+    expect(parseInviteToken('ideias.app/p/7k2xazjm')).toBe('7k2xazjm');
+    expect(parseInviteToken('7k2xazjm')).toBe('7k2xazjm');
+    expect(parseInviteToken('https://aluza.app/e/')).toBeNull();
+  });
+
   it('sanitizes a stored share, and drops one on the inbox', () => {
     const lists = sanitizeLists([
       {

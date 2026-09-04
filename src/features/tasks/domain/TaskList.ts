@@ -59,11 +59,22 @@ export interface TaskList {
   share?: ListShare;
 }
 
-/** The link a person pastes into "Entrar com convite". */
-export const SHARE_LINK_HOST = 'ideias.app/p/';
-
+/**
+ * Where an invite link points.
+ *
+ * A real address, on Firebase Hosting, because the link has three jobs and the
+ * old bare `ideias.app/p/…` did none of them: a phone with the app installed
+ * opens it straight into the invite, a phone without it lands on a page that
+ * shows what the space is, and either way it is something a person can tap in
+ * a message instead of copy out of it.
+ *
+ * Swap the host for `aluza.app` once the domain is added to Hosting — the path
+ * stays, so links already sent keep working.
+ */
+export const SHARE_LINK_ORIGIN = 'https://ideiasorganizetask.web.app';
+export const SHARE_LINK_PATH = '/e/';
 export function buildInviteLink(token: string): string {
-  return `${SHARE_LINK_HOST}${token}`;
+  return `${SHARE_LINK_ORIGIN}${SHARE_LINK_PATH}${token}`;
 }
 
 /** Accepts a bare token or a full link and reads the token out of it. Never

@@ -32,6 +32,18 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- Convite por link. `autoVerify` faz o Android buscar
+             /.well-known/assetlinks.json no domínio: com a impressão digital
+             certa lá, o link abre o app direto, sem a folha de escolha. -->
+        <intent-filter android:autoVerify="true">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data
+              android:scheme="https"
+              android:host="ideiasorganizetask.web.app"
+              android:pathPrefix="/e/" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>

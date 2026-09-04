@@ -6,5 +6,12 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- Convite por link. O domínio serve /.well-known/apple-app-site-association,
+	     e é ele que faz o iOS abrir o app em vez do navegador. Trocar para
+	     applinks:aluza.app quando o domínio próprio estiver no Hosting. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:ideiasorganizetask.web.app</string>
+	</array>
 </dict>
 </plist>
