@@ -13,14 +13,53 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 import styled from 'styled-components/native';
 
 import { brandGround } from '../theme/brandGround';
+import {
+  ALUZA_MARK_LETTER_PATH,
+  ALUZA_MARK_OPEN_AT,
+  ALUZA_MARK_RAY_CENTERS,
+  ALUZA_MARK_RAY_PATHS,
+  ALUZA_MARK_VIEWBOX,
+} from './AluzaMark.generated';
 
-/** The mark in two layers, cut from the brand artwork: the letter opens first,
- * and the rays only arrive once the three task rows have landed on them. */
-const LETTER = require('../../../assets/brand/aluza-mark-letter.png');
-const RAYS = require('../../../assets/brand/aluza-mark-rays.png');
+/**
+ * The mark in two layers: the letter opens first, and the rays only arrive
+ * once the three task rows have landed on them.
+ *
+ * Both are paths, not pictures. It is not only about edges at high density —
+ * the opening needs the two halves apart, and it needs to know where each ray
+ * actually is. Those centres come out of the same generated file as the paths,
+ * measured off the geometry, so redrawing the mark moves the landings with it
+ * instead of leaving three bars parked next to it.
+ */
+function Letter({ size }: { size: number }) {
+  return (
+    <Svg height={size} viewBox={ALUZA_MARK_VIEWBOX} width={size}>
+      {/* Even-odd, or the bowl is not a hole: the letter is one path with two
+          contours, and the default rule adds them together into a blob. */}
+      <Path
+        d={ALUZA_MARK_LETTER_PATH}
+        fill={brandGround.onSol}
+        fillRule="evenodd"
+      />
+    </Svg>
+  );
+}
+
+/** White, because on Sol the light has to read as light rather than as a
+ * second yellow on a yellow floor — the same paint as the store icon. */
+function Rays({ size }: { size: number }) {
+  return (
+    <Svg height={size} viewBox={ALUZA_MARK_VIEWBOX} width={size}>
+      {ALUZA_MARK_RAY_PATHS.map((d, index) => (
+        <Path d={d} fill={brandGround.card} key={index} />
+      ))}
+    </Svg>
+  );
+}
 
 interface AppSplashProps {
   /** Held for later: the wipe already lands after everything the shell needs,
@@ -95,34 +134,33 @@ const FRAME = 176;
 const MARK_SIZE = 176;
 
 /** Where the letter opens from: the middle of its bowl, not the middle of the
- * image. */
-const OPEN_AT = { x: 0.375, y: 0.534 };
+ * image. Measured off the geometry, with the rays. */
+const OPEN_AT = ALUZA_MARK_OPEN_AT;
 
 /**
  * The three rows, in the order they arrive. Each one starts off to the left as
  * a task row and lands on a ray, rotated onto the mark.
  *
- * `at` is the centre of each ray, measured on the artwork itself rather than
- * copied from the spec's frame — the rows have to land *on* the rays, and a
- * few points off reads as three bars parked next to a mark. Redraw the mark
- * and these have to be measured again.
+ * Where they land is not written here: it comes from the mark's own geometry,
+ * so a redrawn mark moves the landings with it. Hand-measured centres were
+ * right for exactly one drawing and silently wrong for the next.
  */
 const ROWS = [
   {
     from: { x: -1.011, y: 0.214 },
-    at: { x: 0.668, y: 0.115 },
+    at: ALUZA_MARK_RAY_CENTERS[0],
     angle: -70,
     lead: 0,
   },
   {
     from: { x: -1.165, y: 0.263 },
-    at: { x: 0.833, y: 0.245 },
+    at: ALUZA_MARK_RAY_CENTERS[1],
     angle: -40,
     lead: 0.03,
   },
   {
     from: { x: -1.227, y: 0.265 },
-    at: { x: 0.9, y: 0.425 },
+    at: ALUZA_MARK_RAY_CENTERS[2],
     angle: -12,
     lead: 0.06,
   },
@@ -257,7 +295,7 @@ export function AppSplash({ onFinished }: AppSplashProps) {
       t.value = 0.62;
       t.value = withTiming(
         1,
-        { duration: 360, easing: Easing.linear },
+        { duration: SPLASH_TIMING.reduced, easing: Easing.linear },
         done2 => {
           if (done2 === true) runOnJS(done)();
         },
@@ -373,13 +411,13 @@ export function AppSplash({ onFinished }: AppSplashProps) {
         <Animated.View style={[{ width: size, height: size }, letterStyle]}>
           <Opening style={openStyle}>
             <Inside style={insideStyle}>
-              <Art source={LETTER} style={{ width: size, height: size }} />
+              <Letter size={size} />
             </Inside>
           </Opening>
         </Animated.View>
 
         <Sparks pointerEvents="none" style={sparkStyle}>
-          <Art source={RAYS} style={{ width: size, height: size }} />
+          <Rays size={size} />
         </Sparks>
 
         {ROWS.map((_, index) => (
@@ -415,10 +453,6 @@ const Opening = styled(Animated.View)`
 
 const Inside = styled(Animated.View)`
   position: absolute;
-`;
-
-const Art = styled.Image`
-  resize-mode: contain;
 `;
 
 const Sparks = styled(Animated.View)`

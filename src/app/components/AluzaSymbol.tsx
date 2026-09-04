@@ -5,12 +5,14 @@ import { Image } from 'react-native';
  *
  * One file per ground rather than one file recoloured: the mark is two colours
  * — ink and light — and an `Image` tint would flatten both into a single
- * silhouette. The three cuts come from the same artwork, so they cannot drift
- * apart.
+ * silhouette. The three cuts are composed from the same two layers, so they
+ * cannot drift apart.
  *
- * It used to be drawn from the kit's SVG paths, which was sharper at 32dp; the
- * mark was redrawn and the vector of it is not in the repository, so the cuts
- * are made from the 512px artwork instead. Swap in an SVG here if one arrives.
+ * They are rasters because the mark itself is one. The drawing the app ships
+ * arrived as a 512px export; the vector kit in `assets/brand` is an older
+ * drawing of the same letter, and so is everything in
+ * `AluzaArtwork.generated.ts`. If a real vector of this mark ever arrives,
+ * feed it to `scripts/generate-aluza-brand.py` and this can go back to paths.
  *
  * `AppMark` still ships the PNG lockup used by the store; this is the symbol
  * alone, for the brand screens.
