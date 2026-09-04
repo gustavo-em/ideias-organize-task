@@ -1,49 +1,25 @@
 /**
- * The two pages of the first-run walk-through, in order.
+ * The three pages of the first-run walk-through, in order.
  *
- * Each page holds a single still — a real screenshot of this app, captured on
- * a device — so what the walk-through shows is the product itself and not an
- * illustration of it. The couple's page loops through planning together;
- * the spaces page loops through three moments of a "Churras de sábado";
- * then the invite sheet, link ready to send.
+ * Each page holds a cut-out of the product built in React Native — the real
+ * components, held still — instead of a screenshot of it. Two reasons the
+ * stills went away: a PNG captured on one device is the wrong width on every
+ * other one, and a screen captured in Portuguese stayed Portuguese under
+ * English words.
+ *
+ * The ground alternates Sol → Tinta → Sol. It is the walk-through's own floor,
+ * not the theme's: these pages look the same whether the phone is set to light
+ * or dark, because they are the same picture for everybody.
  */
-import type { ImageSourcePropType } from 'react-native';
+import type { BrandGround } from '../../theme/brandGround';
 
-export interface OnboardingSlide {
-  id: 'couple' | 'spaces' | 'invite';
-  /** Width over height of the artwork, so the stage takes the frame's own
-   * proportions instead of leaving a letterbox under it. */
-  aspect: number;
-  still: ImageSourcePropType;
-  /** Present on the page that plays: a quiet loop of stills of the product,
-   * starting on `still`. */
-  frames?: readonly ImageSourcePropType[];
+export interface OnboardingStep {
+  id: 'space' | 'day' | 'invite';
+  ground: BrandGround;
 }
 
-export const onboardingSlides: readonly OnboardingSlide[] = [
-  {
-    id: 'couple',
-    aspect: 1080 / 2127,
-    still: require('../../../../assets/onboarding/couple-01.png'),
-    frames: [
-      require('../../../../assets/onboarding/couple-01.png'),
-      require('../../../../assets/onboarding/couple-02.png'),
-      require('../../../../assets/onboarding/couple-03.png'),
-    ],
-  },
-  {
-    id: 'spaces',
-    aspect: 1080 / 2127,
-    still: require('../../../../assets/onboarding/spaces-01.png'),
-    frames: [
-      require('../../../../assets/onboarding/spaces-01.png'),
-      require('../../../../assets/onboarding/spaces-02.png'),
-      require('../../../../assets/onboarding/spaces-03.png'),
-    ],
-  },
-  {
-    id: 'invite',
-    aspect: 1080 / 2127,
-    still: require('../../../../assets/onboarding/step-convite.png'),
-  },
+export const onboardingSteps: readonly OnboardingStep[] = [
+  { id: 'space', ground: 'sol' },
+  { id: 'day', ground: 'tinta' },
+  { id: 'invite', ground: 'sol' },
 ];

@@ -2,7 +2,7 @@ import { act, create, type ReactTestInstance } from 'react-test-renderer';
 import { ThemeProvider } from 'styled-components/native';
 
 import { OnboardingScreen } from '../src/app/components/OnboardingScreen';
-import { onboardingSlides } from '../src/app/components/onboarding/onboardingSteps';
+import { onboardingSteps } from '../src/app/components/onboarding/onboardingSteps';
 import { lightTheme } from '../src/app/theme/theme';
 import { getTaskCopy } from '../src/features/tasks/presentation/localization/taskCopy';
 
@@ -38,19 +38,20 @@ function press(node: ReactTestInstance) {
 }
 
 describe('first-run walk-through', () => {
-  it('shows two pages of product stills and ends on the invite step', () => {
+  it('shows three cut-outs of the product and ends on the invite step', () => {
     const onFinish = jest.fn();
     const tree = renderOnboarding(onFinish);
 
-    expect(onboardingSlides).toHaveLength(3);
+    expect(onboardingSteps).toHaveLength(3);
     expect(getTaskCopy('pt-BR').onboarding.steps).toHaveLength(3);
     expect(getTaskCopy('en-US').onboarding.steps).toHaveLength(3);
-    // Every page is a still of the app itself: no placeholder mark anywhere.
-    onboardingSlides.forEach(slide => {
-      const stills = tree.root.findAllByProps({
-        testID: `onboarding-demo-${slide.id}`,
+    // Every page shows a piece of the app itself: no placeholder mark
+    // anywhere, and all three stay mounted so the pager can slide.
+    onboardingSteps.forEach(page => {
+      const cutouts = tree.root.findAllByProps({
+        testID: `onboarding-demo-${page.id}`,
       });
-      expect(stills.length).toBeGreaterThan(0);
+      expect(cutouts.length).toBeGreaterThan(0);
     });
     expect(
       tree.root.findAllByProps({ testID: 'onboarding-dot-1' }).length,
@@ -74,33 +75,43 @@ describe('first-run walk-through', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('keeps each still in its own proportions', () => {
-    // The stage height comes from the frame's aspect, never from stretching
-    // the artwork: a wrong ratio here letterboxes or crops the product shot.
-    onboardingSlides.forEach(slide => {
-      expect(slide.aspect).toBeGreaterThan(0.4);
-      expect(slide.aspect).toBeLessThan(2);
-    });
-    expect(onboardingSlides[0].id).toBe('couple');
-    expect(onboardingSlides[1].id).toBe('spaces');
-    expect(onboardingSlides[2].id).toBe('invite');
-    // The couple and spaces pages play, from at least three moments of the
-    // product each; the invite holds still.
-    expect(onboardingSlides[0].frames?.length).toBeGreaterThanOrEqual(3);
-    expect(onboardingSlides[1].frames?.length).toBeGreaterThanOrEqual(3);
-    expect(onboardingSlides[2].frames).toBeUndefined();
+  it('alternates the brand ground and closes on the yellow one', () => {
+    // Sol → Tinta → Sol. The middle page inverts so the shared-day card is
+    // the brightest thing on screen; the invite comes back to the ground the
+    // walk-through opened on.
+    expect(onboardingSteps.map(page => page.id)).toEqual([
+      'space',
+      'day',
+      'invite',
+    ]);
+    expect(onboardingSteps.map(page => page.ground)).toEqual([
+      'sol',
+      'tinta',
+      'sol',
+    ]);
   });
 
   it('asks for the invite in both languages, without naming a single kind of bond', () => {
     (['pt-BR', 'en-US'] as const).forEach(language => {
-      const copy = getTaskCopy(language);
-      const step = copy.onboarding.steps[2];
+      const { onboarding } = getTaskCopy(language);
 
-      expect(copy.onboarding.invite.action.length).toBeGreaterThan(0);
-      expect(copy.onboarding.invite.later.length).toBeGreaterThan(0);
-      expect(step.body).toMatch(/família|family/i);
-      expect(step.body).toMatch(/amigos|friends/i);
-      expect(step.body).not.toMatch(/namorad|girlfriend|boyfriend/i);
+      expect(onboarding.invite.action.length).toBeGreaterThan(0);
+      expect(onboarding.invite.later.length).toBeGreaterThan(0);
+      // The space holds a household, a trip, a group of friends: the ask
+      // never narrows it to one kind of bond. `taskCopy.test.ts` holds the
+      // same guard over every string; this one keeps it on the sentence the
+      // walk-through ends with.
+      const words = [
+        ...onboarding.steps.flatMap(step => [step.title, step.body]),
+        onboarding.invite.action,
+        onboarding.invite.later,
+        onboarding.invite.noteLead,
+        onboarding.invite.noteTail,
+      ].join(' ');
+
+      expect(words).not.toMatch(
+        /parceir|c[ôo]njuge|casal|namorad|partner|spouse/i,
+      );
     });
   });
 
@@ -134,14 +145,23 @@ describe('first-run walk-through', () => {
     expect(dot.props.$active).toBe(true);
   });
 
-  it('leaves skip on screen at every step', () => {
+  it('sends skip to the invite step instead of out of the walk-through', () => {
+    // Skipping is not answering. The invite is the one question the
+    // walk-through exists to ask, so every exit runs through it.
     const onFinish = jest.fn();
     const tree = renderOnboarding(onFinish);
 
-    const skip = tree.root.findByProps({ testID: 'onboarding-skip' });
-    press(skip);
+    press(tree.root.findByProps({ testID: 'onboarding-skip' }));
 
-    expect(onFinish).toHaveBeenCalledTimes(1);
-    expect(onFinish).toHaveBeenCalledWith('later');
+    expect(onFinish).not.toHaveBeenCalled();
+    expect(
+      tree.root.findAllByProps({ testID: 'onboarding-next' }),
+    ).toHaveLength(0);
+    expect(
+      tree.root.findAllByProps({ testID: 'onboarding-skip' }),
+    ).toHaveLength(0);
+    expect(
+      tree.root.findAllByProps({ testID: 'onboarding-invite' }).length,
+    ).toBeGreaterThan(0);
   });
 });
