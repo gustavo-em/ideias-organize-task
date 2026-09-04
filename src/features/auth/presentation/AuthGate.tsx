@@ -3,28 +3,37 @@ import { BackHandler } from 'react-native';
 
 import { AnonymousNameScreen } from './screens/AnonymousNameScreen';
 import type { AuthCopy } from './localization/authCopy';
+import type { CutoutDemo } from '../../../app/components/onboarding/cutouts';
+import { EntranceScreen } from './screens/EntranceScreen';
 import { ForgotPasswordScreen } from './screens/ForgotPasswordScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { SignUpScreen } from './screens/SignUpScreen';
 import type { AuthViewModel } from './view-models/useAuthViewModel';
 
-type AuthStage = 'login' | 'signUp' | 'forgot' | 'anonymous';
+type AuthStage = 'entrance' | 'login' | 'signUp' | 'forgot' | 'anonymous';
 
 interface AuthGateProps {
   auth: AuthViewModel;
   copy: AuthCopy;
+  /** The words inside the entrance's cut-out, from the app's dictionary: the
+   * fake screen there shows the same space the walk-through does. */
+  demo: CutoutDemo;
   /** Called once, right after mount: signed-out screens have nothing else to
    * wait on, so the shell's splash can finish as soon as this is on screen. */
   onReady: () => void;
 }
 
 /**
- * The three screens shown while nobody is signed in. A local stage instead
- * of a navigation library, matching how the shell already swaps its four
- * tabs by state.
+ * The screens shown while nobody is signed in. A local stage instead of a
+ * navigation library, matching how the shell already swaps its four tabs by
+ * state.
+ *
+ * The entrance is the ground floor: it sells before it asks, and every other
+ * screen here is something it opens. Back — the gesture on Android, the link
+ * on iOS — always returns to it.
  */
-export function AuthGate({ auth, copy, onReady }: AuthGateProps) {
-  const [stage, setStage] = useState<AuthStage>('login');
+export function AuthGate({ auth, copy, demo, onReady }: AuthGateProps) {
+  const [stage, setStage] = useState<AuthStage>('entrance');
 
   useEffect(() => {
     onReady();
@@ -33,14 +42,15 @@ export function AuthGate({ auth, copy, onReady }: AuthGateProps) {
   }, []);
 
   useEffect(() => {
-    if (stage === 'login') return undefined;
+    if (stage === 'entrance') return undefined;
 
-    // Android back closes the sub-screen instead of the app while inside
-    // sign-up or recovery; from login itself, back keeps its default exit.
+    // Android back closes the sub-screen instead of the app while inside the
+    // email form, sign-up or recovery; from the entrance itself, back keeps
+    // its default exit.
     const subscription = BackHandler.addEventListener(
       'hardwareBackPress',
       () => {
-        setStage('login');
+        setStage('entrance');
         return true;
       },
     );
@@ -59,6 +69,21 @@ export function AuthGate({ auth, copy, onReady }: AuthGateProps) {
   useEffect(() => {
     resetProviderErrors();
   }, [resetProviderErrors, stage]);
+
+  if (stage === 'entrance') {
+    return (
+      <EntranceScreen
+        appleState={auth.apple}
+        copy={copy}
+        demo={demo}
+        googleState={auth.google}
+        onApple={auth.signInWithApple}
+        onEmail={() => setStage('login')}
+        onGoogle={auth.signInWithGoogle}
+        onGuest={() => setStage('anonymous')}
+      />
+    );
+  }
 
   if (stage === 'signUp') {
     return (
@@ -87,7 +112,9 @@ export function AuthGate({ auth, copy, onReady }: AuthGateProps) {
     return (
       <AnonymousNameScreen
         copy={copy}
-        onBackToLogin={() => setStage('login')}
+        // Reached from the entrance, not from the email form: back goes where
+        // it came from.
+        onBackToLogin={() => setStage('entrance')}
         onSubmit={displayName => auth.signInAnonymously(displayName)}
         state={auth.anonymous}
       />
@@ -100,11 +127,13 @@ export function AuthGate({ auth, copy, onReady }: AuthGateProps) {
       copy={copy}
       googleState={auth.google}
       onApple={auth.signInWithApple}
+      onBack={() => setStage('entrance')}
       onContinueWithName={() => setStage('anonymous')}
       onForgotPassword={() => setStage('forgot')}
       onGoogle={auth.signInWithGoogle}
       onSignUp={() => setStage('signUp')}
       onSubmit={(email, password) => auth.signIn(email, password)}
+      showsProviders={false}
       state={auth.login}
     />
   );

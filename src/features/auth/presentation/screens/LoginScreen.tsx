@@ -26,6 +26,13 @@ interface LoginScreenProps {
   onGoogle: () => void;
   onApple: () => void;
   onContinueWithName: () => void;
+  /** Passed when this screen was opened from the entrance. Android's back
+   * gesture already returns there; this is the way out on iOS. */
+  onBack?: () => void;
+  /** The entrance already offers Google, Apple and the name-only way in, so
+   * the screen it opens does not repeat them. Left on for anything that still
+   * mounts this screen on its own. */
+  showsProviders?: boolean;
 }
 
 export function LoginScreen({
@@ -39,6 +46,8 @@ export function LoginScreen({
   onGoogle,
   onApple,
   onContinueWithName,
+  onBack,
+  showsProviders = true,
 }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -127,49 +136,64 @@ export function LoginScreen({
         testID="login-signup"
       />
 
-      <AuthDivider label={copy.login.divider} />
-
-      {googleState.status === 'error' && googleState.errorKind != null ? (
-        <AuthFormError
-          message={copy.errors[googleState.errorKind]}
-          onRetry={googleState.errorKind === 'network' ? onGoogle : undefined}
-          retryLabel={copy.retry}
-        />
-      ) : null}
-      {appleState.status === 'error' && appleState.errorKind != null ? (
-        <AuthFormError
-          message={copy.errors[appleState.errorKind]}
-          onRetry={appleState.errorKind === 'network' ? onApple : undefined}
-          retryLabel={copy.retry}
-        />
-      ) : null}
-
-      <SocialAuthButton
-        disabled={isBusy}
-        label={copy.login.google}
-        loading={isGoogleSubmitting}
-        onPress={onGoogle}
-        provider="google"
-        testID="login-google"
-      />
-      {/* Rendered only where it exists: on Android the button is absent from
-          the layout and from the focus order, not merely hidden. */}
-      {Platform.OS === 'ios' ? (
-        <SocialAuthButton
+      {onBack == null ? null : (
+        <AuthLink
           disabled={isBusy}
-          label={copy.login.apple}
-          loading={isAppleSubmitting}
-          onPress={onApple}
-          provider="apple"
-          testID="login-apple"
+          label={copy.entrance.back}
+          onPress={onBack}
+          testID="login-back"
         />
-      ) : null}
-      <SecondaryAuthButton
-        disabled={isBusy}
-        label={copy.login.anonymous}
-        onPress={onContinueWithName}
-        testID="login-anonymous"
-      />
+      )}
+
+      {!showsProviders ? null : (
+        <>
+          <AuthDivider label={copy.login.divider} />
+
+          {googleState.status === 'error' && googleState.errorKind != null ? (
+            <AuthFormError
+              message={copy.errors[googleState.errorKind]}
+              onRetry={
+                googleState.errorKind === 'network' ? onGoogle : undefined
+              }
+              retryLabel={copy.retry}
+            />
+          ) : null}
+          {appleState.status === 'error' && appleState.errorKind != null ? (
+            <AuthFormError
+              message={copy.errors[appleState.errorKind]}
+              onRetry={appleState.errorKind === 'network' ? onApple : undefined}
+              retryLabel={copy.retry}
+            />
+          ) : null}
+
+          <SocialAuthButton
+            disabled={isBusy}
+            label={copy.login.google}
+            loading={isGoogleSubmitting}
+            onPress={onGoogle}
+            provider="google"
+            testID="login-google"
+          />
+          {/* Rendered only where it exists: on Android the button is absent from
+          the layout and from the focus order, not merely hidden. */}
+          {Platform.OS === 'ios' ? (
+            <SocialAuthButton
+              disabled={isBusy}
+              label={copy.login.apple}
+              loading={isAppleSubmitting}
+              onPress={onApple}
+              provider="apple"
+              testID="login-apple"
+            />
+          ) : null}
+          <SecondaryAuthButton
+            disabled={isBusy}
+            label={copy.login.anonymous}
+            onPress={onContinueWithName}
+            testID="login-anonymous"
+          />
+        </>
+      )}
     </AuthScreenLayout>
   );
 }
