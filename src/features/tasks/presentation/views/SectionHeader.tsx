@@ -14,6 +14,9 @@ interface SectionHeaderProps {
   title: string;
   count: number;
   countLabel: string;
+  /** Printed instead of the bare number, for a section that holds two kinds of
+   * thing and has to say which — "2 grupos · 6 tarefas". */
+  countText?: string;
   icon?: ReactNode;
   collapsible: boolean;
   expanded: boolean;
@@ -29,6 +32,7 @@ export function SectionHeader({
   title,
   count,
   countLabel,
+  countText,
   icon,
   collapsible,
   expanded,
@@ -43,7 +47,7 @@ export function SectionHeader({
         {icon ?? null}
         <SectionTitle $emphasis={emphasis}>{title}</SectionTitle>
         <HeadingSpacer />
-        <SectionCount>{count}</SectionCount>
+        <SectionCount>{countText ?? count}</SectionCount>
         {collapsible ? <AnimatedChevron expanded={expanded} /> : null}
       </HeadingLine>
       <SectionRule />
@@ -51,7 +55,14 @@ export function SectionHeader({
   );
 
   if (!collapsible) {
-    return <StaticHeading>{content}</StaticHeading>;
+    return (
+      <StaticHeading
+        accessibilityLabel={`${title}, ${countLabel}`}
+        accessibilityRole="header"
+      >
+        {content}
+      </StaticHeading>
+    );
   }
 
   return (

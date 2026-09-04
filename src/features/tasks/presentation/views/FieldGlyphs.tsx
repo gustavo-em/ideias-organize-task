@@ -419,6 +419,49 @@ export function ProjectGlyph({
           />
         </>
       ) : null}
+      {icon === 'cake' ? (
+        <>
+          <Path
+            d="M2.6 8.6h10.8v4.2c0 .6-.5 1.1-1.1 1.1H3.7c-.6 0-1.1-.5-1.1-1.1z"
+            {...stroke}
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M2.6 10.9c1.08 0 1.08-.9 2.16-.9s1.08.9 2.16.9 1.08-.9 2.16-.9 1.08.9 2.16.9 1.08-.9 2.16-.9"
+            {...stroke}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M8 8.6V6.2M6.9 5 8 3.7 9.1 5"
+            {...stroke}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </>
+      ) : null}
+      {icon === 'gift' ? (
+        <>
+          <Rect height={2.6} rx={0.8} width={12} x={2} y={5} {...stroke} />
+          <Path
+            d="M3 7.6v5c0 .6.5 1 1 1h8c.6 0 1-.4 1-1v-5M8 5v8.6"
+            {...stroke}
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M8 5H6.3a1.5 1.5 0 1 1 0-3C7.4 2 8 3.5 8 5zm0 0h1.7a1.5 1.5 0 1 0 0-3C8.6 2 8 3.5 8 5z"
+            {...stroke}
+            strokeLinejoin="round"
+          />
+        </>
+      ) : null}
+      {icon === 'tools' ? (
+        <Path
+          d="M9.8 4.2a.67.67 0 0 0 0 .93l1.07 1.07a.67.67 0 0 0 .93 0l2.51-2.51a4 4 0 0 1-5.29 5.29l-4.61 4.61a1.41 1.41 0 0 1-2-2l4.61-4.61a4 4 0 0 1 5.29-5.29l-2.51 2.51z"
+          {...stroke}
+          strokeLinejoin="round"
+        />
+      ) : null}
       {icon === 'inbox' ? (
         <>
           <Path

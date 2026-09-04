@@ -53,6 +53,11 @@ export interface Task {
    * inside the project's `tasks` array — it is derived from the document's
    * `assignments` map, which is what the security rule can police. */
   assignedIds?: readonly string[];
+  /** Which group inside the space it belongs to, or null for a loose task.
+   * Absent on everything written before groups existed, which reads as loose.
+   * A group only ever lives in one space, so this never has to be read
+   * together with `listId` to know where the task is. */
+  groupId?: string | null;
   /** The steps inside it, at most one level deep. Empty for a task nobody
    * broke down, and empty for anything written before this existed. */
   subtasks: readonly Subtask[];
@@ -97,6 +102,11 @@ export function isCompleted(task: Task): boolean {
 /** Memory rather than work: a birthday, a bill that comes back every month. */
 export function isReminder(task: Task): boolean {
   return task.kind === 'reminder';
+}
+
+/** Loose in its space, rather than inside one of its groups. */
+export function isLoose(task: Task): boolean {
+  return task.groupId == null;
 }
 
 /**
@@ -307,6 +317,12 @@ export function sanitizeTasks(value: unknown): Task[] {
           ? candidate.completedBy
           : null,
       assignedIds: sanitizeAssignedIds(candidate.assignedIds),
+      groupId:
+        kind === 'reminder' ||
+        typeof candidate.groupId !== 'string' ||
+        candidate.groupId.length === 0
+          ? null
+          : candidate.groupId,
       // Absent on everything written before subtasks existed, which is not a
       // reason to drop the task: it simply has no steps.
       subtasks: kind === 'reminder' ? [] : sanitizeSubtasks(candidate.subtasks),

@@ -30,6 +30,14 @@ import {
   wasListCreated,
 } from '../../application/useCases/manageTaskList';
 import {
+  createTaskGroup,
+  deleteTaskGroup,
+  editTaskGroup,
+  groupsOf,
+  moveTaskToGroup,
+  type TaskGroupDraft,
+} from '../../application/useCases/manageTaskGroup';
+import {
   commitTaskToDay,
   planDay,
   reshuffleDay,
@@ -39,6 +47,7 @@ import {
   applyRemoteList,
   leaveSharedList,
   removeMember as removeShareMemberUseCase,
+  renameMemberIdentity,
   setTaskAssignment,
   shareTaskList,
   stopSharing,
@@ -81,7 +90,11 @@ import {
   type ListRole,
   type TaskList,
 } from '../../domain/TaskList';
-import type { TaskEventBus, UseCaseResult } from '../../domain/TaskEvent';
+import type {
+  CaptureOrigin,
+  TaskEventBus,
+  UseCaseResult,
+} from '../../domain/TaskEvent';
 import {
   backlogCount,
   DEFAULT_DAY_CAPACITY,
@@ -356,19 +369,11 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
 
       // The copy on this device is fixed straight away, so the members list
       // stops showing a name derived before the profile existed even while
-      // the network call is still on its way.
+      // the network call is still on its way. Repairing a name is not sharing
+      // a project: `renameMemberIdentity` says only that, so the haptic and
+      // the telemetry hear nothing.
       run(
-        shareTaskList(
-          current.current,
-          list.id,
-          {
-            ...share,
-            members: share.members.map(member =>
-              member.personId === identity.personId ? renamed : member,
-            ),
-          },
-          clock.now(),
-        ),
+        renameMemberIdentity(current.current, list.id, renamed, clock.now()),
       );
 
       shareGateway.updateMemberIdentity(share, renamed).catch(() => {
@@ -412,14 +417,21 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
   }, [clock, dayCapacity, dayMs, restored, run]);
 
   const capture = useCallback(
-    (typed: string, overrides?: CaptureOverrides, tookMs?: number | null) => {
+    (
+      typed: string,
+      overrides?: CaptureOverrides,
+      tookMs?: number | null,
+      /** Which screen opened the sheet. Telemetry only: the task itself is the
+       * same wherever it was written. */
+      origin?: CaptureOrigin | null,
+    ) => {
       const now = clock.now();
 
       run(
         captureTask(
           current.current,
           typed,
-          { nowMs: now, createId, tookMs },
+          { nowMs: now, createId, tookMs, origin },
           overrides,
         ),
       );
@@ -530,6 +542,64 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     [clock, run],
   );
 
+  // The reasons inside a space. They follow the same road a space does: a use
+  // case returns the next workspace, `run` publishes it, and persistence and
+  // the upstream push are reactions to that — the screen never saves anything
+  // itself.
+  const createGroup = useCallback(
+    (listId: string, draft: TaskGroupDraft) => {
+      const listBefore = findListById(current.current.lists, listId);
+      const before = new Set(
+        (listBefore == null ? [] : groupsOf(listBefore)).map(group => group.id),
+      );
+      const result = createTaskGroup(
+        current.current,
+        listId,
+        draft,
+        clock.now(),
+        createId,
+      );
+      const listAfter = findListById(result.workspace.lists, listId);
+      const created =
+        (listAfter == null ? [] : groupsOf(listAfter)).find(
+          group => !before.has(group.id),
+        ) ?? null;
+
+      run(result);
+      return created;
+    },
+    [clock, run],
+  );
+
+  const editGroup = useCallback(
+    (listId: string, groupId: string, draft: Partial<TaskGroupDraft>) => {
+      const result = editTaskGroup(
+        current.current,
+        listId,
+        groupId,
+        draft,
+        clock.now(),
+      );
+      const changed = result.events.length > 0;
+
+      run(result);
+      return changed;
+    },
+    [clock, run],
+  );
+
+  const deleteGroup = useCallback(
+    (listId: string, groupId: string) =>
+      run(deleteTaskGroup(current.current, listId, groupId, clock.now())),
+    [clock, run],
+  );
+
+  const moveToGroup = useCallback(
+    (taskId: string, groupId: string | null) =>
+      run(moveTaskToGroup(current.current, taskId, groupId, clock.now())),
+    [clock, run],
+  );
+
   function errorKindOf(error: unknown): ShareErrorKind {
     return error instanceof ShareOperationError ? error.kind : 'unknown';
   }
@@ -579,14 +649,21 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     [clock, run],
   );
 
+  /**
+   * Copy and Invite put the same thing out: the invite message, not a bare
+   * URL. Pasted into WhatsApp a lone link says nothing about which space it
+   * opens, and if it fails to open there is nothing left to fall back on —
+   * so the caller composes the message around the link, and the code in it.
+   */
   const copyShareLink = useCallback(
-    (token: string) => clipboard.copy(buildInviteLink(token)),
+    (token: string, compose: (link: string) => string) =>
+      clipboard.copy(compose(buildInviteLink(token))),
     [clipboard],
   );
 
   const inviteToShareLink = useCallback(
-    (token: string, message: string) =>
-      clipboard.share(buildInviteLink(token), message),
+    (token: string, compose: (link: string) => string) =>
+      clipboard.share(compose(buildInviteLink(token))),
     [clipboard],
   );
 
@@ -1072,6 +1149,10 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
     createList,
     renameList,
     deleteList,
+    createGroup,
+    editGroup,
+    deleteGroup,
+    moveToGroup,
     identity,
     shareStatus,
     shareErrorKind,
