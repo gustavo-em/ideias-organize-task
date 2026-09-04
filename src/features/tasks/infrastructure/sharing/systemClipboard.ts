@@ -20,9 +20,9 @@ export const systemClipboard: Clipboard = {
       return '';
     }
   },
-  async share(value, message) {
+  async share(message) {
     try {
-      await Share.share({ message: `${message} ${value}` });
+      await Share.share({ message });
     } catch {
       // The system sheet was dismissed or unavailable; the link is already
       // on the screen and copyable, so there is nothing more to do here.

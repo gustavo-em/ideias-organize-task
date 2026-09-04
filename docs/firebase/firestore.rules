@@ -119,7 +119,7 @@ service cloud.firestore {
       // nunca quem está no projeto.
       function isContentUpdate() {
         return canEditContent() &&
-          onlyChanges(['name', 'color', 'icon', 'tasks', 'updatedAtMs']);
+          onlyChanges(['name', 'color', 'icon', 'groups', 'tasks', 'updatedAtMs']);
       }
 
       // Criar link, revogar, mudar papel de convite e remover membro:
@@ -152,6 +152,31 @@ service cloud.firestore {
           request.resource.data.editorIds.hasAll(resource.data.editorIds) &&
           request.resource.data.editorIds
             .removeAll(resource.data.editorIds)
+            .hasOnly([request.auth.uid]);
+      }
+
+      // Sair do projeto: o inverso exato de `isJoining`. Só o próprio uid
+      // sai, `memberIds` encolhe em um, e o único id que `editorIds` pode
+      // perder é o de quem está saindo — ninguém remove outra pessoa por
+      // aqui, e nenhum campo de conteúdo muda junto. É o que permite tanto
+      // "Sair do espaço" quanto a exclusão de conta apagarem a linha de quem
+      // não administra o projeto; sem isto, `isMembershipUpdate` (só do dono)
+      // deixava a pessoa presa na lista alheia para sempre.
+      //
+      // O dono não sai por aqui: um projeto sem dono não teria mais ninguém
+      // capaz de mexer em membros. Ele apaga o projeto (`allow delete`).
+      function isLeaving() {
+        return request.auth != null &&
+          request.auth.uid != resource.data.ownerId &&
+          request.auth.uid in resource.data.memberIds &&
+          !(request.auth.uid in request.resource.data.memberIds) &&
+          onlyChanges(['members', 'memberIds', 'editorIds']) &&
+          request.resource.data.memberIds.size() ==
+            resource.data.memberIds.size() - 1 &&
+          resource.data.memberIds.hasAll(request.resource.data.memberIds) &&
+          resource.data.editorIds.hasAll(request.resource.data.editorIds) &&
+          resource.data.editorIds
+            .removeAll(request.resource.data.editorIds)
             .hasOnly([request.auth.uid]);
       }
 
@@ -199,7 +224,7 @@ service cloud.firestore {
         request.auth.uid in request.resource.data.memberIds &&
         request.auth.uid == request.resource.data.ownerId;
       allow update: if isContentUpdate() || isMembershipUpdate() ||
-        isJoining() || isMemberIdentityUpdate() ||
+        isJoining() || isLeaving() || isMemberIdentityUpdate() ||
         isOwnerAssignmentUpdate() || isSelfAssignmentUpdate();
       allow delete: if isOwner();
 

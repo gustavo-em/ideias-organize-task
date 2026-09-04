@@ -9,6 +9,7 @@ import {
   withAssignments,
 } from '../../domain/TaskAssignment';
 import { ShareOperationError } from '../../domain/ShareError';
+import { sanitizeGroups } from '../../domain/TaskGroup';
 import {
   isAddressLikeName,
   listColors,
@@ -51,6 +52,10 @@ function taskToRecord(task: Task): Record<string, unknown> {
     id: task.id,
     title: task.title,
     priority: task.priority,
+    // Which group inside the space it belongs to. Written for everybody: a
+    // group is the space's, not one device's, and a member pulling a task
+    // without this would put it back on the space's floor.
+    groupId: task.groupId ?? null,
     dueAtMs: task.dueAtMs,
     estimatedMinutes: task.estimatedMinutes,
     createdAtMs: task.createdAtMs,
@@ -149,6 +154,17 @@ function documentToProject(
     color: asListColor(fields.color),
     icon: asProjectIcon(fields.icon),
     share,
+    // The groups of a shared space travel with it: a birthday everyone is
+    // organising is not one person's block. They are read as untrusted input
+    // by the domain, the same way the tasks below are.
+    //
+    // Absent — not empty — means the document was written by a client from
+    // before groups existed. The two are kept apart on purpose: reading "no
+    // field" as "no groups" would let one old phone's pull delete a birthday
+    // everybody else can see.
+    groups: Array.isArray(fields.groups)
+      ? sanitizeGroups(fields.groups, originId)
+      : undefined,
   };
 
   // Assignment lives in its own top-level map, keyed by uid, and is folded
@@ -245,6 +261,7 @@ export const firestoreShareGateway: ShareGateway = {
         name: list.name,
         color: list.color,
         icon: list.icon,
+        groups: list.groups ?? [],
         invitedAs,
         members: [owner],
         memberIds: [owner.personId],
@@ -402,7 +419,7 @@ export const firestoreShareGateway: ShareGateway = {
   async push(share, list, tasks) {
     await firestoreDocument(`${COLLECTION}/${share.token}`, {
       method: 'PATCH',
-      updateMask: ['name', 'color', 'icon', 'tasks', 'updatedAtMs'],
+      updateMask: ['name', 'color', 'icon', 'groups', 'tasks', 'updatedAtMs'],
       fields: {
         name: list.name,
         color: list.color,

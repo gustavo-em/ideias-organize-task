@@ -1,4 +1,5 @@
 import {
+  buildInviteLink,
   canEdit,
   canShare,
   isShared,
@@ -9,6 +10,7 @@ import {
   withoutMember,
   type TaskList,
 } from '../src/features/tasks/domain/TaskList';
+import { getTaskCopy } from '../src/features/tasks/presentation/localization/taskCopy';
 
 const owner = {
   personId: 'p-1',
@@ -103,6 +105,36 @@ describe('shared project rules', () => {
     expect(parseInviteToken('ideias.app/p/7k2xazjm')).toBe('7k2xazjm');
     expect(parseInviteToken('7k2xazjm')).toBe('7k2xazjm');
     expect(parseInviteToken('https://aluza.app/e/')).toBeNull();
+  });
+
+  it('reads the token out of the whole invite message, pasted as received', () => {
+    // Nobody selects the URL out of a WhatsApp bubble: they long-press the
+    // message and copy all of it. The paste that reaches the join sheet is
+    // the message, and it has to join the space just the same.
+    const message = getTaskCopy('pt-BR').lists.inviteMessage({
+      name: 'Lançamento',
+      canEdit: true,
+      link: buildInviteLink('7k2xazjm'),
+      token: '7k2xazjm',
+    });
+
+    expect(message).toContain('Lançamento');
+    expect(message).toContain('7k2xazjm');
+    expect(parseInviteToken(message)).toBe('7k2xazjm');
+    expect(
+      parseInviteToken(
+        getTaskCopy('en-US').lists.inviteMessage({
+          name: 'Launch',
+          canEdit: false,
+          link: buildInviteLink('7k2xazjm'),
+          token: '7k2xazjm',
+        }),
+      ),
+    ).toBe('7k2xazjm');
+    // A link at the end of a sentence carries the full stop with it.
+    expect(parseInviteToken('Entra aí: https://aluza.app/e/7k2xazjm.')).toBe(
+      '7k2xazjm',
+    );
   });
 
   it('sanitizes a stored share, and drops one on the inbox', () => {

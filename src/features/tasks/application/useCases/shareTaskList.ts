@@ -56,6 +56,41 @@ export function shareTaskList(
   return committed(next, at, [{ type: 'list.shared', at, list }]);
 }
 
+/**
+ * The member row for this device's own account, brought up to date.
+ *
+ * Nothing about the project changed: the same people are in it and it was
+ * already shared. Only the name, handle or photo this account is shown by
+ * moved. Running this through `shareTaskList` published `list.shared` for it,
+ * which is a fact that did not happen — and the app reacts to that fact: every
+ * launch buzzed once per shared project, and the telemetry counted a share
+ * nobody made.
+ */
+export function renameMemberIdentity(
+  workspace: Workspace,
+  listId: string,
+  member: ListMember,
+  at: number,
+): UseCaseResult {
+  const { workspace: next, list } = replaceList(workspace, listId, current =>
+    current.share == null
+      ? current
+      : {
+          ...current,
+          share: {
+            ...current.share,
+            members: current.share.members.map(entry =>
+              entry.personId === member.personId ? member : entry,
+            ),
+          },
+        },
+  );
+
+  if (list == null || list.share == null) return { workspace, events: [] };
+
+  return committed(next, at, []);
+}
+
 /** Removes the link; every task stays exactly where it is. */
 export function stopSharing(
   workspace: Workspace,
@@ -150,10 +185,26 @@ export function applyRemoteList(
   const current = workspace.lists.find(list => list.id === localListId) ?? null;
   if (current == null) return { workspace, events: [] };
 
-  const list: TaskList = { ...incoming.list, id: localListId };
+  // Whether the other side knows about groups at all. A project written by a
+  // client from before they existed comes back with no groups field, and
+  // taking that as "this space has no groups" would let one old phone's pull
+  // delete a birthday and scatter its tasks back onto the space.
+  const knowsGroups = incoming.list.groups != null;
+  const localTasks = new Map(workspace.tasks.map(task => [task.id, task]));
+  const list: TaskList = {
+    ...incoming.list,
+    id: localListId,
+    groups: knowsGroups ? incoming.list.groups : current.groups ?? [],
+  };
   const tasks = [
     ...workspace.tasks.filter(task => task.listId !== localListId),
-    ...incoming.tasks.map(task => ({ ...task, listId: localListId })),
+    ...incoming.tasks.map(task => ({
+      ...task,
+      listId: localListId,
+      groupId: knowsGroups
+        ? task.groupId ?? null
+        : localTasks.get(task.id)?.groupId ?? null,
+    })),
   ];
   const next = {
     ...workspace,
@@ -204,18 +255,32 @@ export function acceptInvite(
     return { workspace, events: [] };
   }
 
-  const localId = `${incoming.list.id}@${incoming.list.share.token.slice(
-    0,
-    4,
-  )}`;
+  // The same project can already be on this device under a different local
+  // id. The owner has it under the id it was created with, never the one
+  // derived from the token — so matching only on that id let somebody who
+  // tapped their own invite link end up with two copies of one project. The
+  // token is what identifies a project across devices, so it is what decides
+  // whether this is a new project or one already here.
+  const { token } = incoming.list.share;
+  if (workspace.lists.some(list => list.share?.token === token)) {
+    return { workspace, events: [] };
+  }
+
+  // Kept alongside the token check for a project whose sharing was stopped
+  // after this device joined: the local copy has no `share` left to match on.
+  const localId = `${incoming.list.id}@${token.slice(0, 4)}`;
   if (workspace.lists.some(list => list.id === localId)) {
     return { workspace, events: [] };
   }
 
-  const list: TaskList = { ...incoming.list, id: localId };
+  const list: TaskList = {
+    ...incoming.list,
+    id: localId,
+    groups: incoming.list.groups ?? [],
+  };
   const tasks: Task[] = incoming.tasks.map(task => ({
     ...task,
-    id: `${task.id}@${incoming.list.share!.token.slice(0, 4)}`,
+    id: `${task.id}@${token.slice(0, 4)}`,
     listId: localId,
   }));
   const next: Workspace = {

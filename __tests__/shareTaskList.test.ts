@@ -2,6 +2,7 @@ import { createTaskList } from '../src/features/tasks/application/useCases/manag
 import {
   acceptInvite,
   removeMember,
+  renameMemberIdentity,
   shareTaskList,
   stopSharing,
 } from '../src/features/tasks/application/useCases/shareTaskList';
@@ -17,6 +18,47 @@ const owner = {
   role: 'owner' as const,
   joined: true,
 };
+
+describe('repairing the name this device is shown by', () => {
+  it('does not announce a share, so nothing buzzes on every launch', () => {
+    const created = createTaskList(EMPTY_WORKSPACE, 'Lançamento', now);
+    const listId = created.workspace.lists[1].id;
+    const shared = shareTaskList(
+      created.workspace,
+      listId,
+      { token: '7k2xazjm', invitedAs: 'editor', members: [owner] },
+      now,
+    );
+
+    const renamed = renameMemberIdentity(
+      shared.workspace,
+      listId,
+      { ...owner, name: 'Joana Prado', handle: '@joana' },
+      now,
+    );
+
+    expect(renamed.events.map(event => event.type)).toEqual([
+      'workspace.committed',
+    ]);
+    expect(renamed.workspace.lists[1].share?.members[0].name).toBe(
+      'Joana Prado',
+    );
+  });
+
+  it('leaves a project nobody shared alone', () => {
+    const created = createTaskList(EMPTY_WORKSPACE, 'Lançamento', now);
+    const listId = created.workspace.lists[1].id;
+
+    const renamed = renameMemberIdentity(
+      created.workspace,
+      listId,
+      { ...owner, name: 'Joana Prado' },
+      now,
+    );
+
+    expect(renamed.events).toEqual([]);
+  });
+});
 
 describe('sharing a project', () => {
   it('records a link and the owner as the first member', () => {
@@ -108,5 +150,30 @@ describe('sharing a project', () => {
     );
 
     expect(inboxAttempt.events).toEqual([]);
+  });
+
+  it('does not add a second copy of a project this device is already in', () => {
+    // What the owner does when they tap their own invite link: the project is
+    // already here under the id it was created with, which is not the id an
+    // accepted invite derives from the token. Matching on the token is what
+    // tells the two apart from a genuinely new project.
+    const created = createTaskList(EMPTY_WORKSPACE, 'Lançamento', now);
+    const listId = created.workspace.lists[1].id;
+    const share = {
+      token: '7k2xazjm',
+      invitedAs: 'editor' as const,
+      members: [owner],
+    };
+    const shared = shareTaskList(created.workspace, listId, share, now);
+
+    const rejoined = acceptInvite(
+      shared.workspace,
+      { list: { ...shared.workspace.lists[1], share }, tasks: [] },
+      owner,
+      now,
+    );
+
+    expect(rejoined.workspace.lists).toHaveLength(2);
+    expect(rejoined.events).toEqual([]);
   });
 });
