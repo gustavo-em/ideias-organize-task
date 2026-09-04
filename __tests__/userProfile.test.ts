@@ -238,6 +238,7 @@ describe('profile bootstrap', () => {
         throw new ProfileOperationError('network');
       },
       savePhotoURL: async () => undefined,
+      deleteAccountData: async () => undefined,
     };
     const viewModel = mount(failing);
 
@@ -260,6 +261,7 @@ describe('profile bootstrap', () => {
         throw new ProfileOperationError('network');
       },
       savePhotoURL: async () => undefined,
+      deleteAccountData: async () => undefined,
     };
     const viewModel = mount(failing);
 

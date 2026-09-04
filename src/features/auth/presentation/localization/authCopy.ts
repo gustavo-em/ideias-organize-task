@@ -81,6 +81,28 @@ export interface AuthCopy {
   account: {
     label: string;
     signOut: string;
+    /** The last line of the tab, and the only red one. */
+    delete: string;
+  };
+  /** Closing the account for good: what it takes with it, what has to be
+   * proven first, and the two words that end it. */
+  deleteAccount: {
+    title: string;
+    body: string;
+    /** What goes with the account, one line each. Written as facts, not as a
+     * warning: the person already knows this is the destructive door. */
+    losses: readonly string[];
+    /** Only asked of an account that has a password of its own; Google and
+     * Apple prove themselves with their own sheet. */
+    passwordLabel: string;
+    passwordHint: string;
+    confirm: string;
+    cancel: string;
+    busy: string;
+    /** Firebase will not erase an account on a session that has been open for
+     * a while, so the sheet asks for the sign-in again before anything goes. */
+    proofTitle: string;
+    proofBody: string;
   };
   profile: {
     title: string;
@@ -195,6 +217,8 @@ const pt: AuthCopy = {
       'Este e-mail já tem conta. Que tal entrar em vez de cadastrar?',
     'too-many-requests':
       'Muitas tentativas seguidas. Espere um pouco e tente de novo.',
+    'requires-recent-login':
+      'Faz tempo desde a última entrada. Confirme quem você é para continuar.',
     // Never rendered: a cancelled sheet leaves the screen exactly as it was.
     cancelled: '',
     'play-services-unavailable':
@@ -209,6 +233,25 @@ const pt: AuthCopy = {
   account: {
     label: 'Conta',
     signOut: 'Sair',
+    delete: 'Excluir conta',
+  },
+  deleteAccount: {
+    title: 'Excluir sua conta?',
+    body: 'Isso não tem volta. Some agora e some para sempre:',
+    losses: [
+      'Seu perfil, seu nome de usuário e sua foto',
+      'Suas tarefas e espaços, neste aparelho e na cópia guardada da conta',
+      'Os espaços que você administra saem do ar para todo mundo',
+      'Sua entrada nos espaços das outras pessoas',
+    ],
+    passwordLabel: 'Senha',
+    passwordHint: 'Confirme a senha da conta para excluir.',
+    confirm: 'Excluir conta',
+    cancel: 'Cancelar',
+    busy: 'Excluindo…',
+    proofTitle: 'Confirme que é você',
+    proofBody:
+      'Faz tempo desde a última entrada. Entre de novo e a exclusão segue.',
   },
   profile: {
     title: 'Perfil',
@@ -323,6 +366,8 @@ const en: AuthCopy = {
     'email-in-use': 'This email already has an account. Log in instead?',
     'too-many-requests':
       'Too many attempts in a row. Wait a bit and try again.',
+    'requires-recent-login':
+      'It has been a while since you signed in. Confirm it is you to carry on.',
     // Never rendered: a cancelled sheet leaves the screen exactly as it was.
     cancelled: '',
     'play-services-unavailable':
@@ -337,6 +382,25 @@ const en: AuthCopy = {
   account: {
     label: 'Account',
     signOut: 'Log out',
+    delete: 'Delete account',
+  },
+  deleteAccount: {
+    title: 'Delete your account?',
+    body: 'There is no undo. This goes now and it goes for good:',
+    losses: [
+      'Your profile, your username and your photo',
+      'Your tasks and spaces, on this device and in the account copy',
+      'The spaces you own come down for everyone in them',
+      'Your place in other people\u2019s spaces',
+    ],
+    passwordLabel: 'Password',
+    passwordHint: 'Confirm the account password to delete it.',
+    confirm: 'Delete account',
+    cancel: 'Cancel',
+    busy: 'Deleting\u2026',
+    proofTitle: 'Confirm it is you',
+    proofBody:
+      'It has been a while since you signed in. Sign in again and the deletion carries on.',
   },
   profile: {
     title: 'Profile',

@@ -51,6 +51,10 @@ export function toFirebaseErrorKind(code: string | undefined): AuthErrorKind {
       return 'invalid-credential';
     case 'auth/network-request-failed':
       return 'network';
+    // Deleting an account is one of the operations Firebase refuses on a
+    // session older than a few minutes, however valid it is.
+    case 'auth/requires-recent-login':
+      return 'requires-recent-login';
     case 'auth/email-already-in-use':
       return 'email-in-use';
     // Firebase's own anti-abuse throttle, not a bug in the form: the fix is

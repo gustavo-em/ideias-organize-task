@@ -24,6 +24,13 @@ function pathFor(personId: string): string {
   return `users/${personId}/workspace/current`;
 }
 
+/** Where the copy lives, for the one caller that has to erase it rather than
+ * read or write it: deleting an account. Exported so the path is written down
+ * once, and a backup that moves cannot be left behind by the deletion. */
+export function workspaceBackupPath(personId: string): string {
+  return pathFor(personId);
+}
+
 export interface WorkspaceSnapshot {
   tasks: unknown;
   lists: unknown;

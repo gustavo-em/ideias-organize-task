@@ -5,9 +5,12 @@ import { getApp } from '@react-native-firebase/app';
 import {
   AppleAuthProvider,
   createUserWithEmailAndPassword,
+  deleteUser,
+  EmailAuthProvider,
   getAuth,
   GoogleAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   reload,
   sendPasswordResetEmail,
   signInAnonymously,
@@ -19,7 +22,10 @@ import {
   type User,
 } from '@react-native-firebase/auth';
 
-import type { AuthPort } from '../../application/ports/AuthPort';
+import type {
+  AccountProvider,
+  AuthPort,
+} from '../../application/ports/AuthPort';
 import { AuthOperationError } from '../../domain/AuthError';
 import type { AuthUser } from '../../domain/AuthUser';
 import {
@@ -86,68 +92,100 @@ async function run(operation: () => Promise<unknown>): Promise<void> {
   }
 }
 
+/** The chooser, and the token it hands back. Signing in and proving the same
+ * account again before erasing it are the same conversation with Google, so
+ * they ask for it in the same place. */
+async function googleIdToken(): Promise<string> {
+  configureGoogleOnce();
+
+  // Never opens the "update Play Services" dialog: on a device without it
+  // the screen already says what to do, and a system dialog on top of that
+  // is a second thing to dismiss.
+  await GoogleSignin.hasPlayServices({
+    showPlayServicesUpdateDialog: false,
+  });
+
+  const response = await GoogleSignin.signIn();
+
+  // Backing out of the account chooser resolves, it does not reject.
+  if (response.type === 'cancelled') {
+    throw new AuthOperationError('cancelled');
+  }
+
+  const idToken = response.data.idToken;
+
+  if (idToken == null) throw new AuthOperationError('provider-unavailable');
+
+  return idToken;
+}
+
 async function signInWithGoogle(): Promise<void> {
   try {
-    configureGoogleOnce();
-
-    // Never opens the "update Play Services" dialog: on a device without it
-    // the screen already says what to do, and a system dialog on top of that
-    // is a second thing to dismiss.
-    await GoogleSignin.hasPlayServices({
-      showPlayServicesUpdateDialog: false,
-    });
-
-    const response = await GoogleSignin.signIn();
-
-    // Backing out of the account chooser resolves, it does not reject.
-    if (response.type === 'cancelled') {
-      throw new AuthOperationError('cancelled');
-    }
-
-    const idToken = response.data.idToken;
-
-    if (idToken == null) throw new AuthOperationError('provider-unavailable');
+    const idToken = await googleIdToken();
 
     await signInWithCredential(auth(), GoogleAuthProvider.credential(idToken));
   } catch (error) {
     if (error instanceof AuthOperationError) throw error;
 
-    Alert.alert('DIAG google', JSON.stringify(error, Object.getOwnPropertyNames(Object(error))).slice(0, 900));
+    Alert.alert(
+      'DIAG google',
+      JSON.stringify(error, Object.getOwnPropertyNames(Object(error))).slice(
+        0,
+        900,
+      ),
+    );
     throw new AuthOperationError(toGoogleErrorKind(readErrorCode(error)));
   }
 }
 
-async function signInWithApple(): Promise<void> {
+/** Apple's sheet, and what comes back from it. Same reason as the Google one:
+ * erasing an account asks Apple the very same question. */
+async function appleAuthorization(): Promise<{
+  identityToken: string;
+  nonce: string;
+  fullName: string;
+}> {
   if (Platform.OS !== 'ios' || !appleAuth.isSupported) {
     throw new AuthOperationError('provider-unavailable');
   }
 
-  try {
-    const response = await appleAuth.performRequest({
-      requestedOperation: appleAuth.Operation.LOGIN,
-      requestedScopes: [appleAuth.Scope.FULL_NAME, appleAuth.Scope.EMAIL],
-    });
+  const response = await appleAuth.performRequest({
+    requestedOperation: appleAuth.Operation.LOGIN,
+    requestedScopes: [appleAuth.Scope.FULL_NAME, appleAuth.Scope.EMAIL],
+  });
 
-    // Apple answered without a token: not a cancellation — that arrives as
-    // error 1001 — so it has to reach the screen as a real failure.
-    if (response.identityToken == null) {
-      throw new AuthOperationError('provider-unavailable');
-    }
+  // Apple answered without a token: not a cancellation — that arrives as
+  // error 1001 — so it has to reach the screen as a real failure.
+  if (response.identityToken == null) {
+    throw new AuthOperationError('provider-unavailable');
+  }
+
+  return {
+    identityToken: response.identityToken,
+    nonce: response.nonce,
+    // Apple hands the name over on the first authorization only.
+    fullName: [response.fullName?.givenName, response.fullName?.familyName]
+      .filter(part => part != null && part.trim().length > 0)
+      .join(' ')
+      .trim(),
+  };
+}
+
+async function signInWithApple(): Promise<void> {
+  try {
+    const authorization = await appleAuthorization();
 
     await signInWithCredential(
       auth(),
-      AppleAuthProvider.credential(response.identityToken, response.nonce),
+      AppleAuthProvider.credential(
+        authorization.identityToken,
+        authorization.nonce,
+      ),
     );
 
-    // Apple hands the name over on the first authorization only, so it is
-    // stored on the Firebase profile right away or it is lost for good.
-    const fullName = [
-      response.fullName?.givenName,
-      response.fullName?.familyName,
-    ]
-      .filter(part => part != null && part.trim().length > 0)
-      .join(' ')
-      .trim();
+    // The name Apple gave is stored on the Firebase profile right away or it
+    // is lost for good: the second authorization never carries it.
+    const fullName = authorization.fullName;
     const user = auth().currentUser;
 
     if (fullName.length > 0 && user != null && user.displayName == null) {
@@ -158,7 +196,13 @@ async function signInWithApple(): Promise<void> {
   } catch (error) {
     if (error instanceof AuthOperationError) throw error;
 
-    Alert.alert('DIAG apple', JSON.stringify(error, Object.getOwnPropertyNames(Object(error))).slice(0, 900));
+    Alert.alert(
+      'DIAG apple',
+      JSON.stringify(error, Object.getOwnPropertyNames(Object(error))).slice(
+        0,
+        900,
+      ),
+    );
     throw new AuthOperationError(toAppleErrorKind(readErrorCode(error)));
   }
 }
@@ -205,6 +249,133 @@ async function signOutEverywhere(): Promise<void> {
   await run(() => signOut(auth()));
 }
 
+/**
+ * Erasing an account is one of the operations Firebase only accepts from a
+ * session it considers fresh. Its own window is five minutes; asking for the
+ * proof a minute early costs one sheet, being refused halfway through costs
+ * the person their data with the account still standing.
+ */
+const RECENT_LOGIN_WINDOW_MS = 4 * 60 * 1000;
+
+function accountProvider(): AccountProvider {
+  const user = auth().currentUser;
+
+  if (user == null) return 'unknown';
+  // An account made from a name alone has no provider to ask anything of.
+  if (user.isAnonymous) return 'anonymous';
+
+  const providers = user.providerData.map(entry => entry.providerId);
+
+  // Password first: when the account has one, proving it is a field on a
+  // screen this app draws, instead of somebody else's sheet.
+  if (providers.includes('password')) return 'password';
+  if (providers.includes('google.com')) return 'google';
+  if (providers.includes('apple.com')) return 'apple';
+
+  return 'unknown';
+}
+
+function requiresRecentLogin(): boolean {
+  const user = auth().currentUser;
+
+  if (user == null) return false;
+  // Nothing to sign in again with, and Firebase lets an anonymous account go
+  // without asking: demanding proof here would be a door with no handle.
+  if (user.isAnonymous) return false;
+
+  const lastSignIn = Date.parse(user.metadata.lastSignInTime ?? '');
+
+  // No timestamp at all is not permission to skip the question.
+  if (Number.isNaN(lastSignIn)) return true;
+
+  return Date.now() - lastSignIn > RECENT_LOGIN_WINDOW_MS;
+}
+
+async function reauthenticate(password?: string): Promise<void> {
+  const user = auth().currentUser;
+
+  if (user == null) throw new AuthOperationError('invalid-credential');
+
+  const provider = accountProvider();
+
+  if (provider === 'google') {
+    // The chooser's own failures speak Google, not Firebase: mapped here the
+    // same way signing in maps them, so "you closed the sheet" never reaches
+    // a screen as "something did not work".
+    let idToken: string;
+
+    try {
+      idToken = await googleIdToken();
+    } catch (error) {
+      if (error instanceof AuthOperationError) throw error;
+
+      throw new AuthOperationError(toGoogleErrorKind(readErrorCode(error)));
+    }
+
+    await run(() =>
+      reauthenticateWithCredential(
+        user,
+        GoogleAuthProvider.credential(idToken),
+      ),
+    );
+
+    return;
+  }
+
+  if (provider === 'apple') {
+    let authorization: Awaited<ReturnType<typeof appleAuthorization>>;
+
+    try {
+      authorization = await appleAuthorization();
+    } catch (error) {
+      if (error instanceof AuthOperationError) throw error;
+
+      throw new AuthOperationError(toAppleErrorKind(readErrorCode(error)));
+    }
+
+    await run(() =>
+      reauthenticateWithCredential(
+        user,
+        AppleAuthProvider.credential(
+          authorization.identityToken,
+          authorization.nonce,
+        ),
+      ),
+    );
+
+    return;
+  }
+
+  if (provider === 'password') {
+    const email = user.email;
+
+    if (email == null || password == null || password.length === 0) {
+      throw new AuthOperationError('invalid-credential');
+    }
+
+    await run(() =>
+      reauthenticateWithCredential(
+        user,
+        EmailAuthProvider.credential(email, password),
+      ),
+    );
+
+    return;
+  }
+
+  throw new AuthOperationError('provider-unavailable');
+}
+
+async function deleteAccount(): Promise<void> {
+  const user = auth().currentUser;
+
+  // Already gone — a second tap after the first one landed, or a session that
+  // ended in between. Nothing left to erase is the outcome that was asked for.
+  if (user == null) return;
+
+  await run(() => deleteUser(user));
+}
+
 export const firebaseAuthAdapter: AuthPort = {
   signIn: (email, password) =>
     run(() => signInWithEmailAndPassword(auth(), email, password)),
@@ -215,6 +386,10 @@ export const firebaseAuthAdapter: AuthPort = {
   signInWithApple,
   signInAnonymously: signInWithName,
   signOut: signOutEverywhere,
+  accountProvider,
+  requiresRecentLogin,
+  reauthenticate,
+  deleteAccount,
   onAuthStateChanged: listener => subscribeToAuthState(listener),
 };
 

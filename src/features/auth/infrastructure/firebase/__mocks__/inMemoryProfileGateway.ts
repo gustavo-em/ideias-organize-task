@@ -64,6 +64,17 @@ export function createInMemoryProfileGateway(): ProfilePort & {
       return profile;
     },
 
+    async deleteAccountData(uid, handle) {
+      const reserved = handle ?? profiles.get(uid)?.handle ?? null;
+
+      profiles.delete(uid);
+      // Same rule the real one obeys: only the uid holding a handle releases
+      // it, so a handle that moved on stays with whoever has it now.
+      if (reserved != null && usernames.get(reserved) === uid) {
+        usernames.delete(reserved);
+      }
+    },
+
     reservations() {
       return Object.fromEntries(usernames);
     },
