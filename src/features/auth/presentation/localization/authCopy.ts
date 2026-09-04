@@ -15,6 +15,17 @@ export interface AuthCopy {
     guest: string;
     /** The way back to this screen from the email form behind it. */
     back: string;
+    /** Somebody arrived by tapping an invite link. The entrance shows what
+     * they were invited to before asking for anything — proof before the ask.
+     * `by` and `space` are filled from the link's own preview. */
+    invited: {
+      headline: (by: string, space: string) => string;
+      lede: string;
+      today: string;
+      expired: string;
+      expiredHint: string;
+      otherAccount: string;
+    };
     /** Split so the two link words can be tapped without parsing a sentence
      * for them. Rendered as `lead terms and privacy.` */
     legal: { lead: string; terms: string; and: string; privacy: string };
@@ -112,6 +123,14 @@ const pt: AuthCopy = {
     email: 'E-mail',
     guest: 'Continuar só com nome',
     back: 'Voltar',
+    invited: {
+      headline: (by, space) => `${by} te chamou para o espaço ${space}.`,
+      lede: 'Vocês dois vão ver o mesmo dia: o que cada um levou e o que já fechou.',
+      today: 'Hoje, no combinado',
+      expired: 'Este convite expirou.',
+      expiredHint: 'Peça um link novo para quem te chamou.',
+      otherAccount: 'Alguém',
+    },
     legal: {
       lead: 'Ao continuar você aceita os',
       terms: 'Termos',
@@ -235,6 +254,14 @@ const en: AuthCopy = {
     email: 'Email',
     guest: 'Continue with just a name',
     back: 'Back',
+    invited: {
+      headline: (by, space) => `${by} invited you to the ${space} space.`,
+      lede: 'You will both see the same day: what each of you took on and what is already done.',
+      today: 'Today, as agreed',
+      expired: 'This invite has expired.',
+      expiredHint: 'Ask whoever invited you for a new link.',
+      otherAccount: 'Someone',
+    },
     legal: {
       lead: 'By continuing you accept the',
       terms: 'Terms',

@@ -16,6 +16,10 @@ import { AppleGlyph } from '../views/brand/AppleGlyph';
 import { GoogleGlyph } from '../views/brand/GoogleGlyph';
 import type { AuthCopy } from '../localization/authCopy';
 import type { SubmitState } from '../view-models/useAuthViewModel';
+import {
+  useInvitePreview,
+  type InvitePreview,
+} from '../view-models/useInvitePreview';
 
 interface EntranceScreenProps {
   copy: AuthCopy;
@@ -32,6 +36,9 @@ interface EntranceScreenProps {
    * words render as plain text rather than as links that go nowhere. */
   onOpenTerms?: () => void;
   onOpenPrivacy?: () => void;
+  /** Set when the app was opened by tapping an invite link. The entrance then
+   * leads with what the invite is instead of with the product pitch. */
+  inviteToken?: string | null;
 }
 
 /** The footer sits over the cut-out, so the ground comes back before it does. */
@@ -60,8 +67,10 @@ export function EntranceScreen({
   onGuest,
   onOpenPrivacy,
   onOpenTerms,
+  inviteToken = null,
 }: EntranceScreenProps) {
   const window = useWindowDimensions();
+  const invite = useInvitePreview(inviteToken);
   const entrance = copy.entrance;
   // Three lines at most on the headline: a narrow phone drops a size rather
   // than breaking the promise into five.
@@ -76,15 +85,25 @@ export function EntranceScreen({
     <Ground testID="entrance">
       <Safe edges={['top', 'bottom']}>
         <Brand>
-          <AluzaSymbol size={44} variant="onSol" />
-          <Wordmark>aluza</Wordmark>
+          <AluzaSymbol size={inviteToken == null ? 44 : 36} variant="onSol" />
+          <Wordmark $small={inviteToken != null}>aluza</Wordmark>
         </Brand>
 
-        <Headline $size={headlineSize}>{entrance.headline}</Headline>
+        {inviteToken == null ? (
+          <>
+            <Headline $size={headlineSize}>{entrance.headline}</Headline>
 
-        <Cutout pointerEvents="none" testID="entrance-cutout">
-          <EntranceCutout demo={demo} />
-        </Cutout>
+            <Cutout pointerEvents="none" testID="entrance-cutout">
+              <EntranceCutout demo={demo} />
+            </Cutout>
+          </>
+        ) : (
+          <Invited
+            copy={copy}
+            preview={invite.preview}
+            status={invite.status}
+          />
+        )}
 
         <Footer>
           <FadeLayer pointerEvents="none">
@@ -190,6 +209,69 @@ function Envelope() {
   );
 }
 
+/**
+ * The invite, shown before the ask.
+ *
+ * Who invited, which space, and three real tasks from it — two open and one
+ * closed, so the person sees both states before creating an account. The ways
+ * in stay below, unchanged: this replaces the pitch, not the entrance.
+ */
+function Invited({
+  copy,
+  preview,
+  status,
+}: {
+  copy: AuthCopy;
+  preview: InvitePreview | null;
+  status: 'loading' | 'ready' | 'gone';
+}) {
+  const words = copy.entrance.invited;
+
+  if (status === 'gone') {
+    return (
+      <InviteBody>
+        <InviteHeadline>{words.expired}</InviteHeadline>
+        <InviteLede>{words.expiredHint}</InviteLede>
+      </InviteBody>
+    );
+  }
+
+  const by = preview?.invitedBy ?? words.otherAccount;
+  const space = preview?.name ?? '';
+
+  return (
+    <InviteBody testID="entrance-invite">
+      {/* Whoever invited comes before the words: the disc with the plus is
+          the person reading, about to join them. */}
+      <Faces>
+        <Face $tone={brandGround.memberOcean}>
+          <FaceText>{by.trim().charAt(0).toUpperCase() || '?'}</FaceText>
+        </Face>
+        <FaceOverlap>
+          <Face $tone={brandGround.tinta}>
+            <Plus>+</Plus>
+          </Face>
+        </FaceOverlap>
+      </Faces>
+
+      <InviteHeadline>{words.headline(by, space)}</InviteHeadline>
+      <InviteLede>{words.lede}</InviteLede>
+
+      {preview == null || preview.tasks.length === 0 ? null : (
+        <InviteCard>
+          <InviteCardTitle>{words.today}</InviteCardTitle>
+          {preview.tasks.map(task => (
+            <InviteRow key={task.title}>
+              <InviteBox $done={task.done} />
+              <InviteTask $done={task.done}>{task.title}</InviteTask>
+            </InviteRow>
+          ))}
+        </InviteCard>
+      )}
+    </InviteBody>
+  );
+}
+
 const Ground = styled.View`
   flex: 1;
   background-color: ${brandGround.sol};
@@ -209,9 +291,9 @@ const Brand = styled.View`
   padding: 26px 24px 0;
 `;
 
-const Wordmark = styled.Text`
-  font-size: 38px;
-  line-height: 38px;
+const Wordmark = styled.Text<{ $small?: boolean }>`
+  font-size: ${({ $small }) => ($small ? 30 : 38)}px;
+  line-height: ${({ $small }) => ($small ? 30 : 38)}px;
   font-weight: 800;
   letter-spacing: -1.8px;
   color: ${brandGround.onSol};
@@ -312,4 +394,97 @@ const LegalWord = styled.Text.attrs<{ $link: boolean }>(({ $link }) => ({
   accessibilityRole: $link ? ('link' as const) : undefined,
 }))<{ $link: boolean }>`
   text-decoration-line: ${({ $link }) => ($link ? 'underline' : 'none')};
+`;
+
+const InviteBody = styled.View`
+  flex: 1;
+  padding: 26px 24px 0;
+`;
+
+const Faces = styled.View`
+  flex-direction: row;
+  margin-bottom: 22px;
+`;
+
+const Face = styled.View<{ $tone: string }>`
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background-color: ${({ $tone }) => $tone};
+  align-items: center;
+  justify-content: center;
+  border-width: 3px;
+  border-color: ${brandGround.sol};
+`;
+
+const FaceOverlap = styled.View`
+  margin-left: -16px;
+`;
+
+const FaceText = styled.Text`
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+`;
+
+const Plus = styled.Text`
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 30px;
+  color: ${brandGround.sol};
+`;
+
+const InviteHeadline = styled.Text`
+  font-size: 32px;
+  line-height: 33px;
+  font-weight: 800;
+  letter-spacing: -1.6px;
+  color: ${brandGround.onSol};
+`;
+
+const InviteLede = styled.Text`
+  margin-top: 14px;
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 500;
+  color: ${brandGround.onSolSubtle};
+`;
+
+const InviteCard = styled.View`
+  margin-top: 24px;
+  background-color: ${brandGround.card};
+  border-radius: 20px;
+  padding: 16px;
+`;
+
+const InviteCardTitle = styled.Text`
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: ${brandGround.cardInk};
+`;
+
+const InviteRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+`;
+
+const InviteBox = styled.View<{ $done: boolean }>`
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  background-color: ${({ $done }) => ($done ? brandGround.sol : 'transparent')};
+  border-width: ${({ $done }) => ($done ? 0 : 2)}px;
+  border-color: ${brandGround.cardBorder};
+`;
+
+const InviteTask = styled.Text<{ $done: boolean }>`
+  flex-shrink: 1;
+  font-size: 15px;
+  font-weight: 500;
+  color: ${({ $done }) =>
+    $done ? brandGround.cardMuted : brandGround.cardInk};
+  text-decoration-line: ${({ $done }) => ($done ? 'line-through' : 'none')};
 `;
