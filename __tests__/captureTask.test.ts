@@ -1,4 +1,5 @@
 import { captureTask } from '../src/features/tasks/application/useCases/captureTask';
+import { MAX_SUBTASKS } from '../src/features/tasks/domain/Subtask';
 import { EMPTY_WORKSPACE } from '../src/features/tasks/domain/Workspace';
 
 const now = new Date(2026, 7, 25, 10, 0).getTime();
@@ -173,5 +174,59 @@ describe('capture a task', () => {
       'segunda',
       'primeira',
     ]);
+  });
+});
+
+describe('capture a task with its steps', () => {
+  it('turns the titles written in the sheet into subtasks of the new task', () => {
+    const result = captureTask(
+      EMPTY_WORKSPACE,
+      'mudar de casa',
+      { nowMs: now, createId },
+      { subtaskTitles: ['caixas', '  contratar frete  ', ''] },
+    );
+    const task = result.workspace.tasks[0];
+
+    expect(task.subtasks.map(subtask => subtask.title)).toEqual([
+      'caixas',
+      'contratar frete',
+    ]);
+    expect(new Set(task.subtasks.map(subtask => subtask.id)).size).toBe(2);
+    expect(task.subtasks.every(subtask => subtask.completedAtMs == null)).toBe(
+      true,
+    );
+  });
+
+  it('lands as one capture, with the steps already inside the published task', () => {
+    const result = captureTask(
+      EMPTY_WORKSPACE,
+      'mudar de casa',
+      { nowMs: now, createId },
+      { subtaskTitles: ['caixas'] },
+    );
+    const captured = result.events.filter(
+      event => event.type === 'task.captured',
+    );
+
+    expect(captured).toHaveLength(1);
+    expect(
+      captured[0].type === 'task.captured' ? captured[0].task.subtasks : [],
+    ).toHaveLength(1);
+  });
+
+  it('stops at the limit the task screen also stops at', () => {
+    const result = captureTask(
+      EMPTY_WORKSPACE,
+      'mudar de casa',
+      { nowMs: now, createId },
+      {
+        subtaskTitles: Array.from(
+          { length: 25 },
+          (_, index) => `passo ${index}`,
+        ),
+      },
+    );
+
+    expect(result.workspace.tasks[0].subtasks).toHaveLength(MAX_SUBTASKS);
   });
 });

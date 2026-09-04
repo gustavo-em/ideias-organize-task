@@ -1,10 +1,6 @@
 import { useEffect } from 'react';
 import { useWindowDimensions } from 'react-native';
 import Animated, {
-  Easing,
-  FadeIn,
-  FadeOut,
-  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -12,6 +8,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import {
+  CELEBRATION_CONFETTI,
+  CELEBRATION_CONFETTI_STAGGER_MS,
+  contentEnter,
+  fadeEnter,
+  fadeExit,
+} from '../../../../app/animation/motion';
 import type { TaskCopy } from '../localization/taskCopy';
 import { PressableScale } from './PressableScale';
 
@@ -37,9 +40,17 @@ export function TrioCelebration({
   onClose,
 }: TrioCelebrationProps) {
   return (
-    <Overlay entering={FadeIn.duration(200)} exiting={FadeOut.duration(220)}>
+    <Overlay entering={fadeEnter()} exiting={fadeExit()}>
+      {/* The ground behind the card closes the moment. Without it a tap outside
+          — on the tab bar, for instance — landed on a scrim that answered
+          nothing, and the app read as frozen. */}
+      <Scrim
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        onPress={onClose}
+      />
       <Confetti />
-      <Card entering={FadeIn.delay(80).duration(260)}>
+      <Card entering={contentEnter(1)}>
         <Title>{copy.celebration.title}</Title>
         <Body>{copy.celebration.body(streakDays)}</Body>
         <Close
@@ -61,7 +72,8 @@ function Confetti() {
     theme.colors.accent,
     theme.colors.focusInk,
     theme.colors.success,
-    theme.colors.danger,
+    // `danger` belongs to destructive action only; celebration never alarms.
+    theme.colors.accent,
   ];
 
   return (
@@ -90,18 +102,11 @@ function Piece({ index, width, color }: PieceProps) {
   // runs of the same moment look the same.
   const spread = ((index % PIECES) / (PIECES - 1) - 0.5) * width * 0.86;
   const drift = (index % 3) - 1;
-  const delay = (index % 5) * 40;
+  const delay = (index % 5) * CELEBRATION_CONFETTI_STAGGER_MS;
   const spin = index % 2 === 0 ? 1 : -1;
 
   useEffect(() => {
-    progress.value = withDelay(
-      delay,
-      withTiming(1, {
-        duration: 1200,
-        easing: Easing.out(Easing.cubic),
-        reduceMotion: ReduceMotion.System,
-      }),
-    );
+    progress.value = withDelay(delay, withTiming(1, CELEBRATION_CONFETTI));
   }, [delay, progress]);
 
   const style = useAnimatedStyle(() => ({
@@ -141,7 +146,21 @@ const Confetto = styled(Animated.View)`
   border-radius: 3px;
 `;
 
+const Scrim = styled.Pressable`
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+`;
+
+/* The card takes the height of what is written on it, and nothing more: a
+   celebration that stretches to the bottom of the screen swallows the tab bar
+   behind it. */
 const Card = styled(Animated.View)`
+  align-self: center;
+  flex-grow: 0;
+  flex-shrink: 0;
   background-color: ${({ theme }) => theme.colors.card};
   border-radius: ${({ theme }) => theme.radii.extraLarge}px;
   padding: ${({ theme }) => theme.spacing.large + 4}px;
@@ -163,10 +182,18 @@ const Body = styled.Text`
   margin-top: ${({ theme }) => theme.spacing.small + 2}px;
 `;
 
+/* A fixed height, never a share of what is left: the button used to grow with
+   whatever space the overlay had and reached the bottom of the screen. */
 const Close = styled(PressableScale)`
+  align-self: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
   background-color: ${({ theme }) => theme.colors.accent};
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 12px 26px;
+  padding: 0px 26px;
   margin-top: ${({ theme }) => theme.spacing.large}px;
 `;
 

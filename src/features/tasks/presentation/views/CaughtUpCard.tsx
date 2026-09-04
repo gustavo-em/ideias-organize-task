@@ -1,4 +1,6 @@
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { contentEnter } from '../../../../app/animation/motion';
 import styled, { useTheme } from 'styled-components/native';
 
 import type { TaskCopy } from '../localization/taskCopy';
@@ -9,7 +11,6 @@ interface CaughtUpCardProps {
   copy: TaskCopy;
   /** Title of the next open task, or null when nothing is open at all. */
   nextTaskTitle: string | null;
-  onViewAll: () => void;
 }
 
 /**
@@ -17,15 +18,11 @@ interface CaughtUpCardProps {
  * picture as "nothing written down at all". A checkmark and a real next
  * task tell the difference at a glance, without a word of blame.
  */
-export function CaughtUpCard({
-  copy,
-  nextTaskTitle,
-  onViewAll,
-}: CaughtUpCardProps) {
+export function CaughtUpCard({ copy, nextTaskTitle }: CaughtUpCardProps) {
   const theme = useTheme();
 
   return (
-    <Card entering={FadeIn.duration(220)}>
+    <Card entering={contentEnter(0)}>
       <IconWrap>
         <CheckGlyph color={theme.colors.success} size={22} />
       </IconWrap>
@@ -35,15 +32,9 @@ export function CaughtUpCard({
           ? copy.today.caughtUpAllDone
           : copy.today.caughtUpNext(nextTaskTitle)}
       </Body>
-      {nextTaskTitle == null ? null : (
-        <ViewAll
-          accessibilityLabel={copy.today.caughtUpViewAll}
-          onPress={onViewAll}
-          scaleTo={0.98}
-        >
-          <ViewAllLabel>{copy.today.caughtUpViewAll}</ViewAllLabel>
-        </ViewAll>
-      )}
+      {/* "Ver tudo" sat here promising the rest of the list and only
+          folded the filter strip away. A card that reports a state does not
+          need a control at all: the tasks are one scroll below it. */}
     </Card>
   );
 }
@@ -61,7 +52,7 @@ export function EmptyStateCard({ copy, onCapture }: EmptyStateCardProps) {
   const theme = useTheme();
 
   return (
-    <Card entering={FadeIn.duration(220)}>
+    <Card entering={contentEnter(0)}>
       <IconWrap $tone="accent">
         <ProjectGlyph color={theme.colors.accentInk} icon="inbox" size={22} />
       </IconWrap>
@@ -81,8 +72,17 @@ export function EmptyStateCard({ copy, onCapture }: EmptyStateCardProps) {
 // Calm, neutral ground: the accent yellow stays owned by the floating
 // capture button, so this card never competes with it for attention.
 const Card = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.small}px;
-  padding: ${({ theme }) => theme.spacing.large}px;
+  /* One step of the scale under whatever precedes it — the filter strip, most
+     days. The distance lives here, on the card itself, with no wrapper in
+     between to add a second one. */
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+  /* The card's own ceiling was the empty band people were reading as a gap:
+     between the filter strip and the first word sat a step of margin, a step
+     and a half of padding and a 44pt disc. The padding comes down to the same
+     step as the margin. */
+  padding: ${({ theme }) => theme.spacing.medium}px
+    ${({ theme }) => theme.spacing.large}px
+    ${({ theme }) => theme.spacing.large}px;
   border-radius: ${({ theme }) => theme.radii.large}px;
   background-color: ${({ theme }) => theme.colors.card};
   border: 1px solid ${({ theme }) => theme.colors.borderSubtle};
@@ -107,7 +107,7 @@ const IconWrap = styled.View<{ $tone?: 'accent' }>`
      success colour, so the two states read as distinct pictures. */
   background-color: ${({ theme, $tone }) =>
     $tone === 'accent'
-      ? theme.colors.cardElevated
+      ? theme.colors.cardNeutral
       : `${theme.colors.success}26`};
 `;
 
@@ -125,10 +125,17 @@ const Body = styled.Text`
   margin-top: 4px;
 `;
 
+/* Bold text alone read as a sentence, not as something to press. An outlined
+   pill says "control" without the solid fill that belongs to the capture
+   button. */
 const ViewAll = styled(PressableScale)`
   align-self: flex-start;
-  min-height: 44px;
+  min-height: 48px;
+  align-items: center;
   justify-content: center;
+  padding: 0px 14px;
+  border: 1px solid ${({ theme }) => theme.colors.borderSubtle};
+  border-radius: ${({ theme }) => theme.radii.pill}px;
   margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 

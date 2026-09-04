@@ -14,68 +14,59 @@ interface TabGlyphProps {
   size?: number;
 }
 
-/** Today: the day's three slots, the middle one already filled. */
+/** Today: three lines of the day's list, longest first. */
 export function TodayGlyph({ color, active, size = 20 }: TabGlyphProps) {
+  const stroke = active ? 2.4 : 2;
+
   return (
     <Svg height={size} viewBox="0 0 20 20" width={size}>
-      <Rect
-        fill={active ? color : 'none'}
-        height={3.4}
-        rx={1.7}
+      <Path
+        d="M3.4 5h13.2"
         stroke={color}
-        strokeWidth={1.6}
-        width={15}
-        x={2.5}
-        y={3.4}
+        strokeLinecap="round"
+        strokeWidth={stroke}
       />
-      <Rect
-        fill={color}
-        height={3.4}
-        rx={1.7}
+      <Path
+        d="M3.4 10h9.4"
         stroke={color}
-        strokeWidth={1.6}
-        width={15}
-        x={2.5}
-        y={8.3}
+        strokeLinecap="round"
+        strokeWidth={stroke}
       />
-      <Rect
-        fill={active ? color : 'none'}
-        height={3.4}
-        rx={1.7}
+      <Path
+        d="M3.4 15h5.6"
         stroke={color}
-        strokeWidth={1.6}
-        width={15}
-        x={2.5}
-        y={13.2}
+        strokeLinecap="round"
+        strokeWidth={stroke}
       />
     </Svg>
   );
 }
 
-/** Lists: stacked cards, one behind the other. */
+/** Lists: two spaces stacked, the same size — shelves, not a pile. */
 export function ListsGlyph({ color, active, size = 20 }: TabGlyphProps) {
+  const stroke = active ? 2.2 : 1.8;
+
   return (
     <Svg height={size} viewBox="0 0 20 20" width={size}>
       <Rect
         fill="none"
-        height={5}
-        rx={2}
+        height={5.6}
+        rx={2.8}
         stroke={color}
-        strokeOpacity={0.55}
-        strokeWidth={1.6}
-        width={12}
-        x={4}
-        y={2.2}
+        strokeWidth={stroke}
+        width={13}
+        x={3.5}
+        y={3}
       />
       <Rect
-        fill={active ? color : 'none'}
-        height={9.6}
-        rx={2.6}
+        fill="none"
+        height={5.6}
+        rx={2.8}
         stroke={color}
-        strokeWidth={1.6}
-        width={15}
-        x={2.5}
-        y={8}
+        strokeWidth={stroke}
+        width={13}
+        x={3.5}
+        y={11.4}
       />
     </Svg>
   );
@@ -112,18 +103,18 @@ export function YouGlyph({ color, active, size = 20 }: TabGlyphProps) {
     <Svg height={size} viewBox="0 0 20 20" width={size}>
       <Circle
         cx={10}
-        cy={6.6}
-        fill={active ? color : 'none'}
-        r={3.4}
+        cy={6.4}
+        fill="none"
+        r={3.2}
         stroke={color}
-        strokeWidth={1.6}
+        strokeWidth={active ? 2.2 : 1.8}
       />
       <Path
-        d="M3.6 17.2c0-3.5 2.9-5.6 6.4-5.6s6.4 2.1 6.4 5.6"
+        d="M3.8 17c0-3.4 2.8-5.4 6.2-5.4s6.2 2 6.2 5.4"
         fill="none"
         stroke={color}
         strokeLinecap="round"
-        strokeWidth={1.6}
+        strokeWidth={active ? 2.2 : 1.8}
       />
     </Svg>
   );

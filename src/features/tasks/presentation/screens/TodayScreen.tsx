@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -8,16 +9,25 @@ import {
 } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import Animated, {
-  FadeIn,
-  LinearTransition,
-  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import { markSheetPress, useRenderCount } from '../../../../app/perf/sheetPerf';
 import { type Task } from '../../domain/Task';
-import { INBOX_LIST_ID } from '../../domain/TaskList';
+import { findGroupById, type TaskGroup } from '../../domain/TaskGroup';
+import {
+  INBOX_LIST_ID,
+  type ListColor,
+  type ProjectIcon,
+} from '../../domain/TaskList';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
-import { formatDayLabel } from '../models/dateLabel';
+
+/** Shared, frozen: a new `[]` on every render is a new prop, and a new prop
+ * defeats the memo keeping the rows still. */
+const EMPTY_GROUPS: readonly TaskGroup[] = [];
 import { homeSections, type HomeGrouping } from '../models/homeSections';
 import { projectTone } from '../models/projectAppearance';
 import {
@@ -25,24 +35,26 @@ import {
   reconcileCollapsedSectionIds,
   sectionDisclosurePolicy,
 } from '../models/sectionDisclosure';
-import { DISCLOSURE } from '../animation/motion';
+import {
+  contentEnter,
+  DISCLOSURE,
+  fadeEnter,
+  sectionLayout,
+} from '../../../../app/animation/motion';
 import type { TasksViewModel } from '../view-models/useTasksViewModel';
 import { AgoraCard } from '../views/AgoraCard';
 import { CaughtUpCard, EmptyStateCard } from '../views/CaughtUpCard';
 import { ConfirmDialog } from '../views/ConfirmDialog';
+import { ChevronGlyph, ProjectGlyph } from '../views/FieldGlyphs';
 import {
-  CalendarGlyph,
-  FilterGlyph,
-  PriorityGlyph,
-  ProjectGlyph,
-  TagGlyph,
-} from '../views/FieldGlyphs';
+  buttonTextAttrs,
+  buttonTextMetrics,
+} from '../../../../app/theme/buttonText';
 import { FloatingAction } from '../views/FloatingAction';
 import { PressableScale } from '../views/PressableScale';
 import { QuickCaptureSheet } from '../views/QuickCaptureSheet';
-import { ScreenHeader } from '../views/ScreenHeader';
 import { SectionHeader } from '../views/SectionHeader';
-import { TaskRow } from '../views/TaskRow';
+import { TaskRow, type FocusRowState } from '../views/TaskRow';
 
 interface TodayScreenProps {
   copy: TaskCopy;
@@ -52,6 +64,14 @@ interface TodayScreenProps {
    * anything starts. The intent crosses screens, so it is owned by the
    * composition root rather than by this one. */
   onChooseFocusDuration?: (task: Task) => void;
+  /** The block that is running, if any: the row it belongs to leads to the
+   * session instead of to the edit sheet. */
+  focus?: {
+    taskId: string;
+    label: string;
+    phase: 'running' | 'paused' | 'finished';
+    onOpen: () => void;
+  } | null;
 }
 
 /**
@@ -63,8 +83,10 @@ export function TodayScreen({
   language,
   viewModel,
   onChooseFocusDuration,
+  focus = null,
 }: TodayScreenProps) {
   const theme = useTheme();
+  useRenderCount('TodayScreen');
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const todayRestTop = useRef(0);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -106,6 +128,32 @@ export function TodayScreen({
       reconcileCollapsedSectionIds(current, grouping, sections),
     );
   }, [grouping, sections]);
+
+  const editTask = useCallback((task: Task) => {
+    markSheetPress('QuickCaptureSheet');
+    setEditing(task);
+  }, []);
+  // The snapshot in state is what opened the sheet; the workspace is what the
+  // sheet has to show, or a step added inside it would not appear until the
+  // sheet was closed and opened again.
+  const editingTask =
+    editing == null
+      ? null
+      : viewModel.tasks.find(task => task.id === editing.id) ?? editing;
+  const toggleTask = useCallback(
+    (taskId: string) => viewModel.toggle(taskId),
+    [viewModel],
+  );
+
+  // One object per change of the block, not one per row: the rows are memoized
+  // and a fresh object on every render would redraw the whole day each second.
+  const focusRow = useMemo<FocusRowState | null>(
+    () =>
+      focus == null
+        ? null
+        : { label: focus.label, phase: focus.phase, onOpen: focus.onOpen },
+    [focus],
+  );
 
   const changeGrouping = useCallback(
     (nextGrouping: HomeGrouping) => {
@@ -159,7 +207,11 @@ export function TodayScreen({
     isDeadlineLens &&
     !isFullyEmpty &&
     (agoraSection == null || agoraSection.tasks.length === 0);
-  const nextTask = isCaughtUpToday ? restSections[0]?.tasks[0] ?? null : null;
+  // "Próxima" is about work. A reminder is not the next thing to do, so the
+  // band looks past its section for one.
+  const nextTask = isCaughtUpToday
+    ? restSections.find(section => section.id !== 'reminders')?.tasks[0] ?? null
+    : null;
 
   function listInfoOf(task: Task) {
     const list =
@@ -179,28 +231,24 @@ export function TodayScreen({
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
       >
-        {/* No headline. "Em aberto" never changed, said what the screen
-            below already showed, and spent the first third of the phone
-            saying it. The date carries the context; the lens under it says
-            how the list is ordered. */}
-        <ScreenHeader
-          eyebrow={formatDayLabel(viewModel.nowMs, language)}
-          trailing={
-            <FilterToggle
-              accessibilityLabel={copy.today.groupBy}
-              accessibilityState={{ expanded: filtersOpen }}
-              hitSlop={6}
-              onPress={() => setFiltersOpen(open => !open)}
-              scaleTo={0.9}
-            >
-              <FilterGlyph color={theme.colors.mutedStrong} size={17} />
-            </FilterToggle>
-          }
-        />
+        {/* No headline, no date, and no screen name either: the tab bar
+            already names the screen. The list opens on the one control that
+            matters — the lens it is ordered by: an eyebrow and a chevron, then
+            three pills that are only words. */}
+        <GroupingHeader
+          accessibilityLabel={copy.today.groupBy}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: filtersOpen }}
+          onPress={() => setFiltersOpen(open => !open)}
+          scaleTo={0.97}
+          testID="today-header"
+        >
+          <GroupingLabel>{copy.today.groupBy}</GroupingLabel>
+          <DisclosureChevron expanded={filtersOpen} />
+        </GroupingHeader>
 
         {filtersOpen ? (
-          <Grouping entering={FadeIn.duration(180)}>
-            <GroupingLabel>{copy.today.groupBy}</GroupingLabel>
+          <Grouping entering={fadeEnter()}>
             <GroupingRow>
               <GroupingButton
                 $selected={grouping === 'deadline'}
@@ -210,13 +258,6 @@ export function TodayScreen({
                 scaleTo={0.97}
                 testID="today-group-deadline"
               >
-                <CalendarGlyph
-                  color={
-                    grouping === 'deadline'
-                      ? theme.colors.accentInk
-                      : theme.colors.mutedStrong
-                  }
-                />
                 <GroupingButtonText $selected={grouping === 'deadline'}>
                   {copy.today.grouping.deadline}
                 </GroupingButtonText>
@@ -230,13 +271,6 @@ export function TodayScreen({
                 scaleTo={0.97}
                 testID="today-group-list"
               >
-                <TagGlyph
-                  color={
-                    grouping === 'list'
-                      ? theme.colors.accentInk
-                      : theme.colors.mutedStrong
-                  }
-                />
                 <GroupingButtonText $selected={grouping === 'list'}>
                   {copy.today.grouping.list}
                 </GroupingButtonText>
@@ -250,14 +284,6 @@ export function TodayScreen({
                 scaleTo={0.97}
                 testID="today-group-priority"
               >
-                <PriorityGlyph
-                  color={
-                    grouping === 'priority'
-                      ? theme.colors.accentInk
-                      : theme.colors.mutedStrong
-                  }
-                  size={16}
-                />
                 <GroupingButtonText $selected={grouping === 'priority'}>
                   {copy.today.grouping.priority}
                 </GroupingButtonText>
@@ -266,24 +292,32 @@ export function TodayScreen({
           </Grouping>
         ) : null}
 
+        {/* The card is a direct child of the scroll, with one step of the scale
+            of its own: no wrapper in between that could grow taller than the
+            card it holds. */}
         {isFullyEmpty ? (
           <EmptyStateCard copy={copy} onCapture={() => setIsCapturing(true)} />
         ) : null}
 
         {isCaughtUpToday ? (
-          <CaughtUpCard
-            copy={copy}
-            nextTaskTitle={nextTask?.title ?? null}
-            onViewAll={() => setFiltersOpen(false)}
-          />
+          <CaughtUpCard copy={copy} nextTaskTitle={nextTask?.title ?? null} />
         ) : null}
 
         {isDeadlineLens && !isFullyEmpty && agoraSection != null ? (
           <AgoraCard
             copy={copy}
+            focus={
+              focus?.taskId === agoraSection.tasks[0]?.id && focusRow != null
+                ? focusRow
+                : undefined
+            }
             listOf={listInfoOf}
             nowMs={viewModel.nowMs}
-            onChooseDuration={task => onChooseFocusDuration?.(task)}
+            /* One block at a time, here too: with a block running, the band's
+               time action would open the session of another task. */
+            onChooseDuration={
+              focus != null ? undefined : task => onChooseFocusDuration?.(task)
+            }
             onShowRest={() =>
               scrollRef.current?.scrollTo({
                 y: Math.max(0, todayRestTop.current - theme.spacing.medium),
@@ -295,7 +329,7 @@ export function TodayScreen({
           />
         ) : null}
 
-        {restSections.map(section => {
+        {restSections.map((section, sectionIndex) => {
           const policy = sectionDisclosurePolicy(
             grouping,
             section.id,
@@ -306,8 +340,9 @@ export function TodayScreen({
 
           return (
             <Section
+              entering={contentEnter(sectionIndex)}
               key={section.id}
-              layout={sectionLayout}
+              layout={sectionTransition}
               onLayout={
                 section === todayRest
                   ? event => {
@@ -339,10 +374,16 @@ export function TodayScreen({
 
               {expanded
                 ? section.tasks.map((task, index) => (
-                    <TaskRow
+                    <HomeTaskRow
                       copy={copy}
+                      focus={
+                        focus?.taskId === task.id && focusRow != null
+                          ? focusRow
+                          : undefined
+                      }
                       index={index}
                       key={task.id}
+                      language={language}
                       lens={grouping}
                       // The inbox is passed like any other list. Hiding it
                       // left the fact column blank on exactly the tasks that
@@ -350,9 +391,16 @@ export function TodayScreen({
                       listColor={viewModel.listOf(task.listId)?.color ?? null}
                       listIcon={viewModel.listOf(task.listId)?.icon ?? null}
                       listName={viewModel.listOf(task.listId)?.name ?? null}
+                      // Seen from the day, a group's task is a sentence with
+                      // no context — "Confirmar o salão" for what? The pill
+                      // is what carries the reason out of the group with it.
+                      group={findGroupById(
+                        viewModel.listOf(task.listId)?.groups ?? EMPTY_GROUPS,
+                        task.groupId,
+                      )}
                       nowMs={viewModel.nowMs}
-                      onEdit={() => setEditing(task)}
-                      onToggle={() => viewModel.toggle(task.id)}
+                      onEditTask={editTask}
+                      onToggleTask={toggleTask}
                       sectionId={section.id}
                       task={task}
                     />
@@ -365,7 +413,10 @@ export function TodayScreen({
 
       <FloatingAction
         label={copy.today.capture}
-        onPress={() => setIsCapturing(true)}
+        onPress={() => {
+          markSheetPress('QuickCaptureSheet');
+          setIsCapturing(true);
+        }}
         testID="today-capture"
       />
 
@@ -376,28 +427,59 @@ export function TodayScreen({
           lists={viewModel.lists}
           nowMs={viewModel.nowMs}
           onCancel={() => setIsCapturing(false)}
-          onSubmit={viewModel.capture}
+          onSubmit={(typed, overrides, tookMs) =>
+            viewModel.capture(typed, overrides, tookMs, 'today')
+          }
         />
       ) : null}
 
-      {editing == null ? null : (
+      {editing == null || editingTask == null ? null : (
         <QuickCaptureSheet
           copy={copy}
           editing={{
-            title: editing.title,
-            priority: editing.priority,
-            dueAtMs: editing.dueAtMs,
-            listId: editing.listId,
+            id: editingTask.id,
+            title: editingTask.title,
+            priority: editingTask.priority,
+            dueAtMs: editingTask.dueAtMs,
+            listId: editingTask.listId,
+            remindDaysBefore: editingTask.remindDaysBefore,
+            subtasks: editingTask.subtasks,
+            kind: editingTask.kind,
+            recurrence: editingTask.recurrence,
+            completed: editingTask.completedAtMs != null,
           }}
           language={language}
           lists={viewModel.lists}
           nowMs={viewModel.nowMs}
+          onAddSubtask={title =>
+            viewModel.addTaskSubtask(editingTask.id, title)
+          }
           onCancel={() => setEditing(null)}
+          onDeleteSubtask={subtaskId =>
+            viewModel.deleteTaskSubtask(editingTask.id, subtaskId)
+          }
+          onRenameSubtask={(subtaskId, title) =>
+            viewModel.renameTaskSubtask(editingTask.id, subtaskId, title)
+          }
+          onToggleSubtask={subtaskId =>
+            viewModel.toggleTaskSubtask(editingTask.id, subtaskId)
+          }
           onDelete={() => {
             const subject = editing;
             setEditing(null);
             setDeleting(subject);
           }}
+          /* One block at a time: while one is running, the sheet of another
+             task does not offer to start a second one. */
+          onFocus={
+            onChooseFocusDuration == null || focus != null
+              ? undefined
+              : () => {
+                  const subject = editing;
+                  setEditing(null);
+                  onChooseFocusDuration(subject);
+                }
+          }
           onSubmit={(typed, overrides) => {
             viewModel.edit(editing.id, { title: typed, ...overrides });
             setEditing(null);
@@ -427,11 +509,97 @@ export function TodayScreen({
  * at bottom:32 with a 54px+ pill and its own shadow, so the scroll needs
  * clearance past that plus a real gap, or the last expanded row hides
  * behind it. */
+interface HomeTaskRowProps {
+  copy: TaskCopy;
+  /** The group the task belongs to, so the row carries its pill outside it. */
+  group: TaskGroup | null;
+  index: number;
+  language: AppLanguage;
+  lens: HomeGrouping;
+  listColor: ListColor | null;
+  listIcon: ProjectIcon | null;
+  listName: string | null;
+  nowMs: number;
+  sectionId: string;
+  task: Task;
+  onEditTask: (task: Task) => void;
+  onToggleTask: (taskId: string) => void;
+  focus?: FocusRowState;
+}
+
+/**
+ * One row of the day, wrapped so its props hold still.
+ *
+ * Opening a sheet only changes state on the screen, and the row used to get a
+ * pair of freshly built handlers on every one of those renders — so every task
+ * on screen re-rendered in the frame the sheet was trying to animate in.
+ */
+const HomeTaskRow = memo(function HomeTaskRowView({
+  copy,
+  group,
+  index,
+  language,
+  lens,
+  listColor,
+  listIcon,
+  listName,
+  nowMs,
+  sectionId,
+  task,
+  onEditTask,
+  onToggleTask,
+  focus,
+}: HomeTaskRowProps) {
+  const handleEdit = useCallback(() => onEditTask(task), [onEditTask, task]);
+  const handleToggle = useCallback(
+    () => onToggleTask(task.id),
+    [onToggleTask, task.id],
+  );
+
+  return (
+    <TaskRow
+      copy={copy}
+      focus={focus}
+      group={group}
+      index={index}
+      language={language}
+      lens={lens}
+      listColor={listColor}
+      listIcon={listIcon}
+      listName={listName}
+      nowMs={nowMs}
+      onEdit={handleEdit}
+      onToggle={handleToggle}
+      sectionId={sectionId}
+      task={task}
+    />
+  );
+});
+
+/** The disclosure state of the grouping strip, drawn like every other
+ * disclosure in the app: pointing right when closed, down when open. */
+function DisclosureChevron({ expanded }: { expanded: boolean }) {
+  const theme = useTheme();
+  const progress = useSharedValue(expanded ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(expanded ? 1 : 0, DISCLOSURE);
+  }, [expanded, progress]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${-90 + progress.value * 90}deg` }],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <ChevronGlyph color={theme.colors.muted} size={12} />
+    </Animated.View>
+  );
+}
+
 const styles = StyleSheet.create({ scroll: { paddingBottom: 168 } });
 
-const sectionLayout = LinearTransition.duration(DISCLOSURE.duration)
-  .easing(DISCLOSURE.easing)
-  .reduceMotion(ReduceMotion.System);
+const sectionTransition = sectionLayout();
 
 const Screen = styled.View`
   flex: 1;
@@ -442,56 +610,74 @@ const Content = styled(ScrollView)`
   padding: 0px ${({ theme }) => theme.spacing.large}px;
 `;
 
-const FilterToggle = styled(PressableScale)`
-  width: 44px;
-  height: 44px;
+/* The whole line is the toggle: label and chevron share one 48px target. */
+const GroupingHeader = styled(PressableScale)`
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  border-radius: ${({ theme }) => theme.radii.pill}px;
+  align-self: flex-start;
+  gap: ${({ theme }) => theme.spacing.tiny}px;
+  min-height: 48px;
 `;
 
 const Grouping = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
+  margin-top: 0px;
 `;
 
 const GroupingLabel = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
   font-weight: 800;
-  letter-spacing: 0.4px;
+  letter-spacing: 1.8px;
   text-transform: uppercase;
 `;
 
+/* One line, and only ever one. Wrapping let the row reserve height for lines
+   that hold nothing — the empty band that opened between the three chips and
+   the card under them — so the chips share the width instead of falling to a
+   second row. */
 const GroupingRow = styled.View`
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: ${({ theme }) => theme.spacing.small}px;
   margin-top: ${({ theme }) => theme.spacing.tiny + 2}px;
 `;
 
+/* A pill that is only a word. The selected one is read by its pale fill and
+   heavier ink; the others by a hairline. The selected pill keeps a border of
+   its own colour so the three never change width when the lens changes. */
+/* The lens is a filter, not the day's decision: a yellow fill here put a
+   second brand surface on the same screen as the band that owns it. Ink says
+   "chosen" at a glance and leaves the yellow to the band. */
 const GroupingButton = styled(PressableScale)<{ $selected: boolean }>`
   flex-direction: row;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.tiny + 2}px;
-  min-height: 48px;
-  padding: 0px 10px;
-  border: 1px solid
-    ${({ theme, $selected }) =>
-      $selected ? theme.colors.accent : theme.colors.border};
+  justify-content: center;
+  flex-shrink: 1;
+  height: 34px;
+  padding: 0px 14px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: ${({ theme, $selected }) =>
+    $selected ? theme.colors.selected : theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.pill}px;
   background-color: ${({ theme, $selected }) =>
-    $selected ? theme.colors.cardElevated : theme.colors.card};
+    $selected ? theme.colors.selected : 'transparent'};
 `;
 
-const GroupingButtonText = styled.Text<{ $selected: boolean }>`
+const GroupingButtonText = styled.Text.attrs(buttonTextAttrs)<{
+  $selected: boolean;
+}>`
+  flex-shrink: 1;
   color: ${({ theme, $selected }) =>
-    $selected ? theme.colors.accentInk : theme.colors.mutedStrong};
-  font-size: ${({ theme }) => theme.type.caption + 1}px;
-  font-weight: 800;
+    $selected ? theme.colors.onSelected : theme.colors.mutedStrong};
+  ${({ theme }) => buttonTextMetrics(theme.type.label)}
+  font-weight: ${({ $selected }) => ($selected ? 700 : 600)};
 `;
 
+/* Header, hairline and rows sit on the screen margin itself — no box around
+   the section — and the first one starts 22px under the band. */
 const Section = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.large}px;
-  padding: 0px ${({ theme }) => theme.spacing.medium}px
-    ${({ theme }) => theme.spacing.small}px;
+  margin-top: ${({ theme }) => theme.spacing.large - 2}px;
+  padding: 0px 0px ${({ theme }) => theme.spacing.small}px;
 `;

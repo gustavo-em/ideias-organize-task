@@ -103,6 +103,8 @@ export function useAppViewModel(
     dayCapacity: preferences.dayCapacity,
     copy: getTaskCopy(preferences.language),
     hasSeenOnboarding: preferences.hasSeenOnboarding,
+    projectActivityNotifications: preferences.projectActivityNotifications,
+    hasAskedActivityPermission: preferences.hasAskedActivityPermission,
     isRestored,
     changeAppearanceMode: useCallback(
       (mode: AppearanceMode) => update('appearanceMode', mode),
@@ -118,6 +120,14 @@ export function useAppViewModel(
     ),
     finishOnboarding: useCallback(
       () => update('hasSeenOnboarding', true),
+      [update],
+    ),
+    changeProjectActivityNotifications: useCallback(
+      (enabled: boolean) => update('projectActivityNotifications', enabled),
+      [update],
+    ),
+    markActivityPermissionAsked: useCallback(
+      () => update('hasAskedActivityPermission', true),
       [update],
     ),
   };

@@ -37,19 +37,25 @@ shared <── qualquer camada (só primitivas genéricas)
 ```text
 src/
   app/                              Casca: tema, navegação, splash, composição
-    application/ports/              PreferencesStore
-    domain/                         AppPreferences
-    infrastructure/                 AsyncStorage, idioma do aparelho
-    components/                     AppMark, AppSplash, OnboardingScreen
+    application/ports/              PreferencesStore, CrashReporter,
+                                    AppReviewPrompter, ReviewInvitationStore
+    domain/                         AppPreferences, ReviewInvitation
+    infrastructure/                 AsyncStorage, idioma do aparelho, crash,
+                                    convite de avaliação
+    components/                     AluzaMark, AppSplash, OnboardingScreen
     view-models/                    useAppViewModel
   features/
     tasks/
-      domain/                       Task, TaskList, Trio, Progress, QuickCapture,
-                                    FocusSession, Workspace, TaskEvent
+      domain/                       Task, TaskList, TaskGroup, Trio, Progress,
+                                    QuickCapture, FocusSession, Subtask,
+                                    Reminder, Workspace, TaskEvent
       application/
         ports/                      TaskStore, ListStore, ProgressStore,
-                                    TrioStore, Clock, Haptics, UsageReporter
-        useCases/                   captureTask, toggleTask, planDay, deleteTask
+                                    TrioStore, Clock, Haptics, Clipboard,
+                                    ShareGateway, UsageReporter, ActivityNotifier
+        useCases/                   captureTask, toggleTask, planDay, editTask,
+                                    manageTaskGroup, manageTaskList,
+                                    shareTaskList, manageSubtasks, deleteTask
       infrastructure/
         storage/                    Adaptadores AsyncStorage
         clock/ haptics/ usage/      Relógio, vibração, telemetria
@@ -102,8 +108,11 @@ partes que mudaram de referência. Isso é o que torna salvar uma reação e nã
 obrigação que cada caso de uso precisa lembrar.
 
 Os demais eventos nomeiam fatos: `task.completed` carrega o peso, `trio.completed`
-carrega a sequência, `level.reached` carrega o nível. Háptico, comemoração e
-telemetria se inscrevem no que interessa a eles.
+carrega a sequência, `level.reached` carrega o nível. Háptico, comemoração,
+telemetria, trilha de migalhas do relatório de crash e o convite de avaliação da
+loja se inscrevem no que interessa a cada um. São 20 fatos em cinco famílias —
+`task.*`, `trio.*`, `focus.*`, `group.*`, `list.*` — mais `level.reached`,
+`screen.opened` e `workspace.committed`.
 
 Um assinante que falha nunca derruba os outros: o barramento isola cada chamada
 e reporta o erro por `onListenerError`.
@@ -114,7 +123,7 @@ e reporta o erro por `onListenerError`.
 - **View-model** guarda estado, roda efeito, chama caso de uso e publica evento.
 - **Screen** amarra os dois.
 
-O movimento é declarado uma vez em `presentation/animation/motion.ts` e reusado.
+O movimento é declarado uma vez em `src/app/animation/motion.ts` e reusado.
 Toda curva traz `ReduceMotion.System`, então um aparelho configurado para menos
 movimento é atendido sem que nenhuma tela precise verificar isso.
 
@@ -125,10 +134,20 @@ desenho do tique — vive em _shared value_ e nunca passa pela árvore React.
 
 Só em `infrastructure` e na raiz de composição:
 
-- `@react-native-async-storage/async-storage` nos quatro _stores_;
+- `@react-native-async-storage/async-storage` nos _stores_ locais;
 - `Vibration` do React Native no adaptador de háptico;
 - `NativeModules` na leitura do idioma do aparelho;
 - `react-native-reanimated` e `react-native-svg` na apresentação.
 
-Trocar armazenamento local por servidor é implementar as mesmas quatro portas e
-mudar os imports de `src/app/App.tsx`.
+Trocar armazenamento local por servidor é implementar as mesmas portas e mudar
+os imports de `src/app/App.tsx`. Foi exatamente isso quando o
+`consoleUsageReporter` virou `firebaseUsageReporter`: uma linha, nenhum caso de
+uso tocado.
+
+## Por que MVVM, e a que custo
+
+O detalhe da decisão — o que é view, view-model e screen, o que **não** merece
+um view-model, e as alternativas descartadas (componente gordo, Redux, MVI,
+MVP) — está em [ADR 0001](adr/0001-clean-architecture-com-mvvm.md). O mesmo
+para o barramento, incluindo o que se perde com ele, em
+[ADR 0002](adr/0002-barramento-de-eventos.md).

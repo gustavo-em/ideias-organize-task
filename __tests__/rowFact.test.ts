@@ -10,6 +10,7 @@ function facts(overrides: Partial<TaskFacts> = {}): TaskFacts {
     priority: { label: 'média', level: 2, tone: 'accent' },
     due: null,
     stale: null,
+    subtasks: null,
     listName: null,
     ...overrides,
   };

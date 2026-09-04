@@ -5,6 +5,10 @@ import {
   MAX_FOCUS_MINUTES,
   MIN_FOCUS_MINUTES,
 } from '../../domain/FocusSession';
+import {
+  buttonTextAttrs,
+  buttonTextMetrics,
+} from '../../../../app/theme/buttonText';
 import type { TaskCopy } from '../localization/taskCopy';
 import { PressableScale } from './PressableScale';
 
@@ -91,27 +95,36 @@ export function DurationPicker({
 }
 
 const Wrapper = styled.View`
-  margin-top: ${({ theme }) => theme.spacing.small}px;
+  margin-top: ${({ theme }) => theme.spacing.small + 2}px;
 `;
 
 const Chips = styled.View`
   flex-direction: row;
   flex-wrap: wrap;
-  gap: ${({ theme }) => theme.spacing.tiny + 2}px;
+  gap: ${({ theme }) => theme.spacing.small}px;
 `;
 
+/* The chosen one is solid ink; the rest are only an outline, so the choice is
+   read at a glance and the yellow stays out of a screen that is not about
+   the primary action yet. */
 const Chip = styled(PressableScale)<{ selected: boolean }>`
-  padding: 8px 14px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
   border-radius: ${({ theme }) => theme.radii.pill}px;
+  border: 1px solid
+    ${({ theme, selected }) =>
+      selected ? theme.colors.text : theme.colors.border};
   background-color: ${({ theme, selected }) =>
-    selected ? theme.colors.accent : theme.colors.cardElevated};
+    selected ? theme.colors.text : 'transparent'};
 `;
 
-const ChipText = styled.Text<{ selected: boolean }>`
-  font-size: ${({ theme }) => theme.type.label}px;
+const ChipText = styled.Text.attrs(buttonTextAttrs)<{ selected: boolean }>`
+  ${({ theme }) => buttonTextMetrics(theme.type.label)}
   font-weight: 700;
   color: ${({ theme, selected }) =>
-    selected ? theme.colors.onAccent : theme.colors.accentInk};
+    selected ? theme.colors.background : theme.colors.text};
 `;
 
 const Stepper = styled.View`
@@ -119,20 +132,20 @@ const Stepper = styled.View`
   align-items: center;
   justify-content: center;
   gap: ${({ theme }) => theme.spacing.medium}px;
-  margin-top: ${({ theme }) => theme.spacing.small}px;
+  margin-top: ${({ theme }) => theme.spacing.small + 2}px;
 `;
 
 const StepButton = styled(PressableScale)`
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: ${({ theme }) => theme.radii.pill}px;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   align-items: center;
   justify-content: center;
 `;
 
 const StepText = styled.Text`
-  color: ${({ theme }) => theme.colors.accentInk};
+  color: ${({ theme }) => theme.colors.text};
   font-size: 20px;
   font-weight: 800;
 `;
@@ -141,6 +154,7 @@ const StepperValue = styled.Text`
   color: ${({ theme }) => theme.colors.text};
   font-size: ${({ theme }) => theme.type.body}px;
   font-weight: 700;
+  font-variant: tabular-nums;
   min-width: 72px;
   text-align: center;
 `;

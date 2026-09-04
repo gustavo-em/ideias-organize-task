@@ -20,6 +20,7 @@ function task(
     estimatedMinutes: null,
     createdAtMs: now,
     completedAtMs: null,
+    subtasks: [],
   };
 }
 

@@ -6,7 +6,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
-import { DISCLOSURE } from '../animation/motion';
+import { DISCLOSURE } from '../../../../app/animation/motion';
 import { ChevronGlyph } from './FieldGlyphs';
 import { PressableScale } from './PressableScale';
 
@@ -14,6 +14,9 @@ interface SectionHeaderProps {
   title: string;
   count: number;
   countLabel: string;
+  /** Printed instead of the bare number, for a section that holds two kinds of
+   * thing and has to say which — "2 grupos · 6 tarefas". */
+  countText?: string;
   icon?: ReactNode;
   collapsible: boolean;
   expanded: boolean;
@@ -29,6 +32,7 @@ export function SectionHeader({
   title,
   count,
   countLabel,
+  countText,
   icon,
   collapsible,
   expanded,
@@ -39,16 +43,26 @@ export function SectionHeader({
 }: SectionHeaderProps) {
   const content = (
     <HeadingContent>
-      {icon ?? null}
-      <SectionTitle $emphasis={emphasis}>{title}</SectionTitle>
-      <SectionCount>{count}</SectionCount>
+      <HeadingLine>
+        {icon ?? null}
+        <SectionTitle $emphasis={emphasis}>{title}</SectionTitle>
+        <HeadingSpacer />
+        <SectionCount>{countText ?? count}</SectionCount>
+        {collapsible ? <AnimatedChevron expanded={expanded} /> : null}
+      </HeadingLine>
       <SectionRule />
-      {collapsible ? <AnimatedChevron expanded={expanded} /> : null}
     </HeadingContent>
   );
 
   if (!collapsible) {
-    return <StaticHeading>{content}</StaticHeading>;
+    return (
+      <StaticHeading
+        accessibilityLabel={`${title}, ${countLabel}`}
+        accessibilityRole="header"
+      >
+        {content}
+      </StaticHeading>
+    );
   }
 
   return (
@@ -83,50 +97,62 @@ function AnimatedChevron({ expanded }: { expanded: boolean }) {
   );
 }
 
+/* Eyebrow on the left, count on the right, and the rule under both: the same
+   typographic ruler an editorial contents page uses. The rule is what groups
+   the section — never a spacer, never a progress bar. */
 const HeadingContent = styled.View`
   flex: 1;
-  min-height: 48px;
+  min-height: 32px;
+  justify-content: flex-end;
+`;
+
+const HeadingLine = styled.View`
   flex-direction: row;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.small}px;
-  padding: 6px 0px;
+  padding-bottom: 8px;
+`;
+
+const HeadingSpacer = styled.View`
+  flex: 1;
+  min-width: 0px;
+`;
+
+const SectionRule = styled.View.attrs({
+  accessibilityElementsHidden: true,
+  importantForAccessibility: 'no' as const,
+})`
+  height: 1px;
+  align-self: stretch;
+  background-color: ${({ theme }) => theme.colors.borderSubtle};
 `;
 
 const StaticHeading = styled.View`
-  min-height: 48px;
+  min-height: 32px;
 `;
 
 const InteractiveHeading = styled(PressableScale)`
-  min-height: 48px;
+  min-height: 32px;
 `;
 
 const SectionTitle = styled.Text<{ $emphasis: boolean }>`
   flex-shrink: 1;
   color: ${({ theme, $emphasis }) =>
-    $emphasis ? theme.colors.text : theme.colors.mutedStrong};
-  font-size: ${({ theme, $emphasis }) =>
-    theme.type.caption + ($emphasis ? 2 : 1)}px;
-  font-weight: ${({ $emphasis }) => ($emphasis ? 900 : 800)};
-  letter-spacing: 0.4px;
-  line-height: 17px;
+    $emphasis ? theme.colors.text : theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+  line-height: 15px;
   text-transform: uppercase;
 `;
 
+/* The count belongs to the heading and sits at its far end, in the same quiet
+   ink and a lighter weight. */
 const SectionCount = styled.Text`
   flex-shrink: 0;
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
-  font-weight: 700;
-`;
-
-/* Typographic rule, not a progress indicator — constant hairline,
-   never partially filled or animated. */
-const SectionRule = styled.View`
-  flex: 1;
-  min-width: 0px;
-  height: 1px;
-  align-self: center;
-  background-color: ${({ theme }) => theme.colors.border};
+  font-weight: 600;
 `;
 
 const Chevron = styled(Animated.View)`

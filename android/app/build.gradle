@@ -1,6 +1,27 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+apply plugin: "com.google.gms.google-services"
+apply plugin: "com.google.firebase.crashlytics"
+
+// Load environment variables from .env file
+def loadEnv() {
+    def envFile = file("${rootDir}/../.env")
+    def env = [:]
+    if (envFile.exists()) {
+        envFile.eachLine { line ->
+            if (line && !line.startsWith('#') && line.contains('=')) {
+                def (key, value) = line.split('=', 2)
+                env[key.trim()] = value.trim()
+            }
+        }
+    }
+    return env
+}
+
+def env = loadEnv()
+def appVersionCode = (env.VERSIONCODE ?: "1").toInteger()
+def appVersionName = env.VERSIONNAME ?: "1.0"
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -82,8 +103,8 @@ android {
         applicationId "com.ideiasorganizetask"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode appVersionCode
+        versionName appVersionName
     }
     signingConfigs {
         debug {
@@ -92,15 +113,21 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            if (env.ANDROID_RELEASE_STORE_FILE) {
+                storeFile file(env.ANDROID_RELEASE_STORE_FILE)
+                storePassword env.ANDROID_RELEASE_STORE_PASSWORD
+                keyAlias env.ANDROID_RELEASE_KEY_ALIAS
+                keyPassword env.ANDROID_RELEASE_KEY_PASSWORD
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig env.ANDROID_RELEASE_STORE_FILE ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }

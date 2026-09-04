@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Sem isto o registro do token FCM falha e nenhuma notificação chega no
+	     iOS. O valor vira "production" sozinho quando o build é distribuído
+	     pela App Store. -->
+	<key>aps-environment</key>
+	<string>development</string>
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+	<!-- Convite por link. O domínio serve /.well-known/apple-app-site-association,
+	     e é ele que faz o iOS abrir o app em vez do navegador. Trocar para
+	     applinks:aluza.app quando o domínio próprio estiver no Hosting. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:ideiasorganizetask.web.app</string>
+	</array>
+</dict>
+</plist>

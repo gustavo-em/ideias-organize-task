@@ -1,6 +1,17 @@
+import { clampRemindDays } from '../../domain/DeadlineReminder';
 import { isCaptureUsable, parseCapture } from '../../domain/QuickCapture';
-import type { Task, TaskPriority } from '../../domain/Task';
-import type { TaskEvent, UseCaseResult } from '../../domain/TaskEvent';
+import { addSubtask, type Subtask } from '../../domain/Subtask';
+import type {
+  ReminderRecurrence,
+  Task,
+  TaskKind,
+  TaskPriority,
+} from '../../domain/Task';
+import type {
+  CaptureOrigin,
+  TaskEvent,
+  UseCaseResult,
+} from '../../domain/TaskEvent';
 import {
   createList,
   findListByName,
@@ -15,6 +26,9 @@ interface CaptureDependencies {
   createId: (atMs: number) => string;
   /** How long the person spent in the capture sheet, measured at the edge. */
   tookMs?: number | null;
+  /** Which screen opened the sheet. Only telemetry reads it: the task itself
+   * is the same wherever it was written. */
+  origin?: CaptureOrigin | null;
 }
 
 /**
@@ -27,9 +41,25 @@ export interface CaptureOverrides {
   priority?: TaskPriority;
   dueAtMs?: number | null;
   listId?: string | null;
+  /** How many days before the deadline to say something. Only meaningful with
+   * a date: without one there is nothing to count back from. */
+  remindDaysBefore?: number | null;
   /** A list can only be born from an explicit UI action, never from a guessed
    * `#name` in the task text. */
   newListName?: string;
+  /** Which group inside the space the task lands in. Set when the capture was
+   * opened from inside a group: the `+` there creates in it, never loose in
+   * the space by accident. */
+  groupId?: string | null;
+  /** Steps written in the sheet before the task existed. They are titles, not
+   * subtasks: the identifiers are minted here, with the task itself, so a
+   * draft that was cancelled never leaves anything behind. */
+  subtaskTitles?: readonly string[];
+  /** Task or reminder, chosen in the sheet. A reminder carries none of the
+   * work fields: no priority to speak of, no estimate, no steps. */
+  kind?: TaskKind;
+  /** How often a reminder comes back. Ignored while capturing a task. */
+  recurrence?: ReminderRecurrence;
 }
 
 /**
@@ -47,7 +77,7 @@ export function captureTask(
 ): UseCaseResult {
   if (!isCaptureUsable(typed)) return { workspace, events: [] };
 
-  const { nowMs, createId, tookMs = null } = dependencies;
+  const { nowMs, createId, tookMs = null, origin = null } = dependencies;
   const draft = parseCapture(typed, nowMs);
   const chosenListId = overrides.listId;
   const existingList = findListByName(workspace.lists, draft.listName);
@@ -65,6 +95,20 @@ export function captureTask(
   const lists =
     newList == null ? workspace.lists : [...workspace.lists, newList];
 
+  // The steps written in the same breath as the title. `addSubtask` is what
+  // trims, drops the empty ones and stops at the limit, so a draft cannot get
+  // in through a door the task screen keeps shut.
+  const subtasks = (overrides.subtaskTitles ?? []).reduce<readonly Subtask[]>(
+    (current, title) => addSubtask(current, title, nowMs, createId(nowMs)),
+    [],
+  );
+
+  const dueAtMs =
+    overrides.dueAtMs === undefined ? draft.dueAtMs : overrides.dueAtMs;
+  // A reminder is a date that comes back, so without one there is nothing to
+  // remind about: the item is kept as the task it looks like rather than saved
+  // as something that can never speak.
+  const isReminderItem = overrides.kind === 'reminder' && dueAtMs != null;
   const task: Task = {
     id: createId(nowMs),
     title: draft.title,
@@ -72,12 +116,24 @@ export function captureTask(
       chosenListId === undefined
         ? explicitList?.id ?? newList?.id ?? existingList?.id ?? INBOX_LIST_ID
         : chosenListId ?? INBOX_LIST_ID,
-    priority: overrides.priority ?? draft.priority,
-    dueAtMs:
-      overrides.dueAtMs === undefined ? draft.dueAtMs : overrides.dueAtMs,
-    estimatedMinutes: draft.estimatedMinutes,
+    priority: isReminderItem ? 'medium' : overrides.priority ?? draft.priority,
+    dueAtMs,
+    // Asked for in the sheet, and only kept when the date it counts back from
+    // leaves room for it.
+    remindDaysBefore: isReminderItem
+      ? null
+      : clampRemindDays(dueAtMs, overrides.remindDaysBefore ?? null, nowMs),
+    estimatedMinutes: isReminderItem ? null : draft.estimatedMinutes,
+    // Memory belongs to the space, never to a group: a reminder has nothing
+    // to finish, so it would sit in a group's bar as work that never closes.
+    groupId: isReminderItem ? null : overrides.groupId ?? null,
     createdAtMs: nowMs,
     completedAtMs: null,
+    // Written with the task or added later, from the task itself. Either way
+    // the task lands complete: one capture, one event.
+    subtasks: isReminderItem ? [] : subtasks,
+    kind: isReminderItem ? 'reminder' : 'task',
+    ...(isReminderItem ? { recurrence: overrides.recurrence ?? 'once' } : {}),
   };
 
   const tasks = [task, ...workspace.tasks];
@@ -86,7 +142,7 @@ export function captureTask(
   const trio = refreshTrio(workspace.trio, tasks, nowMs);
   const next: Workspace = { ...workspace, tasks, lists, trio };
   const events: TaskEvent[] = [
-    { type: 'task.captured', at: nowMs, task, typed, tookMs },
+    { type: 'task.captured', at: nowMs, task, typed, tookMs, origin },
   ];
 
   if (trio !== workspace.trio) {

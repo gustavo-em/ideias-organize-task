@@ -1,33 +1,38 @@
 import { useEffect, useState } from 'react';
 import Animated, {
-  Easing,
-  FadeIn,
   interpolateColor,
-  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import styled, { useTheme } from 'styled-components/native';
 
+import {
+  buttonTextAttrs,
+  buttonTextMetrics,
+} from '../../../../app/theme/buttonText';
 import { isOpen, type Task } from '../../domain/Task';
 import { clampFocusMinutes, focusMinutesFor } from '../../domain/FocusSession';
-import { FADE, GROUND } from '../animation/motion';
+import {
+  BREATH,
+  BREATH_SCALE,
+  BUMP,
+  BUMP_SCALE,
+  contentFadeEnter,
+  FADE,
+  fadeEnter,
+  GROUND,
+} from '../../../../app/animation/motion';
 import type { TaskCopy } from '../localization/taskCopy';
 import type { FocusViewModel } from '../view-models/useFocusViewModel';
 import type { TasksViewModel } from '../view-models/useTasksViewModel';
 import { DurationPicker } from '../views/DurationPicker';
-import {
-  CheckGlyph,
-  PauseGlyph,
-  PlayGlyph,
-  StopGlyph,
-} from '../views/FieldGlyphs';
+import { PauseGlyph, PlayGlyph } from '../views/FieldGlyphs';
 import { FocusAchievement } from '../views/FocusAchievement';
 import { PressableScale } from '../views/PressableScale';
 import { ProgressRing } from '../views/ProgressRing';
-import { ScreenHeader } from '../views/ScreenHeader';
 
 interface FocusScreenProps {
   copy: TaskCopy;
@@ -40,7 +45,12 @@ interface FocusScreenProps {
   openDurationFor?: Task | null;
 }
 
-const RING_SIZE = 232;
+const RING_SIZE = 250;
+const RING_STROKE = 12;
+/** Every button label on this screen, per the shared rule: 14 on a 52 button. */
+const BUTTON_LABEL = 14;
+/** How far the footer sits from the bottom edge of the phone. */
+const FOOTER_MARGIN = 38;
 
 /**
  * The only screen that changes the colour of the phone.
@@ -56,6 +66,7 @@ export function FocusScreen({
   openDurationFor,
 }: FocusScreenProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const trio = viewModel.today.filter(isOpen);
   const open =
     openDurationFor != null &&
@@ -70,10 +81,12 @@ export function FocusScreen({
   const task = viewModel.tasks.find(
     entry => entry.id === focus.session?.taskId,
   );
+  const plannedMinutes =
+    focus.session == null ? null : Math.round(focus.session.plannedMs / 60000);
 
-  // Every edge and track on the session used to be white at low alpha, which
-  // only works when the ground is dark. Now that light mode keeps a light
-  // ground, the veil has to follow the ink.
+  // Every edge and track on the session is ink at low alpha, which only works
+  // on a light ground. Dark mode keeps a dark ground, so there the veil has to
+  // follow the paper instead.
   const veil = (alpha: number) =>
     theme.mode === 'dark'
       ? `rgba(255, 255, 255, ${alpha})`
@@ -97,15 +110,7 @@ export function FocusScreen({
   const pulse = useSharedValue(1);
   useEffect(() => {
     if (focus.isRunning) {
-      pulse.value = withRepeat(
-        withTiming(1.02, {
-          duration: 1500,
-          easing: Easing.inOut(Easing.quad),
-          reduceMotion: ReduceMotion.System,
-        }),
-        -1,
-        true,
-      );
+      pulse.value = withRepeat(withTiming(BREATH_SCALE, BREATH), -1, true);
     } else {
       pulse.value = withTiming(1, FADE);
     }
@@ -119,12 +124,8 @@ export function FocusScreen({
   // moving rather than being silently swapped out underneath the finger.
   const bump = useSharedValue(1);
   useEffect(() => {
-    bump.value = 1.05;
-    bump.value = withTiming(1, {
-      duration: 180,
-      easing: Easing.out(Easing.quad),
-      reduceMotion: ReduceMotion.System,
-    });
+    bump.value = BUMP_SCALE;
+    bump.value = withTiming(1, BUMP);
   }, [focus.label, bump]);
 
   const bumpStyle = useAnimatedStyle(() => ({
@@ -139,28 +140,36 @@ export function FocusScreen({
     ),
   }));
 
-  const inkStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(
-      active.value,
-      [0, 1],
-      [theme.colors.text, theme.colors.onFocus],
-    ),
-  }));
-
   const minutesFor = (candidateId: string, estimatedMinutes: number | null) =>
     minutesById[candidateId] ?? focusMinutesFor(estimatedMinutes);
+
+  // The footer measures its margin from the edge of the phone, not from the
+  // safe area: on a phone with a home indicator the two would otherwise add
+  // up and push the buttons into the ring.
+  const footerMargin = Math.max(
+    FOOTER_MARGIN - insets.bottom,
+    theme.spacing.medium,
+  );
 
   return (
     <Ground style={groundStyle}>
       {focus.session == null ? (
-        <Idle entering={FadeIn.duration(240)}>
-          {/* Anchored at the top like every other screen. Centred, it read as
-              a dialog that had lost its way. */}
-          <ScreenHeader
-            eyebrow={copy.focus.title}
-            subtitle={copy.focus.idleHint}
-            title={open.length === 0 ? copy.focus.idleEmpty : copy.focus.idle}
-          />
+        <Idle entering={contentFadeEnter()}>
+          <TopRow>
+            <Eyebrow>{copy.focus.title}</Eyebrow>
+          </TopRow>
+
+          <Title numberOfLines={2}>
+            {open.length === 0 ? copy.focus.idleEmpty : copy.focus.idle}
+          </Title>
+
+          {/* One short list is not a missing list: this says which slice is on
+              screen and where the rest of the day still is. With nothing open
+              there is no slice to explain, and the empty message stands
+              alone. */}
+          {open.length === 0 ? null : (
+            <ScopeNote>{copy.focus.idleScope}</ScopeNote>
+          )}
 
           {open.map(candidate => {
             const expanded = expandedId === candidate.id;
@@ -183,15 +192,11 @@ export function FocusScreen({
                   testID={`focus-start-${candidate.id}`}
                 >
                   <ChoiceTitle numberOfLines={1}>{candidate.title}</ChoiceTitle>
-                  <ChoiceMeta>
-                    <ChoiceMetaText>
-                      {copy.capture.minutes(minutes)}
-                    </ChoiceMetaText>
-                  </ChoiceMeta>
+                  <ChoiceMeta>{copy.capture.minutes(minutes)}</ChoiceMeta>
                 </ChoiceHead>
 
                 {expanded ? (
-                  <Expanded entering={FadeIn.duration(180)}>
+                  <Expanded entering={fadeEnter()}>
                     <ExpandedLabel>{copy.focus.chooseDuration}</ExpandedLabel>
                     <DurationPicker
                       copy={copy}
@@ -203,15 +208,15 @@ export function FocusScreen({
                         }))
                       }
                     />
-                    <ExpandedActions>
-                      <CancelButton
+                    <ButtonRow>
+                      <Outlined
                         accessibilityLabel={copy.focus.cancel}
                         onPress={() => setExpandedId(null)}
                         testID={`focus-cancel-${candidate.id}`}
                       >
-                        <CancelText>{copy.focus.cancel}</CancelText>
-                      </CancelButton>
-                      <StartButton
+                        <OutlinedText>{copy.focus.cancel}</OutlinedText>
+                      </Outlined>
+                      <Filled
                         accessibilityLabel={copy.focus.start}
                         onPress={() => {
                           focus.start(candidate, minutes);
@@ -219,9 +224,9 @@ export function FocusScreen({
                         }}
                         testID={`focus-start-confirm-${candidate.id}`}
                       >
-                        <StartText>{copy.focus.start}</StartText>
-                      </StartButton>
-                    </ExpandedActions>
+                        <FilledText>{copy.focus.start}</FilledText>
+                      </Filled>
+                    </ButtonRow>
                   </Expanded>
                 ) : null}
               </Choice>
@@ -229,91 +234,118 @@ export function FocusScreen({
           })}
         </Idle>
       ) : (
-        <Session entering={FadeIn.duration(240)} testID="focus-session">
-          <RingStage
-            style={pulseStyle}
-            testID={
-              focus.isFinished
-                ? 'focus-session-finished'
-                : 'focus-session-running'
-            }
-          >
-            <ProgressRing
-              color={
-                focus.isFinished ? theme.colors.success : theme.colors.accent
-              }
-              fraction={focus.fraction}
-              size={RING_SIZE}
-              trackColor={veil(theme.mode === 'dark' ? 0.16 : 0.12)}
-            />
-            <RingCentre pointerEvents="none">
-              <Clock style={bumpStyle}>{focus.label}</Clock>
-              <ClockLabel>
-                {focus.isFinished ? copy.focus.finished : copy.focus.remaining}
-              </ClockLabel>
-            </RingCentre>
-            {focus.isFinished ? (
-              <FocusAchievement testID="focus-achievement" />
-            ) : null}
-          </RingStage>
-
-          <TaskTitle style={inkStyle}>{task?.title ?? ''}</TaskTitle>
-
-          <Actions>
-            {focus.isFinished ? null : (
-              <Primary
-                accessibilityLabel={
-                  focus.isRunning ? copy.focus.pause : copy.focus.resume
-                }
-                onPress={focus.isRunning ? focus.pause : focus.resume}
-                testID="focus-toggle"
-              >
-                {focus.isRunning ? (
-                  <PauseGlyph color={theme.colors.onAccent} size={15} />
-                ) : (
-                  <PlayGlyph color={theme.colors.onAccent} size={15} />
-                )}
-                <PrimaryText>
-                  {focus.isRunning ? copy.focus.pause : copy.focus.resume}
-                </PrimaryText>
-              </Primary>
+        <Session entering={contentFadeEnter()} testID="focus-session">
+          <TopRow>
+            <Eyebrow>{copy.focus.title}</Eyebrow>
+            {plannedMinutes == null ? null : (
+              <Duration>{copy.capture.minutes(plannedMinutes)}</Duration>
             )}
+          </TopRow>
 
-            <Complete
-              accessibilityLabel={copy.focus.complete}
-              filled={focus.isFinished}
-              onPress={() => {
-                if (task != null) viewModel.toggle(task.id);
-                focus.stop();
-              }}
-              testID="focus-complete"
+          <Title numberOfLines={2}>{task?.title ?? ''}</Title>
+
+          <Stage>
+            <RingStage
+              style={pulseStyle}
+              testID={
+                focus.isFinished
+                  ? 'focus-session-finished'
+                  : 'focus-session-running'
+              }
             >
-              <CheckGlyph
+              <ProgressRing
                 color={
                   focus.isFinished
-                    ? theme.colors.onAccent
-                    : theme.colors.onFocus
+                    ? theme.colors.success
+                    : theme.colors.reminder
                 }
-                size={15}
+                fraction={focus.fraction}
+                size={RING_SIZE}
+                strokeWidth={RING_STROKE}
+                trackColor={veil(theme.mode === 'dark' ? 0.14 : 0.1)}
               />
-              <CompleteText filled={focus.isFinished}>
-                {copy.focus.complete}
-              </CompleteText>
-            </Complete>
+              <RingCentre pointerEvents="none">
+                <Clock style={bumpStyle}>{focus.label}</Clock>
+                <ClockLabel>
+                  {focus.isFinished
+                    ? copy.focus.finished
+                    : copy.focus.remaining}
+                </ClockLabel>
+              </RingCentre>
+              {focus.isFinished ? (
+                <FocusAchievement testID="focus-achievement" />
+              ) : null}
+            </RingStage>
+          </Stage>
 
-            <Secondary
-              accessibilityLabel={
-                focus.isFinished ? copy.focus.newFocus : copy.focus.finish
-              }
-              onPress={focus.stop}
-              testID="focus-stop"
-            >
-              <StopGlyph color={theme.colors.onFocus} size={13} />
-              <SecondaryText>
-                {focus.isFinished ? copy.focus.newFocus : copy.focus.finish}
-              </SecondaryText>
-            </Secondary>
-          </Actions>
+          <Footer style={{ paddingBottom: footerMargin }}>
+            {/* Ending a block early is allowed, never advertised: a quiet line
+                above the two real choices, not a third button beside them. */}
+            {focus.isFinished ? null : (
+              <Quiet
+                accessibilityLabel={copy.focus.finish}
+                onPress={focus.stop}
+                testID="focus-stop"
+              >
+                <QuietText>{copy.focus.finish}</QuietText>
+              </Quiet>
+            )}
+
+            <ButtonRow>
+              {focus.isFinished ? null : (
+                <Filled
+                  accessibilityLabel={
+                    focus.isRunning ? copy.focus.pause : copy.focus.resume
+                  }
+                  onPress={focus.isRunning ? focus.pause : focus.resume}
+                  testID="focus-toggle"
+                >
+                  {focus.isRunning ? (
+                    <PauseGlyph color={theme.colors.background} size={15} />
+                  ) : (
+                    <PlayGlyph color={theme.colors.background} size={15} />
+                  )}
+                  <FilledText>
+                    {focus.isRunning ? copy.focus.pause : copy.focus.resume}
+                  </FilledText>
+                </Filled>
+              )}
+
+              {focus.isFinished ? (
+                <Filled
+                  accessibilityLabel={copy.focus.complete}
+                  onPress={() => {
+                    if (task != null) viewModel.toggle(task.id);
+                    focus.stop();
+                  }}
+                  testID="focus-complete"
+                >
+                  <FilledText>{copy.focus.complete}</FilledText>
+                </Filled>
+              ) : (
+                <Outlined
+                  accessibilityLabel={copy.focus.complete}
+                  onPress={() => {
+                    if (task != null) viewModel.toggle(task.id);
+                    focus.stop();
+                  }}
+                  testID="focus-complete"
+                >
+                  <OutlinedText>{copy.focus.complete}</OutlinedText>
+                </Outlined>
+              )}
+
+              {focus.isFinished ? (
+                <Outlined
+                  accessibilityLabel={copy.focus.newFocus}
+                  onPress={focus.stop}
+                  testID="focus-stop"
+                >
+                  <OutlinedText>{copy.focus.newFocus}</OutlinedText>
+                </Outlined>
+              ) : null}
+            </ButtonRow>
+          </Footer>
         </Session>
       )}
     </Ground>
@@ -329,17 +361,58 @@ const Idle = styled(Animated.View)`
   flex: 1;
 `;
 
+const Session = styled(Animated.View)`
+  flex: 1;
+`;
+
+const TopRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 20px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
+`;
+
+const Eyebrow = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+`;
+
+const Duration = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: 12px;
+  font-weight: 600;
+`;
+
+const Title = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.title}px;
+  line-height: ${({ theme }) => theme.type.title * 1.14}px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  text-align: center;
+  margin-top: 44px;
+`;
+
+const ScopeNote = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.label}px;
+  line-height: ${({ theme }) => theme.type.label + 5}px;
+  font-weight: 600;
+  text-align: center;
+  margin-top: 10px;
+`;
+
+/* A plain card, the way every card in the app is now: no shadow, no border,
+   the paper under it does the separating. */
 const Choice = styled.View`
   background-color: ${({ theme }) => theme.colors.card};
-  border: 1px solid ${({ theme }) => theme.colors.borderSubtle};
   border-radius: ${({ theme }) => theme.radii.large}px;
-  margin-top: ${({ theme }) => theme.spacing.small + 2}px;
+  margin-top: ${({ theme }) => theme.spacing.small + 4}px;
   overflow: hidden;
-  elevation: 2;
-  shadow-color: #1b1710;
-  shadow-opacity: ${({ theme }) => (theme.mode === 'dark' ? 0 : 0.07)};
-  shadow-radius: 14px;
-  shadow-offset: 0px 5px;
 `;
 
 const ChoiceHead = styled(PressableScale)`
@@ -347,7 +420,8 @@ const ChoiceHead = styled(PressableScale)`
   align-items: center;
   justify-content: space-between;
   gap: ${({ theme }) => theme.spacing.medium}px;
-  padding: ${({ theme }) => theme.spacing.medium}px;
+  padding: ${({ theme }) => theme.spacing.medium}px
+    ${({ theme }) => theme.spacing.medium + 2}px;
 `;
 
 const ChoiceTitle = styled.Text`
@@ -357,21 +431,15 @@ const ChoiceTitle = styled.Text`
   font-weight: 600;
 `;
 
-const ChoiceMeta = styled.View`
-  background-color: ${({ theme }) => theme.colors.cardElevated};
-  border-radius: ${({ theme }) => theme.radii.pill}px;
-  padding: 4px 10px;
-`;
-
-const ChoiceMetaText = styled.Text`
-  color: ${({ theme }) => theme.colors.accentInk};
-  font-size: ${({ theme }) => theme.type.caption}px;
-  font-weight: 700;
+const ChoiceMeta = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: 12px;
+  font-weight: 600;
 `;
 
 const Expanded = styled(Animated.View)`
-  padding: 0px ${({ theme }) => theme.spacing.medium}px
-    ${({ theme }) => theme.spacing.medium}px;
+  padding: 0px ${({ theme }) => theme.spacing.medium + 2}px
+    ${({ theme }) => theme.spacing.medium + 2}px;
 `;
 
 const ExpandedLabel = styled.Text`
@@ -380,48 +448,17 @@ const ExpandedLabel = styled.Text`
   font-weight: 700;
 `;
 
-const ExpandedActions = styled.View`
-  flex-direction: row;
-  gap: ${({ theme }) => theme.spacing.small}px;
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
-`;
-
-const CancelButton = styled(PressableScale)`
+/* The ring stands under the title, not in the middle of whatever is left: a
+   clock that drifts with the screen height reads as unplaced. */
+const Stage = styled.View`
   flex: 1;
   align-items: center;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 10px;
-`;
-
-const CancelText = styled.Text`
-  color: ${({ theme }) => theme.colors.mutedStrong};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 700;
-`;
-
-const StartButton = styled(PressableScale)`
-  flex: 1;
-  align-items: center;
-  background-color: ${({ theme }) => theme.colors.accent};
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 10px;
-`;
-
-const StartText = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 800;
-`;
-
-const Session = styled(Animated.View)`
-  flex: 1;
-  align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  margin: ${({ theme }) => theme.spacing.extraLarge + 8}px 0px
+    ${({ theme }) => theme.spacing.medium}px;
 `;
 
 const RingStage = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.large}px;
   align-items: center;
   justify-content: center;
 `;
@@ -432,89 +469,82 @@ const RingCentre = styled.View`
 `;
 
 const Clock = styled(Animated.Text)`
-  color: ${({ theme }) => theme.colors.onFocus};
-  font-size: 42px;
+  color: ${({ theme }) => theme.colors.text};
+  font-size: 58px;
+  line-height: 58px;
   font-weight: 800;
-  letter-spacing: -1.4px;
+  letter-spacing: -2.5px;
+  font-variant: tabular-nums;
 `;
 
 const ClockLabel = styled.Text`
-  color: ${({ theme }) => theme.colors.onFocus};
-  font-size: ${({ theme }) => theme.type.caption}px;
-  letter-spacing: 1.8px;
-  text-transform: uppercase;
-  opacity: 0.55;
-  margin-top: 2px;
-`;
-
-const TaskTitle = styled(Animated.Text)`
-  font-size: ${({ theme }) => theme.type.heading}px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  text-align: center;
-  margin-top: ${({ theme }) => theme.spacing.large}px;
-`;
-
-const Actions = styled.View`
-  flex-direction: row;
-  gap: ${({ theme }) => theme.spacing.small + 2}px;
-  margin-top: ${({ theme }) => theme.spacing.large}px;
-`;
-
-const Primary = styled(PressableScale)`
-  flex-direction: row;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.small - 1}px;
-  background-color: ${({ theme }) => theme.colors.accent};
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 12px 20px;
-`;
-
-const PrimaryText = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccent};
+  color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 600;
+  margin-top: 10px;
+`;
+
+const Footer = styled.View`
+  margin-top: auto;
+`;
+
+const Quiet = styled(PressableScale)`
+  align-self: center;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
+  margin-bottom: ${({ theme }) => theme.spacing.tiny}px;
+`;
+
+const QuietText = styled.Text.attrs(buttonTextAttrs)`
+  color: ${({ theme }) => theme.colors.muted};
+  ${({ theme }) => buttonTextMetrics(theme.type.label)}
+  font-weight: 700;
+`;
+
+const ButtonRow = styled.View`
+  flex-direction: row;
+  gap: ${({ theme }) => theme.spacing.small + 4}px;
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+`;
+
+const Filled = styled(PressableScale)`
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  background-color: ${({ theme }) => theme.colors.text};
+  border-radius: ${({ theme }) => theme.radii.medium}px;
+  min-height: 52px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
+`;
+
+const FilledText = styled.Text.attrs(buttonTextAttrs)`
+  color: ${({ theme }) => theme.colors.background};
+  ${buttonTextMetrics(BUTTON_LABEL)}
   font-weight: 800;
 `;
 
-const Complete = styled(PressableScale)<{ filled: boolean }>`
+const Outlined = styled(PressableScale)`
+  flex: 1;
   flex-direction: row;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.small - 1}px;
-  background-color: ${({ theme, filled }) =>
-    filled ? theme.colors.success : 'transparent'};
-  border: 1px solid
-    ${({ theme, filled }) =>
-      filled
-        ? theme.colors.success
-        : theme.mode === 'dark'
-        ? 'rgba(255, 255, 255, 0.28)'
-        : 'rgba(27, 23, 16, 0.22)'};
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 12px 16px;
-`;
-
-const CompleteText = styled.Text<{ filled: boolean }>`
-  color: ${({ theme, filled }) =>
-    filled ? theme.colors.onAccent : theme.colors.onFocus};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: ${({ filled }) => (filled ? 800 : 700)};
-`;
-
-const Secondary = styled(PressableScale)`
-  flex-direction: row;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.small - 1}px;
-  border: 1px solid
+  justify-content: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  border: 1.5px solid
     ${({ theme }) =>
       theme.mode === 'dark'
-        ? 'rgba(255, 255, 255, 0.28)'
-        : 'rgba(27, 23, 16, 0.22)'};
+        ? 'rgba(255, 255, 255, 0.35)'
+        : 'rgba(27, 23, 16, 0.35)'};
   border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 12px 16px;
+  min-height: 52px;
+  padding: 0px ${({ theme }) => theme.spacing.medium}px;
 `;
 
-const SecondaryText = styled.Text`
-  color: ${({ theme }) => theme.colors.onFocus};
-  font-size: ${({ theme }) => theme.type.label}px;
+const OutlinedText = styled.Text.attrs(buttonTextAttrs)`
+  color: ${({ theme }) => theme.colors.text};
+  ${buttonTextMetrics(BUTTON_LABEL)}
   font-weight: 700;
 `;

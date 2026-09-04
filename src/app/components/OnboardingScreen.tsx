@@ -1,163 +1,576 @@
-import { useState } from 'react';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  LinearTransition,
-} from 'react-native-reanimated';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentRef,
+} from 'react';
+import {
+  ScrollView,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 import styled from 'styled-components/native';
 
 import type { TaskCopy } from '../../features/tasks/presentation/localization/taskCopy';
 import { PressableScale } from '../../features/tasks/presentation/views/PressableScale';
-import { AppMark } from './AppMark';
+import { AluzaSymbol } from './AluzaSymbol';
+import { GroundFade } from './GroundFade';
+import { DayCutout, ScoreCutout, SpaceCutout } from './onboarding/cutouts';
+import { onboardingSteps } from './onboarding/onboardingSteps';
+import { brandGround, type BrandGround } from '../theme/brandGround';
+
+/** What the walk-through was answered with: the invite is the only answer that
+ * asks the app to do something after it closes. */
+export type OnboardingOutcome = 'invite' | 'later';
 
 interface OnboardingScreenProps {
   copy: TaskCopy;
-  onFinish: () => void;
+  onFinish: (outcome: OnboardingOutcome) => void;
+}
+
+/** Pages hold this width on wide screens (tablets, landscape), so the frame
+ * and the words stay a phone-shaped column instead of stretching. */
+const PAGE_MAX_WIDTH = 520;
+
+/** The cut-out gives way before the words do: on a short phone it shrinks to
+ * this and the title, body and buttons keep their room. */
+const CUTOUT_MIN_HEIGHT = 180;
+
+/** The ground crosses in colour over this while the contents slide. */
+const GROUND_MS = 320;
+
+/** The fade guarding the footer on the pages whose cut-out runs under it. */
+const FOOTER_FADE = 64;
+
+/** What each ground writes with. Not theme tokens: these three pages are the
+ * same picture whether the phone is light or dark. */
+const TONES: Record<
+  BrandGround,
+  {
+    ink: string;
+    sub: string;
+    skip: string;
+    dotIdle: string;
+    dotActive: string;
+    buttonBg: string;
+    buttonInk: string;
+    floor: string;
+  }
+> = {
+  sol: {
+    ink: brandGround.onSol,
+    sub: brandGround.onSolSubtle,
+    skip: brandGround.onSolFaint,
+    dotIdle: brandGround.onSolDim,
+    dotActive: brandGround.onSol,
+    buttonBg: brandGround.tinta,
+    buttonInk: brandGround.sol,
+    floor: brandGround.sol,
+  },
+  tinta: {
+    ink: brandGround.onTinta,
+    sub: brandGround.onTintaSubtle,
+    skip: brandGround.onTintaSubtle,
+    dotIdle: brandGround.onTintaDim,
+    dotActive: brandGround.sol,
+    buttonBg: brandGround.sol,
+    buttonInk: brandGround.tinta,
+    floor: brandGround.tinta,
+  },
+};
+
+function Chevron({ color }: { color: string }) {
+  return (
+    <Svg height={14} viewBox="0 0 14 14" width={14}>
+      <Path
+        d="M5 2.5 9.5 7 5 11.5"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+      />
+    </Svg>
+  );
+}
+
+/** The system share glyph, so the invite button says what it opens. */
+function Share({ color }: { color: string }) {
+  return (
+    <Svg height={14} viewBox="0 0 14 14" width={14}>
+      <Path
+        d="M7 9V1.5M4 4.5l3-3 3 3"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.8}
+      />
+      <Path
+        d="M2 7v5h10V7"
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.8}
+      />
+    </Svg>
+  );
 }
 
 /**
- * Three cards that say what the app refuses to do.
+ * The first-run walk-through: three pages of the app itself, shown before
+ * anyone is asked for an account.
  *
- * It comes before anything is asked of the person — no account, no permission,
- * no list to name. The only thing waiting at the end is the day screen, which
- * is already built behind this one.
+ * "Pular" does not close the walk-through — it jumps to the last page, where
+ * the two answers are. The invite is the one decision the walk-through exists
+ * to ask, and skipping past it by accident left people in the app with no
+ * space and nobody in it.
  */
 export function OnboardingScreen({ copy, onFinish }: OnboardingScreenProps) {
   const [step, setStep] = useState(0);
+  const [pageWidth, setPageWidth] = useState(0);
+  const window = useWindowDimensions();
+  const pager = useRef<ComponentRef<typeof ScrollView> | null>(null);
+  const prefersReducedMotion = useReducedMotion();
+  const ground = useSharedValue(0);
+
   const steps = copy.onboarding.steps;
-  const isLast = step === steps.length - 1;
+  const total = Math.min(steps.length, onboardingSteps.length);
+  const width = pageWidth === 0 ? window.width : pageWidth;
+  // A narrow phone takes the title down a size rather than breaking a
+  // three-word line into five.
+  const titleSize = window.width < 380 ? 29 : 34;
+
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    setPageWidth(event.nativeEvent.layout.width);
+  }, []);
+
+  // The pages are as wide as the pager, so a new measurement — the first one,
+  // or a rotation — leaves the scroll offset pointing at the old page.
+  // Snapping back to the current step is what keeps a step from being shown as
+  // two halves.
+  useEffect(() => {
+    pager.current?.scrollTo({ x: step * width, animated: false });
+    // Only a width change has to re-anchor: moving between steps already
+    // scrolls on its own.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [width]);
+
+  // The floor crosses from Sol to Tinta and back under the sliding pages. The
+  // pages themselves are transparent, so the colour change reads as one
+  // surface changing rather than as two surfaces passing each other.
+  useEffect(() => {
+    const target = onboardingSteps[step]?.ground === 'tinta' ? 1 : 0;
+
+    ground.value = prefersReducedMotion
+      ? target
+      : withTiming(target, { duration: GROUND_MS });
+  }, [ground, prefersReducedMotion, step]);
+
+  const groundStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      ground.value,
+      [0, 1],
+      [brandGround.sol, brandGround.tinta],
+    ),
+  }));
+
+  const handleMomentumEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const page = Math.round(event.nativeEvent.contentOffset.x / width);
+      setStep(Math.max(0, Math.min(page, total - 1)));
+    },
+    [total, width],
+  );
+
+  const goTo = useCallback(
+    (next: number) => {
+      setStep(next);
+      pager.current?.scrollTo({
+        x: next * width,
+        animated: !prefersReducedMotion,
+      });
+    },
+    [prefersReducedMotion, width],
+  );
+
+  const goNext = useCallback(() => goTo(step + 1), [goTo, step]);
+  // Skip lands on the last page, not in the app: the invite is a question, not
+  // a step to get through.
+  const skip = useCallback(() => goTo(total - 1), [goTo, total]);
+  const later = useCallback(() => onFinish('later'), [onFinish]);
+  const invite = useCallback(() => onFinish('invite'), [onFinish]);
 
   return (
-    <Cover>
+    <Cover
+      accessibilityViewIsModal
+      importantForAccessibility="yes"
+      style={groundStyle}
+      testID="onboarding"
+    >
       <Safe edges={['top', 'bottom']}>
-        <Top>
-          <Skip accessibilityLabel={copy.onboarding.skip} onPress={onFinish}>
-            <SkipText>{copy.onboarding.skip}</SkipText>
-          </Skip>
-        </Top>
+        <Pager
+          horizontal
+          ref={pager}
+          bounces={false}
+          onLayout={handleLayout}
+          onMomentumScrollEnd={handleMomentumEnd}
+          pagingEnabled
+          scrollEventThrottle={16}
+          showsHorizontalScrollIndicator={false}
+          testID="onboarding-pager"
+        >
+          {onboardingSteps.slice(0, total).map((page, index) => {
+            const tone = TONES[page.ground];
+            const words = steps[index];
+            const isInvite = page.id === 'invite';
+            // Every page stays mounted so the pager can slide between them,
+            // which means three "Pular" buttons and three rows of dots exist
+            // at once. Only the page in view is addressable — for a test, and
+            // for anything walking the tree looking for the live controls.
+            const inView = index === step;
+            const id = (name: string) => (inView ? name : undefined);
 
-        <Middle>
-          <AppMark size={92} state={step === 0 ? 'list' : 'check'} />
+            return (
+              <Page key={page.id} style={{ width }}>
+                <PageBody>
+                  <Head>
+                    <AluzaSymbol
+                      size={32}
+                      variant={page.ground === 'tinta' ? 'onTinta' : 'onSol'}
+                    />
+                    {isInvite ? null : (
+                      <Skip
+                        accessibilityLabel={copy.onboarding.skip}
+                        onPress={skip}
+                        testID={id('onboarding-skip')}
+                      >
+                        <SkipText $color={tone.skip}>
+                          {copy.onboarding.skip}
+                        </SkipText>
+                      </Skip>
+                    )}
+                  </Head>
 
-          <Card
-            entering={FadeIn.duration(260)}
-            exiting={FadeOut.duration(140)}
-            key={step}
-            layout={LinearTransition.springify().damping(18)}
-          >
-            <Title>{steps[step].title}</Title>
-            <Body>{steps[step].body}</Body>
-          </Card>
-        </Middle>
+                  <Title $color={tone.ink} $size={titleSize}>
+                    {words?.title}
+                  </Title>
+                  <Body $color={tone.sub}>{words?.body}</Body>
 
-        <Bottom>
-          <Dots>
-            {steps.map((_, index) => (
-              <Dot $active={index === step} key={index} />
-            ))}
-          </Dots>
+                  <Cutout
+                    accessibilityLabel={copy.onboarding.stepPosition(
+                      index + 1,
+                      total,
+                    )}
+                    accessible
+                    $tight={isInvite}
+                    pointerEvents="none"
+                    testID={`onboarding-demo-${page.id}`}
+                  >
+                    {page.id === 'space' ? (
+                      <SpaceCutout demo={copy.onboarding.demo} />
+                    ) : null}
+                    {page.id === 'day' ? (
+                      <DayCutout demo={copy.onboarding.demo} />
+                    ) : null}
+                    {page.id === 'invite' ? (
+                      <ScoreCutout demo={copy.onboarding.demo} />
+                    ) : null}
+                  </Cutout>
 
-          <Next
-            accessibilityLabel={
-              isLast ? copy.onboarding.start : copy.onboarding.next
-            }
-            onPress={() => (isLast ? onFinish() : setStep(step + 1))}
-            testID="onboarding-next"
-          >
-            <NextText>
-              {isLast ? copy.onboarding.start : copy.onboarding.next}
-            </NextText>
-          </Next>
-        </Bottom>
+                  {isInvite ? (
+                    <InviteFooter>
+                      <Note $color={brandGround.onSolMuted}>
+                        {copy.onboarding.invite.noteLead}{' '}
+                        <NoteSpace>{copy.onboarding.demo.spaceName}</NoteSpace>{' '}
+                        {copy.onboarding.invite.noteTail}
+                      </Note>
+
+                      <Invite
+                        accessibilityLabel={copy.onboarding.invite.action}
+                        onPress={invite}
+                        testID={id('onboarding-invite')}
+                      >
+                        <Share color={tone.buttonInk} />
+                        <InviteText $color={tone.buttonInk}>
+                          {copy.onboarding.invite.action}
+                        </InviteText>
+                      </Invite>
+
+                      <Later
+                        accessibilityLabel={copy.onboarding.invite.later}
+                        onPress={later}
+                        testID={id('onboarding-invite-later')}
+                      >
+                        <LaterText>{copy.onboarding.invite.later}</LaterText>
+                      </Later>
+
+                      <DotsCentred>
+                        {onboardingSteps
+                          .slice(0, total)
+                          .map((dot, dotIndex) => (
+                            <Dot
+                              key={dot.id}
+                              $active={dotIndex === index}
+                              $activeColor={tone.dotActive}
+                              $idleColor={tone.dotIdle}
+                              testID={id(`onboarding-dot-${dotIndex}`)}
+                            />
+                          ))}
+                      </DotsCentred>
+                    </InviteFooter>
+                  ) : (
+                    <StepFooter>
+                      {/* The cut-out runs under this row on the Sol page, so
+                          the ground comes back up before the button does. */}
+                      <FadeLayer pointerEvents="none">
+                        <GroundFade color={tone.floor} height={FOOTER_FADE} />
+                      </FadeLayer>
+
+                      <FooterRow $floor={tone.floor}>
+                        <Dots>
+                          {onboardingSteps
+                            .slice(0, total)
+                            .map((dot, dotIndex) => (
+                              <Dot
+                                key={dot.id}
+                                $active={dotIndex === index}
+                                $activeColor={tone.dotActive}
+                                $idleColor={tone.dotIdle}
+                                testID={id(`onboarding-dot-${dotIndex}`)}
+                              />
+                            ))}
+                        </Dots>
+
+                        <NextSlot>
+                          <Next
+                            accessibilityLabel={copy.onboarding.next}
+                            $background={tone.buttonBg}
+                            onPress={goNext}
+                            testID={id('onboarding-next')}
+                          >
+                            <NextText $color={tone.buttonInk}>
+                              {copy.onboarding.next}
+                            </NextText>
+                            <Chevron color={tone.buttonInk} />
+                          </Next>
+                        </NextSlot>
+                      </FooterRow>
+                    </StepFooter>
+                  )}
+                </PageBody>
+              </Page>
+            );
+          })}
+        </Pager>
       </Safe>
     </Cover>
   );
 }
 
-const Cover = styled.View`
+const Cover = styled(Animated.View)`
   position: absolute;
-  top: 0px;
-  left: 0px;
-  right: 0px;
-  bottom: 0px;
-  background-color: ${({ theme }) => theme.colors.background};
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 15;
 `;
 
 const Safe = styled(SafeAreaView)`
   flex: 1;
-  padding: 0px ${({ theme }) => theme.spacing.large}px;
 `;
 
-const Top = styled.View`
-  flex-direction: row;
-  justify-content: flex-end;
-  padding-top: ${({ theme }) => theme.spacing.small}px;
-`;
-
-const Skip = styled(PressableScale)`
-  padding: 8px 6px;
-`;
-
-const SkipText = styled.Text`
-  color: ${({ theme }) => theme.colors.muted};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 600;
-`;
-
-const Middle = styled.View`
+const Pager = styled.ScrollView`
   flex: 1;
-  justify-content: center;
 `;
 
-const Card = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.extraLarge}px;
+const Page = styled.View`
+  flex: 1;
+  overflow: hidden;
 `;
 
-const Title = styled.Text`
-  color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ theme }) => theme.type.display}px;
-  font-weight: 800;
-  letter-spacing: -1.2px;
-  line-height: ${({ theme }) => theme.type.display + 4}px;
+/** Wide screens keep a phone-shaped column instead of stretching the frame. */
+const PageBody = styled.View`
+  flex: 1;
+  width: 100%;
+  max-width: ${PAGE_MAX_WIDTH}px;
+  align-self: center;
 `;
 
-const Body = styled.Text`
-  color: ${({ theme }) => theme.colors.muted};
-  font-size: ${({ theme }) => theme.type.body + 1}px;
-  line-height: 23px;
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
-`;
-
-const Bottom = styled.View`
+const Head = styled.View`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: ${({ theme }) => theme.spacing.large}px;
+  min-height: 32px;
+  padding: 8px 24px 0;
+`;
+
+const Skip = styled(PressableScale)`
+  padding: 6px 4px;
+`;
+
+const SkipText = styled.Text<{ $color: string }>`
+  font-size: 13px;
+  font-weight: 700;
+  color: ${({ $color }) => $color};
+`;
+
+const Title = styled.Text<{ $color: string; $size: number }>`
+  padding: 36px 24px 0;
+  font-size: ${({ $size }) => $size}px;
+  line-height: ${({ $size }) => Math.round($size * 1.05)}px;
+  font-weight: 800;
+  letter-spacing: -1.4px;
+  color: ${({ $color }) => $color};
+`;
+
+const Body = styled.Text<{ $color: string }>`
+  padding: 14px 24px 0;
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 500;
+  color: ${({ $color }) => $color};
+`;
+
+const Cutout = styled.View<{ $tight: boolean }>`
+  flex: 1;
+  min-height: ${CUTOUT_MIN_HEIGHT}px;
+  margin-top: ${({ $tight }) => ($tight ? 24 : 28)}px;
+`;
+
+const StepFooter = styled.View`
+  position: relative;
+`;
+
+const FadeLayer = styled.View`
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+`;
+
+const FooterRow = styled.View<{ $floor: string }>`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px 30px;
+  background-color: ${({ $floor }) => $floor};
+`;
+
+const InviteFooter = styled.View`
+  padding: 0 24px 30px;
+  gap: 10px;
+  background-color: ${brandGround.sol};
+`;
+
+const Note = styled.Text<{ $color: string }>`
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  text-align: center;
+  padding: 0 8px 4px;
+  color: ${({ $color }) => $color};
+`;
+
+const NoteSpace = styled.Text`
+  font-weight: 800;
+  color: ${brandGround.onSol};
 `;
 
 const Dots = styled.View`
   flex-direction: row;
-  gap: ${({ theme }) => theme.spacing.small - 2}px;
+  gap: 6px;
 `;
 
-const Dot = styled.View<{ $active: boolean }>`
-  width: ${({ $active }) => ($active ? 22 : 7)}px;
-  height: 7px;
-  border-radius: ${({ theme }) => theme.radii.pill}px;
-  background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.accent : theme.colors.border};
+/**
+ * Holds the button at the width of its own label.
+ *
+ * `PressableScale` stretches and grows the view its children live in, which is
+ * what every full-width button in the app wants and the opposite of what this
+ * one does. A column parent that aligns its child to the start stops the
+ * stretch at this level, without changing a component the whole app leans on.
+ */
+const NextSlot = styled.View`
+  align-items: flex-start;
 `;
 
-const Next = styled(PressableScale)`
-  background-color: ${({ theme }) => theme.colors.accent};
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  padding: 14px 28px;
+const DotsCentred = styled(Dots)`
+  justify-content: center;
+  margin-top: 6px;
 `;
 
-const NextText = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.label + 1}px;
+/** The active dot is a bar, not a bigger circle: position, not emphasis. */
+const Dot = styled.View<{
+  $active: boolean;
+  $activeColor: string;
+  $idleColor: string;
+}>`
+  width: ${({ $active }) => ($active ? 22 : 6)}px;
+  height: 6px;
+  border-radius: 3px;
+  background-color: ${({ $active, $activeColor, $idleColor }) =>
+    $active ? $activeColor : $idleColor};
+`;
+
+const Next = styled(PressableScale)<{ $background: string }>`
+  min-height: 52px;
+  padding: 0 24px;
+  border-radius: 15px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  background-color: ${({ $background }) => $background};
+`;
+
+const NextText = styled.Text<{ $color: string }>`
+  font-size: 14px;
   font-weight: 800;
+  color: ${({ $color }) => $color};
+`;
+
+const Invite = styled(PressableScale)`
+  min-height: 52px;
+  border-radius: 15px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: ${brandGround.tinta};
+`;
+
+const InviteText = styled.Text<{ $color: string }>`
+  font-size: 14px;
+  font-weight: 800;
+  color: ${({ $color }) => $color};
+`;
+
+/** Outlined, not filled: leaving without inviting is a real answer, but it is
+ * not the one the step is asking for. */
+const Later = styled(PressableScale)`
+  min-height: 48px;
+  border-radius: 15px;
+  align-items: center;
+  justify-content: center;
+  border-width: 1.5px;
+  border-color: ${brandGround.onSolLine};
+`;
+
+const LaterText = styled.Text`
+  font-size: 14px;
+  font-weight: 700;
+  color: ${brandGround.onSol};
 `;

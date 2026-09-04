@@ -1,18 +1,17 @@
 import { useState } from 'react';
 import { type TextLayoutEvent } from 'react-native';
-import Animated, {
-  FadeInDown,
-  LinearTransition,
-  SlideOutLeft,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import { useRenderCount } from '../../../../app/perf/sheetPerf';
 import { isCompleted, type Task } from '../../domain/Task';
-import type { ListColor, ProjectIcon } from '../../domain/TaskList';
-import { STAGGER_MS } from '../animation/motion';
+import type { ListColor, ListMember, ProjectIcon } from '../../domain/TaskList';
+import { rowEnter, rowExit, rowLayout } from '../../../../app/animation/motion';
 import type { TaskCopy } from '../localization/taskCopy';
 import { describeTask, taskFacts } from '../models/taskMeta';
 import { ChevronGlyph, TrashGlyph } from './FieldGlyphs';
+import { MemberChip } from './MemberChip';
+import { MemberStack } from './MemberStack';
 import { PressableScale } from './PressableScale';
 import { TaskCheckbox } from './TaskCheckbox';
 import { TaskFacts } from './TaskFacts';
@@ -33,10 +32,23 @@ interface TaskCardProps {
   action?: { label: string; onPress: () => void; disabled?: boolean };
   /** Used in the deadline view, where each task should read in one pass. */
   compact?: boolean;
+  /** A `viewer` in a shared project sees the task but cannot act on it. */
+  disabled?: boolean;
+  /** Who closed it, in a shared project. Takes the action slot's place once
+   * the task is done — nobody owns an open task, but someone finished it. */
+  completedByMember?: ListMember | null;
+  /** Who took this task, in a shared project. Empty renders nothing at all —
+   * no ficha, no reserved space. */
+  assignees?: readonly ListMember[];
 }
 
 /** Longer than this and the title is cut, with the rest one tap away. */
 const COLLAPSED_LINES = 2;
+
+/** Past this many people on one task, the rest reads as `+N`. */
+const ASSIGNEE_CAP = 3;
+
+const EMPTY_ASSIGNEES: readonly ListMember[] = [];
 
 /**
  * One task, in two lines.
@@ -62,8 +74,12 @@ export function TaskCard({
   onEdit,
   action,
   compact = false,
+  disabled = false,
+  completedByMember = null,
+  assignees = EMPTY_ASSIGNEES,
 }: TaskCardProps) {
   const theme = useTheme();
+  useRenderCount('TaskCard');
   const [expanded, setExpanded] = useState(false);
   const [clipped, setClipped] = useState(false);
   const done = isCompleted(task);
@@ -90,16 +106,13 @@ export function TaskCard({
   }
 
   return (
-    <Shell
-      entering={FadeInDown.delay(index * STAGGER_MS).duration(280)}
-      exiting={SlideOutLeft.duration(240)}
-      layout={LinearTransition.springify().damping(20).stiffness(200)}
-    >
+    <Shell entering={rowEnter(index)} exiting={rowExit()} layout={rowLayout()}>
       <Card $done={done}>
         <TopLine>
           <TaskCheckbox
             accessibilityLabel={task.title}
             checked={done}
+            disabled={disabled}
             onToggle={onToggle}
             testID={`task-checkbox-${task.id}`}
           />
@@ -196,15 +209,40 @@ export function TaskCard({
               listColor={listColor}
               listIcon={listIcon}
             />
-            {action == null ? null : (
-              <Action
-                accessibilityLabel={action.label}
-                disabled={action.disabled}
-                onPress={action.onPress}
-              >
-                <ActionText>{action.label}</ActionText>
-              </Action>
-            )}
+            <EndSlot>
+              {/* Who took it: the stack speaks for itself and stays silent
+                  about the chips inside. Nobody assigned renders nothing. */}
+              <MemberStack
+                cap={ASSIGNEE_CAP}
+                members={assignees}
+                sharedWithLabel={copy.lists.assignedTo(assignees.length)}
+              />
+              {completedByMember != null ? (
+                <MemberChip
+                  accessibilityLabel={copy.lists.completedBy(
+                    completedByMember.name,
+                  )}
+                  name={completedByMember.name}
+                  personId={completedByMember.personId}
+                  photoURL={completedByMember.photoURL ?? null}
+                  size="medium"
+                />
+              ) : action == null ? null : (
+                <Action
+                  $done={action.disabled === true}
+                  accessibilityLabel={action.label}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: action.disabled === true }}
+                  disabled={action.disabled}
+                  hitSlop={12}
+                  onPress={action.onPress}
+                >
+                  <ActionText $done={action.disabled === true}>
+                    {action.label}
+                  </ActionText>
+                </Action>
+              )}
+            </EndSlot>
           </BottomLine>
         )}
       </Card>
@@ -300,6 +338,14 @@ const InlineExpandButton = styled(PressableScale)`
 `;
 
 /** Lines up under the title rather than under the checkbox. */
+/* The right-hand end of the bottom line: who took the task, then the single
+   action — or who closed it. Empty of both, it takes no width. */
+const EndSlot = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small}px;
+`;
+
 const BottomLine = styled.View`
   flex-direction: row;
   align-items: center;
@@ -309,15 +355,21 @@ const BottomLine = styled.View`
   margin-left: ${({ theme }) => 26 + theme.spacing.small + 2}px;
 `;
 
-const Action = styled(PressableScale)`
-  border: 1px solid ${({ theme }) => theme.colors.border};
+/* Two states of one slot: an invitation, and the answer to it. The answered
+   one keeps its outline so the row does not jump, and loses the accent — there
+   is nothing left to press. */
+const Action = styled(PressableScale)<{ $done?: boolean }>`
+  border: 1px solid
+    ${({ theme, $done }) =>
+      $done === true ? theme.colors.borderSubtle : theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.pill}px;
   padding: 5px 11px;
   background-color: ${({ theme }) => theme.colors.background};
 `;
 
-const ActionText = styled.Text`
-  color: ${({ theme }) => theme.colors.accentInk};
+const ActionText = styled.Text<{ $done?: boolean }>`
+  color: ${({ theme, $done }) =>
+    $done === true ? theme.colors.muted : theme.colors.accentInk};
   font-size: ${({ theme }) => theme.type.caption}px;
   font-weight: 800;
 `;

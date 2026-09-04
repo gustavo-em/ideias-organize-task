@@ -4,6 +4,13 @@
     <!-- Normal permission, granted at install: the short buzz when a task is
          ticked and when the day closes. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Asked for at runtime on Android 13+, and never on a cold start: the
+         first shared project on screen, or the switch in Ajustes. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- The periodic check that reads the shared projects with the app
+         closed, and the same check surviving a reboot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
       android:name=".MainApplication"
@@ -24,6 +31,18 @@
         <intent-filter>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+        <!-- Convite por link. `autoVerify` faz o Android buscar
+             /.well-known/assetlinks.json no domínio: com a impressão digital
+             certa lá, o link abre o app direto, sem a folha de escolha. -->
+        <intent-filter android:autoVerify="true">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data
+              android:scheme="https"
+              android:host="ideiasorganizetask.web.app"
+              android:pathPrefix="/e/" />
         </intent-filter>
       </activity>
     </application>

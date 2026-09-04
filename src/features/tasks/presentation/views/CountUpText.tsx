@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { COUNT } from '../animation/motion';
+import { COUNT } from '../../../../app/animation/motion';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
@@ -19,7 +19,6 @@ interface CountUpTextProps {
   value: number;
   style?: StyleProp<TextStyle>;
   suffix?: string;
-  accessibilityLabel?: string;
   testID?: string;
 }
 
@@ -34,7 +33,6 @@ export function CountUpText({
   value,
   style,
   suffix = '',
-  accessibilityLabel,
   testID,
 }: CountUpTextProps) {
   const shown = useSharedValue(value);
@@ -51,11 +49,25 @@ export function CountUpText({
   );
 
   return (
+    /* Silent to accessibility on purpose. The field is a drawing surface, not
+       a control: Android would announce it as an edit box, and the block it
+       sits in already carries a written summary of the same number. */
     <AnimatedTextInput
-      accessibilityLabel={accessibilityLabel ?? `${value}${suffix}`}
+      accessible={false}
+      accessibilityElementsHidden
       animatedProps={animatedProps}
       defaultValue={`${value}${suffix}`}
       editable={false}
+      focusable={false}
+      /* `no` is the Android flag that takes the node out of the accessibility
+         tree; `accessibilityElementsHidden` only ever did anything on iOS, and
+         a parent marked `no-hide-descendants` was not enough to stop this
+         field being reported as an edit box. */
+      importantForAccessibility="no"
+      /* Belt and braces on the platform view itself: an input that cannot be
+         reached by touch, by keyboard, or by a screen reader. */
+      pointerEvents="none"
+      showSoftInputOnFocus={false}
       style={[styles.field, style]}
       testID={testID}
       underlineColorAndroid="transparent"

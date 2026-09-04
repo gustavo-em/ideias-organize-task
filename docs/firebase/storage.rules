@@ -1,0 +1,36 @@
+// NAO USADO no plano atual: a foto de perfil vive no documento do Firestore
+// (data URI). Este arquivo so volta a valer se um dia migrarmos para o Storage
+// no plano Blaze.
+// Regras para o Cloud Storage do projeto "ideiasorganizetask".
+//
+// Isto é um artefato a publicar, não código do app: habilitar o Storage no
+// console e publicar estas regras são passos do dono. Enquanto o bucket não
+// existir, o upload de foto falha com erro tratado na tela e a foto do Google
+// (ou as iniciais) continua valendo.
+//
+// Modelo: um objeto por conta, em avatars/{uid}.jpg. Leitura de qualquer
+// pessoa autenticada, porque um membro precisa ver a foto dos outros do
+// projeto; escrita apenas do próprio dono do uid, só JPEG e até 2MB — a
+// imagem já sobe redimensionada em 512px pelo cliente.
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /avatars/{file} {
+      function isOwnAvatar() {
+        return request.auth != null && file == request.auth.uid + '.jpg';
+      }
+
+      allow read: if request.auth != null;
+      allow write: if isOwnAvatar() &&
+        request.resource.contentType == 'image/jpeg' &&
+        request.resource.size < 2 * 1024 * 1024;
+      allow delete: if isOwnAvatar();
+    }
+
+    // Nada mais é gravável: um caminho novo exige uma regra nova.
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

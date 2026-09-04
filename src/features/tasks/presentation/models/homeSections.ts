@@ -1,9 +1,48 @@
+import { nextReminderAtMs, sortedReminders } from '../../domain/Reminder';
 import { isOpen, type Task } from '../../domain/Task';
 import type { TaskList } from '../../domain/TaskList';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
 import { deadlineSections, type DeadlineSection } from './deadlineSections';
 
 export type HomeGrouping = 'deadline' | 'list' | 'priority';
+
+/** How far ahead the tasks screen looks for reminders. A birthday eleven
+ * months away is not what today's screen is about; it stays visible in its own
+ * space, where everything of that space is listed. */
+export const HOME_REMINDER_HORIZON_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * The reminders, as one section at the end of the list.
+ *
+ * Always last and always the same heading, whatever lens the list is under: a
+ * reminder has no deadline, no priority and nothing to finish, so it belongs to
+ * none of the groupings the tasks are read by. `horizonMs` of null takes them
+ * all, which is what a space's own screen shows.
+ */
+export function reminderSection(
+  tasks: readonly Task[],
+  nowMs: number,
+  copy: TaskCopy,
+  horizonMs: number | null,
+): readonly DeadlineSection[] {
+  const reminders = sortedReminders(tasks, nowMs).filter(task => {
+    if (horizonMs == null) return true;
+
+    const next = nextReminderAtMs(task, nowMs);
+
+    return next != null && next - nowMs <= horizonMs;
+  });
+
+  return reminders.length === 0
+    ? []
+    : [
+        {
+          id: 'reminders',
+          title: copy.reminderItem.sectionTitle,
+          tasks: reminders,
+        },
+      ];
+}
 
 interface SectionDraft extends DeadlineSection {
   order: number;
@@ -24,8 +63,15 @@ export function homeSections(
   copy: TaskCopy,
   lists: readonly TaskList[],
 ): readonly DeadlineSection[] {
+  const reminders = reminderSection(
+    tasks,
+    nowMs,
+    copy,
+    HOME_REMINDER_HORIZON_MS,
+  );
+
   if (grouping === 'deadline') {
-    return deadlineSections(tasks, nowMs, language, copy);
+    return [...deadlineSections(tasks, nowMs, language, copy), ...reminders];
   }
 
   const listById = new Map(
@@ -47,12 +93,15 @@ export function homeSections(
     }
   }
 
-  return [...sections.values()]
-    .sort((first, second) => first.order - second.order)
-    .map(({ order: _order, ...section }) => ({
-      ...section,
-      tasks: [...section.tasks].sort(compareTasks),
-    }));
+  return [
+    ...[...sections.values()]
+      .sort((first, second) => first.order - second.order)
+      .map(({ order: _order, ...section }) => ({
+        ...section,
+        tasks: [...section.tasks].sort(compareTasks),
+      })),
+    ...reminders,
+  ];
 }
 
 function listSection(

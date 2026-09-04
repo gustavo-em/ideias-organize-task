@@ -7,7 +7,7 @@ import Animated, {
 import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from 'styled-components/native';
 
-import { FADE } from '../animation/motion';
+import { FADE } from '../../../../app/animation/motion';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -24,7 +24,7 @@ interface ProgressRingProps {
 export function ProgressRing({
   fraction,
   size,
-  strokeWidth = 9,
+  strokeWidth = 12,
   trackColor,
   color,
 }: ProgressRingProps) {
@@ -56,10 +56,12 @@ export function ProgressRing({
         cy={size / 2}
         fill="none"
         r={radius}
-        stroke={color ?? theme.colors.accent}
+        stroke={color ?? theme.colors.reminder}
         strokeDasharray={circumference}
         strokeLinecap="round"
         strokeWidth={strokeWidth}
+        // Rotated a quarter back so the stroke starts at twelve and runs
+        // clockwise, the way a clock face is read.
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
       />
     </Svg>

@@ -7,7 +7,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
-import { CHECK_SPRING } from '../animation/motion';
+import { CHECK_SPRING } from '../../../../app/animation/motion';
 
 interface StreakChipProps {
   label: string;
@@ -42,7 +42,7 @@ export function StreakChip({ label, pulseKey }: StreakChipProps) {
 const Chip = styled(Animated.View)`
   flex-direction: row;
   align-items: center;
-  background-color: ${({ theme }) => theme.colors.cardElevated};
+  background-color: ${({ theme }) => theme.colors.cardNeutral};
   border-radius: ${({ theme }) => theme.radii.pill}px;
   padding: 5px 11px;
 `;

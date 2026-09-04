@@ -10,9 +10,19 @@ describe('app preferences', () => {
       language: 'en-US',
       dayCapacity: 5,
       hasSeenOnboarding: true,
+      projectActivityNotifications: false,
+      hasAskedActivityPermission: true,
     };
 
     expect(sanitizeAppPreferences(stored)).toEqual(stored);
+  });
+
+  it('leaves project notifications on for anybody who never chose', () => {
+    expect(DEFAULT_APP_PREFERENCES.projectActivityNotifications).toBe(true);
+    expect(
+      sanitizeAppPreferences({ appearanceMode: 'dark' })
+        .projectActivityNotifications,
+    ).toBe(true);
   });
 
   it('falls back for anything it does not recognise', () => {

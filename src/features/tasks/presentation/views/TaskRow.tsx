@@ -1,36 +1,59 @@
-import Animated, {
-  FadeInDown,
-  LinearTransition,
-  SlideOutLeft,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
+import { useRenderCount } from '../../../../app/perf/sheetPerf';
 import { daysBetween } from '../../domain/Day';
-import { isCompleted, taskWeight, type Task } from '../../domain/Task';
+import { nextReminderAtMs, recurrenceOf } from '../../domain/Reminder';
+import {
+  isCompleted,
+  isReminder,
+  taskWeight,
+  type Task,
+} from '../../domain/Task';
+import type { TaskGroup } from '../../domain/TaskGroup';
 import type { ListColor, ProjectIcon } from '../../domain/TaskList';
-import { STAGGER_MS } from '../animation/motion';
-import type { TaskCopy } from '../localization/taskCopy';
+import { rowEnter, rowExit, rowLayout } from '../../../../app/animation/motion';
+import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
+import { formatDateLabel } from '../models/dateLabel';
 import type { HomeGrouping } from '../models/homeSections';
 import { rowFact } from '../models/rowFact';
 import { projectTone } from '../models/projectAppearance';
 import { describeTask, taskFacts } from '../models/taskMeta';
-import { ProjectGlyph } from './FieldGlyphs';
+import { BellGlyph, ProjectGlyph } from './FieldGlyphs';
+import { GroupPill } from './GroupPill';
+import { FocusDot, focusStatusText, minutesLeft } from './FocusDot';
 import { PressableScale } from './PressableScale';
 import { TaskCheckbox } from './TaskCheckbox';
 
 interface TaskRowProps {
   task: Task;
   copy: TaskCopy;
+  /** Only used to write the date a reminder next speaks on. */
+  language: AppLanguage;
   listName: string | null;
   listColor: ListColor | null;
   listIcon: ProjectIcon | null;
   nowMs: number;
   index: number;
+  /** The group this task belongs to, when the row is being read from outside
+   * that group — in the day, in Tarefas, in Foco. Null inside the group
+   * itself, where the whole screen already says which one it is. */
+  group?: TaskGroup | null;
   /** The lens the list is grouped by, so the row never repeats its heading. */
   lens: HomeGrouping;
   sectionId: string;
   onToggle: () => void;
   onEdit?: () => void;
+  /** Present only on the task a focus block is running on. The row then leads
+   * to the session instead of to the edit sheet. */
+  focus?: FocusRowState;
+}
+
+export interface FocusRowState {
+  /** mm:ss, already counted by the focus view model. */
+  label: string;
+  phase: 'running' | 'paused' | 'finished';
+  onOpen: () => void;
 }
 
 /**
@@ -50,18 +73,41 @@ interface TaskRowProps {
 export function TaskRow({
   task,
   copy,
+  language,
   listName,
   listColor,
   listIcon,
+  group = null,
   nowMs,
   index,
   lens,
   sectionId,
   onToggle,
   onEdit,
+  focus,
 }: TaskRowProps) {
+  useRenderCount('TaskRow');
   const theme = useTheme();
+
+  if (isReminder(task)) {
+    return (
+      <ReminderRow
+        copy={copy}
+        index={index}
+        language={language}
+        nowMs={nowMs}
+        onEdit={onEdit}
+        task={task}
+      />
+    );
+  }
+
   const done = isCompleted(task);
+  // Said before the rest of the row: the group is the context the sentence
+  // needs, and the pill that carries it is inside a pressable whose own label
+  // would otherwise swallow it.
+  const groupSpoken =
+    group == null ? '' : `${copy.lists.groups.pill(group.name)}. `;
   const facts = taskFacts(task, nowMs, copy, listName);
   const fact = rowFact({
     facts,
@@ -75,11 +121,7 @@ export function TaskRow({
   });
 
   return (
-    <Row
-      entering={FadeInDown.delay(index * STAGGER_MS).duration(280)}
-      exiting={SlideOutLeft.duration(240)}
-      layout={LinearTransition.springify().damping(20).stiffness(200)}
-    >
+    <Row entering={rowEnter(index)} exiting={rowExit()} layout={rowLayout()}>
       <TaskCheckbox
         accessibilityLabel={task.title}
         checked={done}
@@ -91,10 +133,25 @@ export function TaskRow({
       />
 
       <Main
-        accessibilityLabel={`${task.title}. ${describeTask(facts)}`}
+        accessibilityHint={focus == null ? undefined : copy.focus.openSession}
+        accessibilityLabel={
+          focus == null
+            ? `${task.title}. ${groupSpoken}${describeTask(facts)}`
+            : `${task.title}. ${groupSpoken}${focusStatusText(
+                focus.phase,
+                copy,
+              )}.`
+        }
         accessibilityRole="button"
-        disabled={onEdit == null}
-        onPress={onEdit}
+        /* The clock is a value, not a name: a label that changes every second
+           makes a screen reader re-read the whole row every second. */
+        accessibilityValue={
+          focus == null
+            ? undefined
+            : { text: copy.capture.minutes(minutesLeft(focus.label)) }
+        }
+        disabled={focus == null && onEdit == null}
+        onPress={focus == null ? onEdit : focus.onOpen}
         scaleTo={0.99}
         testID={`task-${task.id}`}
       >
@@ -105,12 +162,47 @@ export function TaskRow({
         <Title $done={done} numberOfLines={1}>
           {task.title}
         </Title>
+
+        {/* Steps done out of steps written, in the quietest ink on the row.
+            The spoken label already carries it, so the digits are decoration
+            for the eye and never a second thing to read out. */}
+        {facts.subtasks == null ? null : (
+          <SubtaskCount
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            testID={`task-subtasks-${task.id}`}
+          >
+            {`${facts.subtasks.done}/${facts.subtasks.total}`}
+          </SubtaskCount>
+        )}
+
+        {/* The reason it belongs to, carried with it. Without this, a task
+            pulled out of its group into the day is a sentence with no context:
+            "Confirmar o salão" for what? */}
+        {group == null ? null : (
+          <GroupTag
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <GroupPill
+              group={group}
+              label={copy.lists.groups.pill(group.name)}
+            />
+          </GroupTag>
+        )}
       </Main>
 
       {done ? (
         <Earned testID={`task-earned-${task.id}`}>
           {copy.today.earned(taskWeight(task))}
         </Earned>
+      ) : focus != null ? (
+        <FocusPill
+          copy={copy}
+          label={focus.label}
+          phase={focus.phase}
+          testID={`task-focus-${task.id}`}
+        />
       ) : fact == null ? null : (
         <Fact>
           {fact.project?.icon == null || fact.project.color == null ? null : (
@@ -129,6 +221,105 @@ export function TaskRow({
   );
 }
 
+const GroupTag = styled.View`
+  flex-direction: row;
+  margin-top: 3px;
+`;
+
+/**
+ * A reminder, on the same line as everything else.
+ *
+ * No box to tick: there is nothing to finish, and drawing a disabled checkbox
+ * would be offering a control that refuses. The bell says which kind of item
+ * this is at a glance, and the right-hand slot says when it next speaks — the
+ * same slot the deadline uses on a task, in the same quiet ink.
+ */
+function ReminderRow({
+  copy,
+  index,
+  language,
+  nowMs,
+  onEdit,
+  task,
+}: {
+  copy: TaskCopy;
+  index: number;
+  language: AppLanguage;
+  nowMs: number;
+  onEdit?: () => void;
+  task: Task;
+}) {
+  const theme = useTheme();
+  const nextAtMs = nextReminderAtMs(task, nowMs);
+  const when =
+    nextAtMs == null
+      ? copy.reminderItem.noNext
+      : copy.reminderItem.next(formatDateLabel(nextAtMs, language, nowMs));
+  const howOften = copy.capture.recurrence[recurrenceOf(task)];
+
+  return (
+    <Row entering={rowEnter(index)} exiting={rowExit()} layout={rowLayout()}>
+      {/* Decorative: the kind is spoken in the label below, and a second
+          announcement would only repeat it. */}
+      <Glyph
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+        pointerEvents="none"
+      >
+        <BellGlyph color={theme.colors.mutedStrong} size={18} />
+      </Glyph>
+
+      <Main
+        accessibilityLabel={`${copy.reminderItem.a11yKind}. ${task.title}. ${howOften}. ${when}`}
+        accessibilityRole="button"
+        disabled={onEdit == null}
+        /* Opening the sheet is the row's only action, and the text alone is
+           20dp tall. The slop covers the row's own padding, so the whole line
+           answers without a single pixel being redrawn. */
+        hitSlop={{ bottom: 14, left: 0, right: 0, top: 14 }}
+        onPress={onEdit}
+        scaleTo={0.99}
+        testID={`reminder-${task.id}`}
+      >
+        <Title $done={false} numberOfLines={1}>
+          {task.title}
+        </Title>
+      </Main>
+
+      <Fact>
+        <FactText $tone="mutedStrong" $weight={600}>
+          {nextAtMs == null
+            ? copy.reminderItem.noNext
+            : formatDateLabel(nextAtMs, language, nowMs)}
+        </FactText>
+      </Fact>
+    </Row>
+  );
+}
+
+/** The block, shown where the fact used to be. */
+function FocusPill({
+  copy,
+  label,
+  phase,
+  testID,
+}: {
+  copy: TaskCopy;
+  label: string;
+  phase: FocusRowState['phase'];
+  testID: string;
+}) {
+  return (
+    <Pill pointerEvents="none" testID={testID}>
+      <FocusDot phase={phase} />
+      {phase === 'running' ? null : (
+        <PillStatus>{focusStatusText(phase, copy)}</PillStatus>
+      )}
+      <PillTime $done={phase === 'finished'}>{label}</PillTime>
+    </Pill>
+  );
+}
+
 /**
  * A finished row fades by colour, never by opacity: a static opacity is the
  * one property a layout animation may overwrite, and Reanimated warns about
@@ -137,8 +328,17 @@ export function TaskRow({
 const Row = styled(Animated.View)`
   flex-direction: row;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.small + 5}px;
-  padding: ${({ theme }) => theme.spacing.medium - 1}px 0px;
+  gap: ${({ theme }) => theme.spacing.small + 6}px;
+  padding: ${({ theme }) => theme.spacing.small + 5}px 0px;
+`;
+
+/* Exactly the footprint the checkbox leaves, so a list of tasks and reminders
+   keeps one left edge. */
+const Glyph = styled.View`
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
 `;
 
 const Main = styled(PressableScale)`
@@ -149,13 +349,26 @@ const Main = styled(PressableScale)`
   gap: ${({ theme }) => theme.spacing.small}px;
 `;
 
+/* Sits with the title rather than in the right-hand slot, which the project
+   name and the timer already own. Never shrinks: four characters. */
+const SubtaskCount = styled.Text`
+  flex-shrink: 0;
+  margin-left: 8px;
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 700;
+  font-variant: tabular-nums;
+`;
+
+/* Body weight, not bold: nine titles in a column set in 700 read as nine
+   headlines shouting at once. The checkbox and the fact do the emphasis. */
 const Title = styled.Text<{ $done: boolean }>`
   flex-shrink: 1;
   color: ${({ theme, $done }) =>
     $done ? theme.colors.muted : theme.colors.text};
-  font-size: ${({ theme }) => theme.type.body + 1}px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
+  font-size: ${({ theme }) => theme.type.body}px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
   text-decoration-line: ${({ $done }) => ($done ? 'line-through' : 'none')};
 `;
 
@@ -170,10 +383,39 @@ const FactText = styled.Text<{
   $tone: 'danger' | 'mutedStrong';
   $weight: 500 | 600 | 700;
 }>`
+  /* Lateness is not danger: the danger colour belongs to the destructive
+     action alone. Emphasis reads through ink and weight, never through alarm. */
   color: ${({ theme, $tone }) =>
-    $tone === 'danger' ? theme.colors.danger : theme.colors.mutedStrong};
+    $tone === 'danger' ? theme.colors.text : theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  font-weight: ${({ $weight }) => ($weight < 600 ? 600 : $weight)};
+`;
+
+/* A chip, not a card: no border and no shadow, so the list keeps its air. */
+const Pill = styled.View`
+  flex-shrink: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  background-color: ${({ theme }) => theme.colors.cardNeutral};
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  padding: 4px 10px;
+`;
+
+const PillStatus = styled.Text`
+  color: ${({ theme }) => theme.colors.mutedStrong};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 600;
+`;
+
+/* Tabular figures: a clock that changes width every second reads as a glitch. */
+const PillTime = styled.Text.attrs({
+  style: { fontVariant: ['tabular-nums' as const] },
+})<{ $done: boolean }>`
+  color: ${({ theme, $done }) =>
+    $done ? theme.colors.successInk : theme.colors.accentInk};
   font-size: ${({ theme }) => theme.type.caption + 0.5}px;
-  font-weight: ${({ $weight }) => $weight};
+  font-weight: 800;
 `;
 
 /**
@@ -184,6 +426,6 @@ const FactText = styled.Text<{
 const Earned = styled.Text`
   flex-shrink: 0;
   color: ${({ theme }) => theme.colors.successInk};
-  font-size: ${({ theme }) => theme.type.caption + 0.5}px;
-  font-weight: 600;
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  font-weight: 700;
 `;
