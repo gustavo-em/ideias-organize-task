@@ -23,6 +23,12 @@ export function createUsageSubscriber(
           priority: event.task.priority,
           hasDueDate: event.task.dueAtMs != null,
           hasList: event.task.listId !== 'inbox',
+          kind: event.task.kind ?? 'task',
+          recurrence: event.task.recurrence ?? null,
+          hasGroup: event.task.groupId != null,
+          remindDaysBefore: event.task.remindDaysBefore ?? null,
+          subtaskCount: event.task.subtasks.length,
+          origin: event.origin,
           tookSeconds:
             event.tookMs == null ? null : Math.round(event.tookMs / 100) / 10,
         })
@@ -33,8 +39,21 @@ export function createUsageSubscriber(
         .taskCompleted({ weight: event.weight, inTrio: event.inTrio })
         .catch(ignore);
     }),
+    bus.on('group.created', event => {
+      reporter
+        .groupCreated({
+          icon: event.group.icon,
+          hasEventDate: event.group.eventAtMs != null,
+        })
+        .catch(ignore);
+    }),
     bus.on('trio.completed', event => {
       reporter.trioCompleted({ streakDays: event.streakDays }).catch(ignore);
+    }),
+    bus.on('focus.started', event => {
+      reporter
+        .focusStarted({ plannedMinutes: Math.round(event.plannedMs / 60000) })
+        .catch(ignore);
     }),
     bus.on('focus.finished', event => {
       reporter
@@ -49,6 +68,13 @@ export function createUsageSubscriber(
     }),
     bus.on('list.shared', () => {
       reporter.listShared().catch(ignore);
+    }),
+    bus.on('list.member.joined', event => {
+      reporter
+        .listMemberJoined({
+          memberCount: event.list.share?.members.length ?? 0,
+        })
+        .catch(ignore);
     }),
   ];
 

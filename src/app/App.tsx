@@ -25,7 +25,7 @@ import { firestoreShareGateway } from '../features/tasks/infrastructure/sharing/
 import { systemClipboard } from '../features/tasks/infrastructure/sharing/systemClipboard';
 import { createLocalTaskStores } from '../features/tasks/infrastructure/storage/asyncStorageStores';
 import { firestoreWorkspaceBackup } from '../features/tasks/infrastructure/storage/firestoreWorkspaceBackup';
-import { consoleUsageReporter } from '../features/tasks/infrastructure/usage/consoleUsageReporter';
+import { firebaseUsageReporter } from '../features/tasks/infrastructure/usage/firebaseUsageReporter';
 import { deriveMemberIdentity } from '../features/tasks/presentation/models/memberIdentity';
 import { FocusScreen } from '../features/tasks/presentation/screens/FocusScreen';
 import { ListsScreen } from '../features/tasks/presentation/screens/ListsScreen';
@@ -50,6 +50,8 @@ import {
   type OnboardingOutcome,
 } from './components/OnboardingScreen';
 import { APP_VERSION } from './config/appMetadata';
+import { createBreadcrumbSubscriber } from './infrastructure/crash/createBreadcrumbSubscriber';
+import { firebaseCrashReporter } from './infrastructure/crash/firebaseCrashReporter';
 import { asyncStoragePreferencesStore } from './infrastructure/preferences/asyncStoragePreferencesStore';
 import { useIncomingInvite } from './session/useIncomingInvite';
 import { useLocalWorkspace } from './session/useLocalWorkspace';
@@ -159,7 +161,7 @@ function AppContent({
     progressStore: stores.progressStore,
     taskStore: stores.taskStore,
     trioStore: stores.trioStore,
-    usageReporter: consoleUsageReporter,
+    usageReporter: firebaseUsageReporter,
     shareGateway: firestoreShareGateway,
     groupStreakStore: stores.groupStreakStore,
     clipboard: systemClipboard,
@@ -169,7 +171,6 @@ function AppContent({
     onRemoteProject: activity.onRemoteProject,
   });
   const focus = useFocusViewModel({ bus, clock: systemClock });
-
   const [durationTask, setDurationTask] = useState<Task | null>(null);
   const [isFocusOpen, setIsFocusOpen] = useState(false);
 
@@ -467,6 +468,21 @@ function AppShell({
   const authStatus =
     auth.status === 'checking' && authTimedOut ? 'signedOut' : auth.status;
   const personId = auth.user?.uid ?? null;
+
+  // Telemetry follows the account, not the device: the same person on a second
+  // phone is one person, and a crash that hits ten people once is a different
+  // problem from one that hits one person ten times.
+  useEffect(() => {
+    firebaseCrashReporter.identify(personId);
+    firebaseUsageReporter.identify(personId).catch(() => undefined);
+  }, [personId]);
+
+  // What a crash report is read against. It is subscribed here rather than
+  // inside a feature because the trail has to outlive any one screen.
+  useEffect(
+    () => createBreadcrumbSubscriber(bus, firebaseCrashReporter),
+    [bus],
+  );
   // Nothing of this account may be drawn before this answers: the walk from
   // the pre-namespace keys, and the restore from the server backup when this
   // device has nothing of its own, both happen behind it.
@@ -497,6 +513,12 @@ function AppShell({
   // anybody has to answer twice. Only the invite leaves something to do after.
   const finishOnboarding = (outcome: OnboardingOutcome) => {
     setIsReplayingOnboarding(false);
+    // Reported straight from the shell, not through the bus: on a clean
+    // device the walk-through closes before there is an account, and the
+    // subscriber that carries telemetry only exists once one is signed in.
+    firebaseUsageReporter
+      .onboardingFinished({ outcome })
+      .catch(() => undefined);
     if (!app.hasSeenOnboarding) app.finishOnboarding();
     if (outcome === 'invite') setInviteIntent(true);
   };
@@ -575,10 +597,14 @@ export default function App() {
   const bus = useMemo(
     () =>
       createEventBus<TaskEvent>({
+        // A listener that throws is swallowed by the bus so it cannot take the
+        // save or the animation down with it — which also means nobody would
+        // ever hear about it. This is where it gets heard.
         onListenerError: (error, type) => {
-          if (!__DEV__) return;
+          firebaseCrashReporter.recordError(error, `event:${type}`);
 
-          console.warn(`[events] listener failed for ${type}`, error);
+          if (__DEV__)
+            console.warn(`[events] listener failed for ${type}`, error);
         },
       }),
     [],

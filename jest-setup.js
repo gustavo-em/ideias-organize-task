@@ -125,6 +125,22 @@ jest.mock('react-native-background-fetch', () => ({
   },
 }));
 
+jest.mock('@react-native-firebase/analytics', () => ({
+  __esModule: true,
+  getAnalytics: jest.fn(() => ({})),
+  logEvent: jest.fn(async () => undefined),
+  logScreenView: jest.fn(async () => undefined),
+  setUserId: jest.fn(async () => undefined),
+}));
+
+jest.mock('@react-native-firebase/crashlytics', () => ({
+  __esModule: true,
+  getCrashlytics: jest.fn(() => ({})),
+  log: jest.fn(),
+  recordError: jest.fn(),
+  setUserId: jest.fn(async () => null),
+}));
+
 jest.mock('@react-native-firebase/messaging', () => ({
   __esModule: true,
   getMessaging: jest.fn(() => ({})),
