@@ -5,7 +5,7 @@ apply plugin: "com.google.gms.google-services"
 
 // Load environment variables from .env file
 def loadEnv() {
-    def envFile = file("${rootDir}/.env")
+    def envFile = file("${rootDir}/../.env")
     def env = [:]
     if (envFile.exists()) {
         envFile.eachLine { line ->
@@ -112,15 +112,21 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            if (env.ANDROID_RELEASE_STORE_FILE) {
+                storeFile file(env.ANDROID_RELEASE_STORE_FILE)
+                storePassword env.ANDROID_RELEASE_STORE_PASSWORD
+                keyAlias env.ANDROID_RELEASE_KEY_ALIAS
+                keyPassword env.ANDROID_RELEASE_KEY_PASSWORD
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig env.ANDROID_RELEASE_STORE_FILE ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
