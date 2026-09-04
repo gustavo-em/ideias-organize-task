@@ -8,25 +8,23 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-linkage = ENV['USE_FRAMEWORKS']
-if linkage != nil
-  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
-  use_frameworks! :linkage => linkage.to_sym
-end
+# Firebase 12 ships FirebaseAuth as Swift. Built as plain static libraries its
+# generated FirebaseAuth-Swift.h lands where the Firebase umbrella header
+# cannot import it, breaking every react-native-firebase pod that includes the
+# umbrella. Static frameworks give each pod real framework headers, which is
+# the layout react-native-firebase supports.
+linkage = (ENV['USE_FRAMEWORKS'] || 'static').to_sym
+Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+use_frameworks! :linkage => linkage
 
 # Firebase resolved as pods rather than Swift Package Manager: with SPM every
 # react-native-firebase pod embeds its own copy of firebase-ios-sdk, and under
 # the static linkage this app builds with those copies collide at link time.
 $RNFirebaseDisableSPM = true
+$RNFirebaseAsStaticFramework = true
 
 target 'IdeiasOrganizeTask' do
   config = use_native_modules!
-
-  # Google Sign-In and the Firebase pods are Swift, and importing them from a
-  # static library needs module maps on every interop pod they reach. Turned
-  # on for the whole target because the chain (GoogleUtilities, Recaptcha,
-  # FirebaseAuthInterop, FirebaseAppCheckInterop, …) keeps growing otherwise.
-  use_modular_headers!
 
   use_react_native!(
     :path => config[:reactNativePath],
