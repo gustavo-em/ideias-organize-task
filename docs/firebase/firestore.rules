@@ -6,8 +6,9 @@
 // arquivo depois de confirmar que o Firestore está habilitado.
 //
 // Modelo: um documento por projeto compartilhado, em sharedLists/{token}.
-// O token é o mesmo do link de convite — por isso a leitura por dono/membro
-// exige uid em memberIds, e o token sozinho nunca é suficiente para ler.
+// O token é o mesmo do link de convite, é o id do documento, e `list` é
+// `false` — então ele é o segredo que dá acesso de leitura, e escrever
+// continua exigindo ser membro (ou estar entrando, via `isJoining`).
 //
 // `editorIds` é um campo próprio (uids com role owner ou editor), mantido
 // pelo cliente a cada escrita em members/memberIds — regra de segurança não
@@ -48,6 +49,30 @@ service cloud.firestore {
       // Function (Admin SDK, fora destas regras) que os lê para enviar.
       match /fcmTokens/{fcmToken} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // Cópia do workspace da própria conta — tarefas, espaços, progresso.
+      // Só o dono lê e escreve; nenhum outro membro de projeto chega aqui.
+      //
+      // Não é sincronização: o aparelho continua sendo onde o app lê e
+      // escreve, e isto existe para os três momentos em que o aparelho não
+      // tem resposta — celular novo, reinstalação, e sair e voltar da conta.
+      // Cada parte é gravada como string JSON, então a regra não tem opinião
+      // sobre o formato interno; o teto de 900k por campo é folga sob o
+      // limite de 1 MiB por documento do Firestore.
+      match /workspace/{doc} {
+        allow read, delete: if request.auth != null && request.auth.uid == uid;
+        allow create, update: if request.auth != null &&
+          request.auth.uid == uid &&
+          request.resource.data.keys().hasOnly(
+            ['tasks', 'lists', 'progress', 'trio', 'groupStreaks', 'updatedAtMs']
+          ) &&
+          (!('tasks' in request.resource.data.keys()) ||
+            (request.resource.data.tasks is string &&
+              request.resource.data.tasks.size() < 900000)) &&
+          (!('lists' in request.resource.data.keys()) ||
+            (request.resource.data.lists is string &&
+              request.resource.data.lists.size() < 900000));
       }
     }
 
@@ -159,7 +184,16 @@ service cloud.firestore {
           ).affectedKeys().hasOnly([request.auth.uid]);
       }
 
-      allow get: if isMember();
+      // Ler exige apenas uma sessão, não ser membro. Quem entra por convite
+      // precisa ler o documento ANTES de entrar — `isJoining()` autoriza a
+      // escrita de entrada, mas ela é montada a partir dos membros atuais, e
+      // exigir `isMember()` aqui tornava impossível chegar até ela: toda conta
+      // nova levava 403 e via "esse convite não é válido".
+      //
+      // O token continua sendo o segredo. Ele é o id do documento, `list` é
+      // `false`, e são 10 caracteres — não há como enumerar, e quem tem o
+      // token já ia entrar de qualquer jeito.
+      allow get: if request.auth != null;
       allow list: if false; // nunca por consulta — só pelo token do link.
       allow create: if request.auth != null &&
         request.auth.uid in request.resource.data.memberIds &&

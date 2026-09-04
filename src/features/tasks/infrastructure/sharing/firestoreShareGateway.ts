@@ -471,7 +471,10 @@ export const firestoreShareGateway: ShareGateway = {
       `${COLLECTION}/${token}`,
     );
     if (status === 404 || fields == null) {
-      throw new ShareOperationError('invalid-invite');
+      throw new ShareOperationError(
+        'invalid-invite',
+        status === 404 ? 'sem documento' : `resposta ${status} sem campos`,
+      );
     }
 
     // The role granted is whatever the link was created as — never what the
@@ -515,7 +518,8 @@ export const firestoreShareGateway: ShareGateway = {
     }
 
     const project = documentToProject(token, { ...fields, members });
-    if (project == null) throw new ShareOperationError('invalid-invite');
+    if (project == null)
+      throw new ShareOperationError('invalid-invite', 'documento incompleto');
     if (project.list.share == null) return project;
 
     return {
