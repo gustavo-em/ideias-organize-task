@@ -61,7 +61,8 @@ function previewOf(data) {
     name: typeof data.name === 'string' ? data.name : null,
     color: typeof data.color === 'string' ? data.color : 'sun',
     icon: typeof data.icon === 'string' ? data.icon : 'home',
-    invitedBy: owner != null && typeof owner.name === 'string' ? owner.name : null,
+    invitedBy:
+      owner != null && typeof owner.name === 'string' ? owner.name : null,
     memberCount: members.length,
     openCount: tasks.filter(task => task != null && task.completedAtMs == null)
       .length,
@@ -128,7 +129,9 @@ function downloadButton(platform, token) {
   const both = [
     ios ? `<a class="cta" href="${appStoreUrl()}">Baixar para iPhone</a>` : '',
     android
-      ? `<a class="cta cta-soft" href="${playUrl(token)}">Baixar para Android</a>`
+      ? `<a class="cta cta-soft" href="${playUrl(
+          token,
+        )}">Baixar para Android</a>`
       : '',
   ].join('');
 
@@ -137,7 +140,8 @@ function downloadButton(platform, token) {
 
 function page(preview, token, platform) {
   const name = escapeHtml(preview.name ?? 'um espaço');
-  const who = preview.invitedBy == null ? 'Alguém' : escapeHtml(preview.invitedBy);
+  const who =
+    preview.invitedBy == null ? 'Alguém' : escapeHtml(preview.invitedBy);
   const rows = preview.tasks
     .map(
       task =>

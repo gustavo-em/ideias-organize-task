@@ -16,33 +16,41 @@ para palavra-chave — marca sozinha no nome só funciona para app já conhecido
 ## pt-BR
 
 ### Nome — 26/30 caracteres (26 bytes)
+
 ```
 Aluza: Lista Compartilhada
 ```
+
 Singular porque é assim que a pessoa digita ("lista compartilhada"); a Apple resolve o plural.
 Alternativa: `Aluza: Listas Compartilhadas` (28).
 
 ### Subtítulo — 29/30 caracteres (30 bytes)
+
 ```
 Tarefas do casal e da família
 ```
 
 ### Palavras-chave — 99/100 caracteres (99 bytes)
+
 ```
 afazeres,compras,mercado,checklist,rotina,casa,grupo,lembrete,organizar,planner,todo,dupla,foco,dia
 ```
+
 Sem espaço depois da vírgula, sem acento (o campo é contado em bytes — acento custa 2),
 no singular e sem repetir palavra que já está no nome ou no subtítulo. A Apple combina os
 tokens dos três campos: `Lista` + `compras` já forma "lista de compras", `Tarefas` + `casa`
 forma "tarefas de casa".
 
 ### Texto promocional — 155/170 caracteres (158 bytes)
+
 ```
 Cada um leva três tarefas por dia. O resto espera na caixa, sem cobrança. Convide quem divide a rotina com você e o combinado passa a viver no mesmo lugar.
 ```
+
 Pode ser trocado a qualquer momento sem passar por revisão.
 
 ### Descrição — 3767/4000 caracteres (3894 bytes)
+
 ```
 Aluza é a lista de tarefas compartilhada de quem divide a vida com alguém: casal, família, república ou grupo de amigos.
 
@@ -115,21 +123,25 @@ Dúvida, ideia ou problema: gustavo.emanuel01@outlook.com
 ```
 
 ### Copyright
+
 ```
 2026 Gustavo Rosa
 ```
 
 ### URL de marketing
+
 ```
 https://ideiasorganizetask.web.app/
 ```
 
 ### URL de suporte
+
 ```
 https://ideiasorganizetask.web.app/suporte
 ```
 
 ### URL da política de privacidade
+
 ```
 https://ideiasorganizetask.web.app/privacidade
 ```
@@ -139,26 +151,31 @@ https://ideiasorganizetask.web.app/privacidade
 ## en-US
 
 ### Name — 24/30 caracteres (24 bytes)
+
 ```
 Aluza: Shared To-Do List
 ```
 
 ### Subtitle — 26/30 caracteres (26 bytes)
+
 ```
 Tasks for couples & family
 ```
 
 ### Keywords — 99/100 caracteres (99 bytes)
+
 ```
 chore,grocery,checklist,household,roommate,planner,reminder,group,home,partner,routine,errand,focus
 ```
 
 ### Promotional text — 141/170 caracteres (141 bytes)
+
 ```
 Everyone takes three tasks a day. The rest waits in the inbox, no guilt. Invite whoever shares your routine and keep every plan in one place.
 ```
 
 ### Description — 3704/4000 caracteres (3742 bytes)
+
 ```
 Aluza is the shared task list for people who share a life: couples, families, roommates and groups of friends.
 
@@ -231,16 +248,19 @@ Questions, ideas or trouble: gustavo.emanuel01@outlook.com
 ```
 
 ### Copyright
+
 ```
 2026 Gustavo Rosa
 ```
 
 ### URLs
+
 ```
 Marketing: https://ideiasorganizetask.web.app/
 Support:   https://ideiasorganizetask.web.app/support
 Privacy:   https://ideiasorganizetask.web.app/privacy
 ```
+
 `/support` e `/privacy` são redirecionamentos 301 para a seção em inglês das mesmas páginas.
 
 ---
