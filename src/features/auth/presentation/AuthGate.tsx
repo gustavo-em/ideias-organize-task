@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { BackHandler } from 'react-native';
+import { BackHandler, Linking } from 'react-native';
+
+import { PRIVACY_URL, TERMS_URL } from '../../../app/config/appMetadata';
 
 import { AnonymousNameScreen } from './screens/AnonymousNameScreen';
 import type { AuthCopy } from './localization/authCopy';
@@ -11,6 +13,12 @@ import { SignUpScreen } from './screens/SignUpScreen';
 import type { AuthViewModel } from './view-models/useAuthViewModel';
 
 type AuthStage = 'entrance' | 'login' | 'signUp' | 'forgot' | 'anonymous';
+
+/** No browser is not worth a crash on the sign-in screen: the words stay
+ * words, and everything else on the entrance keeps working. */
+function openLegal(url: string): void {
+  Linking.openURL(url).catch(() => undefined);
+}
 
 interface AuthGateProps {
   auth: AuthViewModel;
@@ -92,6 +100,8 @@ export function AuthGate({
         onEmail={() => setStage('login')}
         onGoogle={auth.signInWithGoogle}
         onGuest={() => setStage('anonymous')}
+        onOpenPrivacy={() => openLegal(PRIVACY_URL)}
+        onOpenTerms={() => openLegal(TERMS_URL)}
       />
     );
   }

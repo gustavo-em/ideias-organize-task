@@ -37,6 +37,33 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     return true
   }
+
+  // O convite chega por Universal Link, e o iOS entrega isso como uma
+  // NSUserActivity — não como uma URL aberta. Sem este encaminhamento o app
+  // abre, mas o JavaScript nunca fica sabendo do link, então quem toca num
+  // convite cai numa tela de entrada comum, sem sinal do que foi tocado.
+  func application(
+    _ application: UIApplication,
+    continue userActivity: NSUserActivity,
+    restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+  ) -> Bool {
+    RCTLinkingManager.application(
+      application,
+      continue: userActivity,
+      restorationHandler: restorationHandler
+    )
+  }
+
+  // O outro caminho: esquemas de URL, para um `aluza://` caso um dia exista.
+  // O Google Sign-In não passa por aqui — ele volta por
+  // ASWebAuthenticationSession, que se resolve sozinha.
+  func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    RCTLinkingManager.application(app, open: url, options: options)
+  }
 }
 
 class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {

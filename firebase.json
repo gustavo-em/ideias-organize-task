@@ -1,4 +1,10 @@
 {
+  "react-native": {
+    "crashlytics_disable_auto_disabler": true,
+    "crashlytics_auto_collection_enabled": true,
+    "analytics_auto_collection_enabled": true,
+    "google_analytics_automatic_screen_reporting_enabled": false
+  },
   "firestore": {
     "database": "(default)",
     "location": "nam5",
@@ -21,10 +27,7 @@
   ],
   "hosting": {
     "public": "public",
-    "ignore": [
-      "firebase.json",
-      "**/node_modules/**"
-    ],
+    "ignore": ["firebase.json", "**/node_modules/**"],
     "headers": [
       {
         "source": "/.well-known/apple-app-site-association",
@@ -49,6 +52,19 @@
       {
         "source": "/e/**",
         "function": "invite"
+      }
+    ],
+    "cleanUrls": true,
+    "redirects": [
+      {
+        "source": "/support",
+        "destination": "/suporte#en",
+        "type": 301
+      },
+      {
+        "source": "/privacy",
+        "destination": "/privacidade#en",
+        "type": 301
       }
     ]
   }
