@@ -3,6 +3,22 @@ import type { AuthErrorKind } from '../../domain/AuthError';
 export type AuthLanguage = 'pt-BR' | 'en-US';
 
 export interface AuthCopy {
+  /** The screen a signed-out person actually lands on: the brand, the promise,
+   * a cut-out of the product, and only then the ways in. The provider labels
+   * are short here because the buttons carry a glyph and sit in a row — the
+   * long forms in `login` still apply on the email screen behind it. */
+  entrance: {
+    headline: string;
+    google: string;
+    apple: string;
+    email: string;
+    guest: string;
+    /** The way back to this screen from the email form behind it. */
+    back: string;
+    /** Split so the two link words can be tapped without parsing a sentence
+     * for them. Rendered as `lead terms and privacy.` */
+    legal: { lead: string; terms: string; and: string; privacy: string };
+  };
   login: {
     title: string;
     subtitle: string;
@@ -87,6 +103,22 @@ export interface AuthCopy {
 }
 
 const pt: AuthCopy = {
+  entrance: {
+    // The same promise the walk-through opens with: whoever skipped it still
+    // reads what the app is before being asked for anything.
+    headline: 'Um espaço para a vida que vocês dividem.',
+    google: 'Continuar com Google',
+    apple: 'Apple',
+    email: 'E-mail',
+    guest: 'Continuar só com nome',
+    back: 'Voltar',
+    legal: {
+      lead: 'Ao continuar você aceita os',
+      terms: 'Termos',
+      and: 'e a',
+      privacy: 'Privacidade',
+    },
+  },
   login: {
     title: 'Entrar',
     subtitle: 'Use o e-mail e a senha da sua conta.',
@@ -196,6 +228,20 @@ const pt: AuthCopy = {
 };
 
 const en: AuthCopy = {
+  entrance: {
+    headline: 'A space for the life you share.',
+    google: 'Continue with Google',
+    apple: 'Apple',
+    email: 'Email',
+    guest: 'Continue with just a name',
+    back: 'Back',
+    legal: {
+      lead: 'By continuing you accept the',
+      terms: 'Terms',
+      and: 'and the',
+      privacy: 'Privacy Policy',
+    },
+  },
   login: {
     title: 'Log in',
     subtitle: "Use your account's email and password.",
