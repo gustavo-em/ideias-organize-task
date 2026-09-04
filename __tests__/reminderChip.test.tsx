@@ -168,7 +168,14 @@ describe('asking to be warned before a deadline', () => {
       );
 
       expect(style.flexShrink).toBe(0);
-      expect(style.minHeight).toBeGreaterThanOrEqual(48);
+      // The design draws a 32px pill inside a 48px slot. Vertical hit slop
+      // keeps the real target at the Android minimum without making it bulky.
+      expect(style.minHeight).toBe(32);
+      expect(
+        Number(style.minHeight) +
+          chip.props.hitSlop.top +
+          chip.props.hitSlop.bottom,
+      ).toBeGreaterThanOrEqual(48);
     }
   });
 

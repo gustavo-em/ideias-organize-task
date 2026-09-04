@@ -25,7 +25,7 @@ interface CancelProps {
   testID?: string;
 }
 
-/** The way out. Quiet, and always first, so nothing is confirmed by reflex. */
+/** The way out. Quiet beside the action the sheet exists for. */
 export function SheetCancelButton({ label, onPress, testID }: CancelProps) {
   return (
     <CancelButton
@@ -50,6 +50,9 @@ interface PrimaryProps {
   /** Fills the width of its parent, for the sheets where this button stands
    * alone instead of at the end of a row. */
   block?: boolean;
+  /** Takes whatever width the row leaves, so the action the sheet exists for
+   * is the widest thing in it and Cancel stays a quiet outline beside it. */
+  grow?: boolean;
   accessibilityLabel?: string;
   testID?: string;
 }
@@ -62,6 +65,7 @@ export function SheetPrimaryButton({
   loading = false,
   destructive = false,
   block = false,
+  grow = false,
   accessibilityLabel,
   testID,
 }: PrimaryProps) {
@@ -71,6 +75,7 @@ export function SheetPrimaryButton({
     <PrimaryButton
       $block={block}
       $destructive={destructive}
+      $grow={grow}
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
       accessibilityState={{ busy: loading, disabled: disabled || loading }}
@@ -80,7 +85,7 @@ export function SheetPrimaryButton({
     >
       {loading ? (
         <ActivityIndicator
-          color={destructive ? theme.colors.card : theme.colors.onAccent}
+          color={destructive ? theme.colors.card : theme.colors.background}
           size="small"
         />
       ) : (
@@ -94,10 +99,12 @@ export function SheetPrimaryButton({
 
 interface RowProps {
   children: ReactNode;
+  /** Tighter handoff from the last inline control in quick capture. */
+  compact?: boolean;
 }
 
-export function SheetActionsRow({ children }: RowProps) {
-  return <Row>{children}</Row>;
+export function SheetActionsRow({ children, compact = false }: RowProps) {
+  return <Row $compact={compact}>{children}</Row>;
 }
 
 /** Pushes what follows it to the right edge of the row. */
@@ -105,18 +112,21 @@ export const SheetActionsSpacer = styled.View`
   flex: 1;
 `;
 
-const Row = styled.View`
+const Row = styled.View<{ $compact: boolean }>`
   flex-direction: row;
   justify-content: flex-end;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.small}px;
-  margin-top: ${({ theme }) => theme.spacing.large}px;
+  gap: ${({ theme }) => theme.spacing.small + 2}px;
+  margin-top: ${({ theme, $compact }) =>
+    $compact ? theme.spacing.small + 2 : theme.spacing.large}px;
 `;
 
-/* Both buttons share every measure but the fill: same minimum height, same
-   horizontal padding from the scale, so their labels sit on one line. */
+/* Both buttons share every measure but the fill: same height, same radius,
+   same horizontal padding, so their labels sit on one line. The primary is
+   ink on paper — the darkest thing on the sheet — and Cancel is the same shape
+   drawn with a hairline, so the two read as one pair and not as two products. */
 const actionBase = `
-  min-height: 48px;
+  min-height: 50px;
   flex-shrink: 1;
   align-items: center;
   justify-content: center;
@@ -124,33 +134,37 @@ const actionBase = `
 
 const CancelButton = styled(PressableScale)`
   ${actionBase}
-  padding: 0px ${({ theme }) => theme.spacing.medium}px;
+  padding: 0px ${({ theme }) => theme.spacing.medium + 2}px;
   border-radius: ${({ theme }) => theme.radii.medium}px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background-color: ${({ theme }) => theme.colors.card};
 `;
 
 const CancelLabel = styled.Text.attrs(buttonTextAttrs)`
   color: ${({ theme }) => theme.colors.mutedStrong};
-  ${({ theme }) => buttonTextMetrics(theme.type.label)}
+  ${({ theme }) => buttonTextMetrics(theme.type.label + 1)}
   font-weight: 700;
 `;
 
 const PrimaryButton = styled(PressableScale)<{
   $destructive: boolean;
   $block: boolean;
+  $grow: boolean;
 }>`
   ${actionBase}
   /* The one button that never gives ground: with a delete and a focus control
      beside it, a shrinking primary was the first thing pushed off the row. */
   flex-shrink: 0;
+  flex-grow: ${({ $grow }) => ($grow ? 1 : 0)};
   align-self: ${({ $block }) => ($block ? 'stretch' : 'auto')};
-  padding: 0px ${({ theme }) => theme.spacing.medium}px;
+  padding: 0px ${({ theme }) => theme.spacing.large}px;
   border-radius: ${({ theme }) => theme.radii.medium}px;
   background-color: ${({ theme, disabled, $destructive }) => {
     if (disabled) {
       return theme.colors.cardNeutral;
     }
 
-    return $destructive ? theme.colors.danger : theme.colors.accent;
+    return $destructive ? theme.colors.danger : theme.colors.text;
   }};
 `;
 
@@ -158,16 +172,15 @@ const PrimaryLabel = styled.Text.attrs(buttonTextAttrs)<{
   $destructive: boolean;
   $disabled: boolean;
 }>`
-  /* Disabled drops the accent fill for the raised surface, so the ink from on
-     top of the accent goes with it — otherwise the word all but disappears in
-     the dark theme. */
+  /* Disabled drops the ink fill for the neutral surface, so the paper-coloured
+     label goes with it — otherwise the word all but disappears. */
   color: ${({ theme, $destructive, $disabled }) => {
     if ($disabled) {
       return theme.colors.mutedStrong;
     }
 
-    return $destructive ? theme.colors.card : theme.colors.onAccent;
+    return $destructive ? theme.colors.card : theme.colors.background;
   }};
-  ${({ theme }) => buttonTextMetrics(theme.type.label)}
+  ${({ theme }) => buttonTextMetrics(theme.type.label + 1)}
   font-weight: 800;
 `;

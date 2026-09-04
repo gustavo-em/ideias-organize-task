@@ -11,7 +11,6 @@ interface CaughtUpCardProps {
   copy: TaskCopy;
   /** Title of the next open task, or null when nothing is open at all. */
   nextTaskTitle: string | null;
-  onViewAll: () => void;
 }
 
 /**
@@ -19,11 +18,7 @@ interface CaughtUpCardProps {
  * picture as "nothing written down at all". A checkmark and a real next
  * task tell the difference at a glance, without a word of blame.
  */
-export function CaughtUpCard({
-  copy,
-  nextTaskTitle,
-  onViewAll,
-}: CaughtUpCardProps) {
+export function CaughtUpCard({ copy, nextTaskTitle }: CaughtUpCardProps) {
   const theme = useTheme();
 
   return (
@@ -37,15 +32,9 @@ export function CaughtUpCard({
           ? copy.today.caughtUpAllDone
           : copy.today.caughtUpNext(nextTaskTitle)}
       </Body>
-      {nextTaskTitle == null ? null : (
-        <ViewAll
-          accessibilityLabel={copy.today.caughtUpViewAll}
-          onPress={onViewAll}
-          scaleTo={0.98}
-        >
-          <ViewAllLabel>{copy.today.caughtUpViewAll}</ViewAllLabel>
-        </ViewAll>
-      )}
+      {/* "Ver tudo" sat here promising the rest of the list and only
+          folded the filter strip away. A card that reports a state does not
+          need a control at all: the tasks are one scroll below it. */}
     </Card>
   );
 }

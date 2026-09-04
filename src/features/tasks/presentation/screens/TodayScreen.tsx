@@ -40,13 +40,7 @@ import type { TasksViewModel } from '../view-models/useTasksViewModel';
 import { AgoraCard } from '../views/AgoraCard';
 import { CaughtUpCard, EmptyStateCard } from '../views/CaughtUpCard';
 import { ConfirmDialog } from '../views/ConfirmDialog';
-import {
-  CalendarGlyph,
-  ChevronGlyph,
-  PriorityGlyph,
-  ProjectGlyph,
-  TagGlyph,
-} from '../views/FieldGlyphs';
+import { ChevronGlyph, ProjectGlyph } from '../views/FieldGlyphs';
 import {
   buttonTextAttrs,
   buttonTextMetrics,
@@ -234,7 +228,8 @@ export function TodayScreen({
       >
         {/* No headline, no date, and no screen name either: the tab bar
             already names the screen. The list opens on the one control that
-            matters — the lens it is ordered by. */}
+            matters — the lens it is ordered by: an eyebrow and a chevron, then
+            three pills that are only words. */}
         <GroupingHeader
           accessibilityLabel={copy.today.groupBy}
           accessibilityRole="button"
@@ -258,15 +253,6 @@ export function TodayScreen({
                 scaleTo={0.97}
                 testID="today-group-deadline"
               >
-                <GroupingGlyph>
-                  <CalendarGlyph
-                    color={
-                      grouping === 'deadline'
-                        ? theme.colors.accentInk
-                        : theme.colors.mutedStrong
-                    }
-                  />
-                </GroupingGlyph>
                 <GroupingButtonText $selected={grouping === 'deadline'}>
                   {copy.today.grouping.deadline}
                 </GroupingButtonText>
@@ -280,15 +266,6 @@ export function TodayScreen({
                 scaleTo={0.97}
                 testID="today-group-list"
               >
-                <GroupingGlyph>
-                  <TagGlyph
-                    color={
-                      grouping === 'list'
-                        ? theme.colors.accentInk
-                        : theme.colors.mutedStrong
-                    }
-                  />
-                </GroupingGlyph>
                 <GroupingButtonText $selected={grouping === 'list'}>
                   {copy.today.grouping.list}
                 </GroupingButtonText>
@@ -302,16 +279,6 @@ export function TodayScreen({
                 scaleTo={0.97}
                 testID="today-group-priority"
               >
-                <GroupingGlyph>
-                  <PriorityGlyph
-                    color={
-                      grouping === 'priority'
-                        ? theme.colors.accentInk
-                        : theme.colors.mutedStrong
-                    }
-                    size={16}
-                  />
-                </GroupingGlyph>
                 <GroupingButtonText $selected={grouping === 'priority'}>
                   {copy.today.grouping.priority}
                 </GroupingButtonText>
@@ -328,11 +295,7 @@ export function TodayScreen({
         ) : null}
 
         {isCaughtUpToday ? (
-          <CaughtUpCard
-            copy={copy}
-            nextTaskTitle={nextTask?.title ?? null}
-            onViewAll={() => setFiltersOpen(false)}
-          />
+          <CaughtUpCard copy={copy} nextTaskTitle={nextTask?.title ?? null} />
         ) : null}
 
         {isDeadlineLens && !isFullyEmpty && agoraSection != null ? (
@@ -611,7 +574,7 @@ function DisclosureChevron({ expanded }: { expanded: boolean }) {
 
   return (
     <Animated.View style={animatedStyle}>
-      <ChevronGlyph color={theme.colors.mutedStrong} size={16} />
+      <ChevronGlyph color={theme.colors.muted} size={12} />
     </Animated.View>
   );
 }
@@ -646,7 +609,7 @@ const GroupingLabel = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
   font-weight: 800;
-  letter-spacing: 0.4px;
+  letter-spacing: 1.8px;
   text-transform: uppercase;
 `;
 
@@ -662,34 +625,26 @@ const GroupingRow = styled.View`
   margin-top: ${({ theme }) => theme.spacing.tiny + 2}px;
 `;
 
+/* A pill that is only a word. The selected one is read by its pale fill and
+   heavier ink; the others by a hairline. The selected pill keeps a border of
+   its own colour so the three never change width when the lens changes. */
+/* The lens is a filter, not the day's decision: a yellow fill here put a
+   second brand surface on the same screen as the band that owns it. Ink says
+   "chosen" at a glance and leaves the yellow to the band. */
 const GroupingButton = styled(PressableScale)<{ $selected: boolean }>`
   flex-direction: row;
   align-items: center;
   justify-content: center;
   flex-shrink: 1;
-  gap: ${({ theme }) => theme.spacing.tiny + 2}px;
-  height: 48px;
-  padding: 0px 10px;
-  /* The selected chip is read by its shape — a thicker accent ring — so the
-     state does not depend on a pale fill alone. */
-  border-width: ${({ $selected }) => ($selected ? 1.5 : 1)}px;
+  height: 34px;
+  padding: 0px 14px;
+  border-width: 1px;
   border-style: solid;
   border-color: ${({ theme, $selected }) =>
-    $selected ? theme.colors.accent : theme.colors.border};
+    $selected ? theme.colors.selected : theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.pill}px;
   background-color: ${({ theme, $selected }) =>
-    $selected ? theme.colors.cardElevated : theme.colors.card};
-`;
-
-/* A fixed box for the glyph: the three of them are drawn at different sizes,
-   and without a box of their own the labels beside them sat at three different
-   heights. */
-const GroupingGlyph = styled.View`
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  align-items: center;
-  justify-content: center;
+    $selected ? theme.colors.selected : 'transparent'};
 `;
 
 const GroupingButtonText = styled.Text.attrs(buttonTextAttrs)<{
@@ -697,13 +652,14 @@ const GroupingButtonText = styled.Text.attrs(buttonTextAttrs)<{
 }>`
   flex-shrink: 1;
   color: ${({ theme, $selected }) =>
-    $selected ? theme.colors.accentInk : theme.colors.mutedStrong};
-  ${({ theme }) => buttonTextMetrics(theme.type.caption + 1)}
-  font-weight: ${({ $selected }) => ($selected ? 600 : 800)};
+    $selected ? theme.colors.onSelected : theme.colors.mutedStrong};
+  ${({ theme }) => buttonTextMetrics(theme.type.label)}
+  font-weight: ${({ $selected }) => ($selected ? 700 : 600)};
 `;
 
+/* Header, hairline and rows sit on the screen margin itself — no box around
+   the section — and the first one starts 22px under the band. */
 const Section = styled(Animated.View)`
-  margin-top: ${({ theme }) => theme.spacing.large}px;
-  padding: 0px ${({ theme }) => theme.spacing.medium}px
-    ${({ theme }) => theme.spacing.small}px;
+  margin-top: ${({ theme }) => theme.spacing.large - 2}px;
+  padding: 0px 0px ${({ theme }) => theme.spacing.small}px;
 `;

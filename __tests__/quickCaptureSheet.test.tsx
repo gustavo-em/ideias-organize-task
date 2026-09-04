@@ -69,23 +69,38 @@ function texts(tree: ReturnType<typeof create>): string[] {
 }
 
 describe('QuickCaptureSheet layers', () => {
-  it('opens on layer zero: field, two controls, the date already on today', () => {
+  it('opens on the minimal layer: type, field, help and actions', () => {
     const tree = renderSheet();
 
     expect(has(tree, 'capture-field')).toBe(true);
     expect(has(tree, 'capture-more')).toBe(true);
     expect(has(tree, 'capture-syntax')).toBe(true);
     expect(has(tree, 'capture-save')).toBe(true);
-    // A new task is a task for today, and the chip says so from the first
-    // frame — an answer already given is never hidden behind the disclosure.
-    expect(has(tree, 'capture-chip-date')).toBe(true);
-    expect(first(tree, 'capture-chip-date').props.accessibilityLabel).toBe(
-      copy.capture.today,
-    );
+    // Today remains the save default, but it is not drawn until the person
+    // writes a date or asks for more options.
+    expect(has(tree, 'capture-chip-date')).toBe(false);
     expect(has(tree, 'capture-chip-priority')).toBe(false);
     expect(has(tree, 'capture-chip-list')).toBe(false);
     expect(texts(tree)).not.toContain(copy.capture.hint);
     expect(texts(tree)).not.toContain(copy.capture.syntaxTitle);
+    expect(texts(tree)).toContain(copy.capture.add);
+    expect(texts(tree)).not.toContain(copy.capture.save);
+  });
+
+  it('highlights the ranges the parser recognized without changing the input', () => {
+    const tree = renderSheet();
+    const typed = 'comprar pão amanhã !alta #casa ~15min';
+
+    act(() => first(tree, 'capture-field').props.onChangeText(typed));
+
+    expect(first(tree, 'capture-field').props.value).toBe(typed);
+    expect(
+      tree.root.findAll(
+        node =>
+          typeof node.props?.testID === 'string' &&
+          node.props.testID.startsWith('capture-recognized-'),
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it('reveals the chips the text resolved, without being expanded', () => {
@@ -119,8 +134,8 @@ describe('QuickCaptureSheet layers', () => {
 
     act(() => toggle().props.onPress());
 
-    // The date stays: it carries an answer of its own now.
-    expect(has(tree, 'capture-chip-date')).toBe(true);
+    // The untouched default goes back under the minimal layer.
+    expect(has(tree, 'capture-chip-date')).toBe(false);
     expect(has(tree, 'capture-chip-list')).toBe(false);
     expect(texts(tree)).not.toContain(copy.capture.hint);
   });
@@ -174,6 +189,8 @@ describe('QuickCaptureSheet layers', () => {
     expect(has(tree, 'capture-chip-list')).toBe(true);
     expect(texts(tree)).not.toContain(copy.capture.editHint);
     expect(has(tree, 'capture-syntax')).toBe(false);
+    expect(texts(tree)).toContain(copy.capture.save);
+    expect(texts(tree)).not.toContain(copy.capture.add);
   });
 });
 

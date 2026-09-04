@@ -229,12 +229,12 @@ const SelfButton = styled(PressableScale)<{ $joined: boolean }>`
     ${({ theme, $joined }) =>
       $joined ? theme.colors.border : theme.colors.accent};
   background-color: ${({ theme, $joined }) =>
-    $joined ? theme.colors.cardElevated : theme.colors.accent};
+    $joined ? theme.colors.selected : theme.colors.accent};
 `;
 
 const SelfButtonText = styled.Text.attrs(buttonTextAttrs)<{ $joined: boolean }>`
   color: ${({ theme, $joined }) =>
-    $joined ? theme.colors.text : theme.colors.onAccent};
+    $joined ? theme.colors.onSelected : theme.colors.onAccent};
   font-size: ${({ theme }) => theme.type.label}px;
   font-weight: 800;
 `;

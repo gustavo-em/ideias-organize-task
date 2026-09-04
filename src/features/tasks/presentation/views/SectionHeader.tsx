@@ -8,7 +8,6 @@ import styled, { useTheme } from 'styled-components/native';
 
 import { DISCLOSURE } from '../../../../app/animation/motion';
 import { ChevronGlyph } from './FieldGlyphs';
-import { HairlineRule } from './HairlineRule';
 import { PressableScale } from './PressableScale';
 
 interface SectionHeaderProps {
@@ -40,11 +39,14 @@ export function SectionHeader({
 }: SectionHeaderProps) {
   const content = (
     <HeadingContent>
-      {icon ?? null}
-      <SectionTitle $emphasis={emphasis}>{title}</SectionTitle>
-      <SectionCount>{count}</SectionCount>
-      <HairlineRule />
-      {collapsible ? <AnimatedChevron expanded={expanded} /> : null}
+      <HeadingLine>
+        {icon ?? null}
+        <SectionTitle $emphasis={emphasis}>{title}</SectionTitle>
+        <HeadingSpacer />
+        <SectionCount>{count}</SectionCount>
+        {collapsible ? <AnimatedChevron expanded={expanded} /> : null}
+      </HeadingLine>
+      <SectionRule />
     </HeadingContent>
   );
 
@@ -84,42 +86,62 @@ function AnimatedChevron({ expanded }: { expanded: boolean }) {
   );
 }
 
+/* Eyebrow on the left, count on the right, and the rule under both: the same
+   typographic ruler an editorial contents page uses. The rule is what groups
+   the section — never a spacer, never a progress bar. */
 const HeadingContent = styled.View`
   flex: 1;
-  min-height: 48px;
+  min-height: 32px;
+  justify-content: flex-end;
+`;
+
+const HeadingLine = styled.View`
   flex-direction: row;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.small}px;
-  padding: 6px 0px;
+  padding-bottom: 8px;
+`;
+
+const HeadingSpacer = styled.View`
+  flex: 1;
+  min-width: 0px;
+`;
+
+const SectionRule = styled.View.attrs({
+  accessibilityElementsHidden: true,
+  importantForAccessibility: 'no' as const,
+})`
+  height: 1px;
+  align-self: stretch;
+  background-color: ${({ theme }) => theme.colors.borderSubtle};
 `;
 
 const StaticHeading = styled.View`
-  min-height: 48px;
+  min-height: 32px;
 `;
 
 const InteractiveHeading = styled(PressableScale)`
-  min-height: 48px;
+  min-height: 32px;
 `;
 
 const SectionTitle = styled.Text<{ $emphasis: boolean }>`
   flex-shrink: 1;
   color: ${({ theme, $emphasis }) =>
-    $emphasis ? theme.colors.text : theme.colors.mutedStrong};
-  font-size: ${({ theme, $emphasis }) =>
-    theme.type.caption + ($emphasis ? 2 : 1)}px;
-  font-weight: ${({ $emphasis }) => ($emphasis ? 900 : 800)};
-  letter-spacing: 0.4px;
-  line-height: 17px;
+    $emphasis ? theme.colors.text : theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption}px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+  line-height: 15px;
   text-transform: uppercase;
 `;
 
-/* The count belongs to the heading, so it is read with the same weight and
-   contrast as the label; only the size stays smaller. */
+/* The count belongs to the heading and sits at its far end, in the same quiet
+   ink and a lighter weight. */
 const SectionCount = styled.Text`
   flex-shrink: 0;
-  color: ${({ theme }) => theme.colors.mutedStrong};
+  color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
-  font-weight: 800;
+  font-weight: 600;
 `;
 
 const Chevron = styled(Animated.View)`

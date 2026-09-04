@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import appleAuth from '@invertase/react-native-apple-authentication';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { getApp } from '@react-native-firebase/app';
@@ -112,6 +112,7 @@ async function signInWithGoogle(): Promise<void> {
   } catch (error) {
     if (error instanceof AuthOperationError) throw error;
 
+    Alert.alert('DIAG google', JSON.stringify(error, Object.getOwnPropertyNames(Object(error))).slice(0, 900));
     throw new AuthOperationError(toGoogleErrorKind(readErrorCode(error)));
   }
 }
@@ -157,6 +158,7 @@ async function signInWithApple(): Promise<void> {
   } catch (error) {
     if (error instanceof AuthOperationError) throw error;
 
+    Alert.alert('DIAG apple', JSON.stringify(error, Object.getOwnPropertyNames(Object(error))).slice(0, 900));
     throw new AuthOperationError(toAppleErrorKind(readErrorCode(error)));
   }
 }

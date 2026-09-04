@@ -11,6 +11,11 @@ interface MemberStackProps {
   sharedWithLabel: string;
   /** Past this many, the rest becomes a `+N` chip. */
   cap?: number;
+  /** `medium` on a card and a task's finisher; `row` on a line of the
+   * spaces index and `header` beside the name of an open space, where the
+   * chips sit straight on the floor and the ring between them is cut from
+   * it. */
+  size?: 'medium' | 'row' | 'header';
 }
 
 const DEFAULT_CAP = 3;
@@ -22,6 +27,7 @@ export function MemberStack({
   members,
   sharedWithLabel,
   cap = DEFAULT_CAP,
+  size = 'medium',
 }: MemberStackProps) {
   if (members.length === 0) return null;
 
@@ -34,14 +40,15 @@ export function MemberStack({
         <MemberChip
           key={member.personId}
           name={member.name}
-          personId={member.personId}
           pending={!member.joined}
+          personId={member.personId}
           photoURL={member.photoURL ?? null}
-          size="medium"
+          ring={size === 'medium' ? 'card' : 'background'}
+          size={size}
           stacked={index > 0}
         />
       ))}
-      {overflow > 0 ? <Overflow>{`+${overflow}`}</Overflow> : null}
+      {overflow > 0 ? <Overflow $size={size}>{`+${overflow}`}</Overflow> : null}
     </Stack>
   );
 }
@@ -51,15 +58,16 @@ const Stack = styled(Animated.View)`
   align-items: center;
 `;
 
-const Overflow = styled.Text`
+const Overflow = styled.Text<{ $size: 'medium' | 'row' | 'header' }>`
   margin-left: 6px;
   color: ${({ theme }) => theme.colors.accentInk};
   background-color: ${({ theme }) => theme.colors.cardNeutral};
-  font-size: ${({ theme }) => theme.type.caption}px;
+  font-size: ${({ theme, $size }) =>
+    $size === 'header' ? theme.type.label : theme.type.caption}px;
   font-weight: 800;
-  width: 28px;
-  height: 28px;
-  line-height: 28px;
+  width: ${({ $size }) => ($size === 'header' ? 34 : 28)}px;
+  height: ${({ $size }) => ($size === 'header' ? 34 : 28)}px;
+  line-height: ${({ $size }) => ($size === 'header' ? 34 : 28)}px;
   text-align: center;
   border-radius: ${({ theme }) => theme.radii.pill}px;
   overflow: hidden;

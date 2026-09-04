@@ -19,9 +19,9 @@ interface WeekBarsProps {
 /**
  * Seven days of finished tasks.
  *
- * The bars grow from the floor when the tab opens, and only today is at full
- * strength: one accent per chart, so the eye lands on the day the person is
- * still living instead of hunting for the tallest column.
+ * The bars grow from the floor when the tab opens. Six of them are the quiet
+ * neutral of the tab; only today is the accent, so the eye lands on the day
+ * the person is still living instead of hunting for the tallest column.
  */
 export function WeekBars({
   days,
@@ -38,16 +38,16 @@ export function WeekBars({
           <Column key={day.dayMs}>
             <GrowingBar
               isToday={day.dayMs === todayMs}
-              /* A floor of 4% keeps the row of days readable when nothing was
+              /* A floor of 10% keeps the row of days readable when nothing was
                  closed: an empty week is still a week. */
-              fraction={Math.max(0.04, day.closed / peak)}
+              fraction={Math.max(0.1, day.closed / peak)}
             />
           </Column>
         ))}
       </Bars>
       <Labels>
         {days.map(day => (
-          <Label key={`label-${day.dayMs}`}>
+          <Label $today={day.dayMs === todayMs} key={`label-${day.dayMs}`}>
             {weekdays[new Date(day.dayMs).getDay()]}
           </Label>
         ))}
@@ -76,8 +76,8 @@ function GrowingBar({
   }));
 
   return (
-    <Bar $today={isToday} style={animatedStyle}>
-      <BarFill />
+    <Bar style={animatedStyle}>
+      <BarFill $today={isToday} />
     </Bar>
   );
 }
@@ -89,7 +89,7 @@ const Wrapper = styled.View`
 const Bars = styled.View`
   flex-direction: row;
   align-items: flex-end;
-  gap: ${({ theme }) => theme.spacing.small - 1}px;
+  gap: ${({ theme }) => theme.spacing.small}px;
 `;
 
 const Column = styled.View`
@@ -98,33 +98,31 @@ const Column = styled.View`
   justify-content: flex-end;
 `;
 
-const Bar = styled(Animated.View)<{ $today: boolean }>`
+const Bar = styled(Animated.View)`
   width: 100%;
   height: 100%;
   transform-origin: bottom;
-  opacity: ${({ $today }) => ($today ? 1 : 0.35)};
 `;
 
-const BarFill = styled.View`
+const BarFill = styled.View<{ $today: boolean }>`
   width: 100%;
   height: 100%;
-  border-top-left-radius: 5px;
-  border-top-right-radius: 5px;
-  border-bottom-left-radius: 3px;
-  border-bottom-right-radius: 3px;
-  background-color: ${({ theme }) => theme.colors.accent};
+  border-radius: ${({ theme }) => theme.spacing.small}px;
+  background-color: ${({ theme, $today }) =>
+    $today ? theme.colors.accent : theme.colors.cardNeutral};
 `;
 
 const Labels = styled.View`
   flex-direction: row;
-  gap: ${({ theme }) => theme.spacing.small - 1}px;
-  margin-top: ${({ theme }) => theme.spacing.small - 1}px;
+  gap: ${({ theme }) => theme.spacing.small}px;
+  margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 
-const Label = styled.Text`
+const Label = styled.Text<{ $today: boolean }>`
   flex: 1;
   text-align: center;
-  color: ${({ theme }) => theme.colors.muted};
+  color: ${({ theme, $today }) =>
+    $today ? theme.colors.text : theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption - 1}px;
-  font-weight: 600;
+  font-weight: ${({ $today }) => ($today ? 800 : 600)};
 `;
