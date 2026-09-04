@@ -79,3 +79,8 @@ yarn-error.log
 firebase-debug.log
 firebase-debug.*.log
 .firebase/
+
+# Bundles gerados no build. Um bundle commitado sombreia o que o Gradle
+# gera e faz a release sair com JavaScript de outra versão.
+android/app/src/main/assets/index.android.bundle
+ios/main.jsbundle
