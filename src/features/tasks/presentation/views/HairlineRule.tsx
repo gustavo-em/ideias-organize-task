@@ -15,5 +15,5 @@ export const HairlineRule = styled.View.attrs({
   min-width: 0px;
   height: 1px;
   align-self: center;
-  background-color: ${({ theme }) => theme.colors.border};
+  background-color: ${({ theme }) => theme.colors.borderSubtle};
 `;

@@ -95,7 +95,7 @@ export function TaskCheckbox({
     () =>
       size === SIZE
         ? null
-        : { width: size, height: size, borderRadius: Math.round(size / 2.9) },
+        : { width: size, height: size, borderRadius: Math.round(size * 0.31) },
     [size],
   );
   const boxStyle = useAnimatedStyle(() => ({
@@ -143,7 +143,7 @@ export function TaskCheckbox({
             strokeDasharray={STROKE_LENGTH}
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth={2.6}
+            strokeWidth={2.4}
           />
         </Svg>
       </Animated.View>

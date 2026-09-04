@@ -1,4 +1,4 @@
-import styled from 'styled-components/native';
+import styled, { useTheme } from 'styled-components/native';
 
 import { PlusGlyph } from './FieldGlyphs';
 import { PressableScale } from './PressableScale';
@@ -9,12 +9,16 @@ interface FloatingActionProps {
   testID?: string;
 }
 
-/** The familiar, reachable primary action used by each task-oriented tab. */
+/** The familiar, reachable primary action used by each task-oriented tab.
+ * A circle and a plus: the word is spoken to a screen reader and not printed,
+ * so the button never grows into a pill that covers the last row. */
 export function FloatingAction({
   label,
   onPress,
   testID,
 }: FloatingActionProps) {
+  const theme = useTheme();
+
   return (
     <Fab
       accessibilityLabel={label}
@@ -22,35 +26,24 @@ export function FloatingAction({
       scaleTo={0.94}
       testID={testID}
     >
-      <PlusGlyph color="#1B1710" size={22} />
-      <Label>{label}</Label>
+      <PlusGlyph color={theme.colors.onAccent} size={22} />
     </Fab>
   );
 }
 
 const Fab = styled(PressableScale)`
   position: absolute;
-  right: ${({ theme }) => theme.spacing.large}px;
-  bottom: ${({ theme }) => theme.spacing.large}px;
-  min-width: 172px;
-  min-height: 54px;
-  flex-direction: row;
+  right: ${({ theme }) => theme.spacing.medium + 4}px;
+  bottom: ${({ theme }) => theme.spacing.medium}px;
+  width: 56px;
+  height: 56px;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 0px 22px 0px 18px;
   border-radius: ${({ theme }) => theme.radii.pill}px;
   background-color: ${({ theme }) => theme.colors.accent};
   elevation: 5;
-  shadow-color: #b36f00;
-  shadow-opacity: ${({ theme }) => (theme.mode === 'dark' ? 0 : 0.35)};
-  shadow-radius: 14px;
+  shadow-color: ${({ theme }) => theme.colors.text};
+  shadow-opacity: ${({ theme }) => (theme.mode === 'dark' ? 0 : 0.18)};
+  shadow-radius: 18px;
   shadow-offset: 0px 6px;
-`;
-
-const Label = styled.Text`
-  color: ${({ theme }) => theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 800;
-  letter-spacing: -0.2px;
 `;

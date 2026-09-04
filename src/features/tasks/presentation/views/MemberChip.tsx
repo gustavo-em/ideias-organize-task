@@ -9,14 +9,46 @@ import {
 } from '../../domain/TaskList';
 import { projectTone } from '../models/projectAppearance';
 
-type ChipSize = 'small' | 'medium' | 'large' | 'xlarge';
+type ChipSize =
+  | 'fact'
+  | 'small'
+  | 'medium'
+  | 'row'
+  | 'large'
+  | 'header'
+  | 'xlarge';
 
 const DIAMETER: Record<ChipSize, number> = {
+  fact: 22, // the fact slot of a task row: who took it
   small: 24, // only a dot of colour, no letter
   medium: 28, // the stack on a project row, and a task's finisher
+  row: 28, // the stack on a line of the spaces index, straight on the floor
   large: 30, // the member list inside the sheet
+  header: 34, // the stack beside an open space's name
   xlarge: 64, // the person's own photo, in the profile sheet and in Você
 };
+
+/** How far a stacked chip reaches back over the one before it. */
+const OVERLAP: Record<ChipSize, number> = {
+  fact: -6,
+  small: -9,
+  medium: -9,
+  row: -8,
+  large: -9,
+  header: -10,
+  xlarge: -9,
+};
+
+/** The letters, sized to the disc they sit in. */
+function letterSize(
+  theme: { type: { heading: number; label: number; caption: number } },
+  size: ChipSize,
+): number {
+  if (size === 'xlarge') return theme.type.heading;
+  if (size === 'header') return theme.type.label;
+  if (size === 'fact') return theme.type.caption - 1;
+  return theme.type.caption;
+}
 
 interface MemberChipProps {
   name: string;
@@ -42,6 +74,9 @@ interface MemberChipProps {
    * finisher, say. Left unset, the chip stays silent for a screen reader,
    * which is right inside a `MemberStack` that already announced itself. */
   accessibilityLabel?: string;
+  /** What ground the ring around a stacked chip is cut from: the card the
+   * stack sits on, or the screen's own floor when it sits straight on it. */
+  ring?: 'card' | 'background';
 }
 
 /** A short, stable hash so the same person always lands on the same tone,
@@ -67,6 +102,7 @@ export function MemberChip({
   initials,
   photoURL,
   accessibilityLabel,
+  ring = 'card',
 }: MemberChipProps) {
   const theme = useTheme();
   const photo = pending ? null : photoURL ?? null;
@@ -98,6 +134,8 @@ export function MemberChip({
       $d={diameter}
       $inverted={inverted}
       $pending={pending}
+      $ring={ring}
+      $size={size}
       $stacked={stacked}
       $tone={pending ? 'transparent' : fill}
       accessibilityElementsHidden={accessibilityLabel == null}
@@ -139,6 +177,8 @@ const Chip = styled.View<{
   $stacked: boolean;
   $pending: boolean;
   $inverted: boolean;
+  $ring: 'card' | 'background';
+  $size: ChipSize;
 }>`
   width: ${({ $d }) => $d}px;
   height: ${({ $d }) => $d}px;
@@ -149,21 +189,22 @@ const Chip = styled.View<{
   background-color: ${({ $tone }) => $tone};
   border-width: ${({ $stacked, $pending }) => ($stacked || $pending ? 2 : 0)}px;
   border-style: ${({ $pending }) => ($pending ? 'dashed' : 'solid')};
-  border-color: ${({ theme, $pending, $inverted }) =>
+  border-color: ${({ theme, $pending, $inverted, $ring }) =>
     $pending
       ? $inverted
         ? theme.colors.onAccentSubtle
         : theme.colors.border
       : $inverted
       ? theme.colors.accent
+      : $ring === 'background'
+      ? theme.colors.background
       : theme.colors.card};
-  margin-left: ${({ $stacked }) => ($stacked ? -9 : 0)}px;
+  margin-left: ${({ $stacked, $size }) => ($stacked ? OVERLAP[$size] : 0)}px;
 `;
 
 const Letter = styled.Text<{ $color: string; $size: ChipSize }>`
   color: ${({ $color }) => $color};
-  font-size: ${({ theme, $size }) =>
-    $size === 'xlarge' ? theme.type.heading : theme.type.caption}px;
+  font-size: ${({ theme, $size }) => letterSize(theme, $size)}px;
   font-weight: 800;
 `;
 

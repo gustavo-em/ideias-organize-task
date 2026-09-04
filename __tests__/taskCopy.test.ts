@@ -54,8 +54,8 @@ describe('open task screen copy', () => {
       expect(copy.lists.dayBandStreak(4)).toContain('4');
     }
 
-    expect(pt.lists.dayBandTitle).toBe('Hoje, no combinado');
-    expect(en.lists.dayBandTitle).toBe('Today, together');
+    expect(pt.lists.dayBandTitle).toBe('O dia de vocês');
+    expect(en.lists.dayBandTitle).toBe('Your day together');
     expect(pt.lists.dayBandTitle).not.toBe(en.lists.dayBandTitle);
   });
 

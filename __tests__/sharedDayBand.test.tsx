@@ -173,25 +173,37 @@ describe('SharedDayBand', () => {
     expect(labels).toContain(`Caio, ${copy.lists.dayBandAbsent}`);
   });
 
-  it('draws a glyph only for focusing and done, hidden from the reader', () => {
+  it('ticks the closed box and puts a dot in Uva on the one in focus, hidden from the reader', () => {
     const root = render({ entries: ALL_FOUR });
-    const focusing = root.findAllByType(FocusGlyph);
     const done = root.findAllByType(CheckGlyph);
 
-    // One for the person in focus, one for the person who closed. Open and
-    // absent carry no glyph at all.
-    expect(focusing).toHaveLength(1);
+    // One tick, for the person who closed. Focus is a dot in the box, not a
+    // glyph; open and absent carry nothing at all.
     expect(done).toHaveLength(1);
-    expect(focusing[0].props).toMatchObject({
-      color: lightTheme.colors.onAccent,
-      size: 20,
-    });
     expect(done[0].props).toMatchObject({
       color: lightTheme.colors.onAccent,
       size: 16,
     });
+    expect(root.findAllByType(FocusGlyph)).toHaveLength(0);
 
-    // The state is spoken in the row label, so the glyph itself stays silent.
+    const focusing = root.findAllByProps({ testID: 'shared-day-row-focusing' });
+    const row = focusing[focusing.length - 1];
+    expect(
+      hosts(
+        row,
+        node => flatStyle(node).borderColor === lightTheme.colors.reminder,
+      ),
+    ).toHaveLength(1);
+    expect(
+      hosts(
+        row,
+        node =>
+          flatStyle(node).backgroundColor === lightTheme.colors.reminder &&
+          flatStyle(node).width === 8,
+      ),
+    ).toHaveLength(1);
+
+    // The state is spoken in the row label, so the box itself stays silent.
     const wrappers = hosts(
       root,
       node => node.props.importantForAccessibility === 'no-hide-descendants',
@@ -199,14 +211,21 @@ describe('SharedDayBand', () => {
     expect(wrappers.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('marks the absent chip as pending, so it reads as an outline', () => {
+  it('draws the absent line with a dashed box: nothing there to tick', () => {
     const root = render({ entries: ALL_FOUR });
-    const chips = root.findAll(
-      node => typeof node.type !== 'string' && node.props.inverted === true,
+    const absent = root.findAllByProps({ testID: 'shared-day-row-absent' });
+    const dashed = hosts(
+      absent[absent.length - 1],
+      node => flatStyle(node).borderStyle === 'dashed',
     );
 
-    expect(chips).toHaveLength(4);
-    expect(chips.filter(chip => chip.props.pending === true)).toHaveLength(1);
+    expect(dashed).toHaveLength(1);
+    // No ficha on the lines: the person is said in words under the task.
+    expect(
+      root.findAll(
+        node => typeof node.type !== 'string' && node.props.personId != null,
+      ),
+    ).toHaveLength(0);
   });
 
   it('offers to take one for today when nobody published anything', () => {
@@ -261,34 +280,33 @@ describe('SharedDayBand', () => {
 
     // The stack is the chips of everyone, the second one clipping the first.
     const chips = root.findAll(
-      node => typeof node.type !== 'string' && node.props.inverted === true,
+      node => typeof node.type !== 'string' && node.props.personId != null,
     );
     expect(chips).toHaveLength(2);
     expect(chips.map(chip => chip.props.stacked)).toEqual([false, true]);
     expect(root.findAllByType(CheckGlyph)).toHaveLength(1);
   });
 
-  it('strikes through what is already closed and dims who took nothing', () => {
+  it('strikes through what is already closed and names who took nothing in the same quiet ink', () => {
     const root = render({ entries: ALL_FOUR });
     const struck = hosts(
       root,
       node => flatStyle(node).textDecorationLine === 'line-through',
     );
-    const dimmed = hosts(
+    const absent = hosts(
       root,
-      node =>
-        isText(node) &&
-        flatStyle(node).fontWeight === '700' &&
-        flatStyle(node).color === lightTheme.colors.onAccentSubtle,
+      node => isText(node) && node.children.includes('Caio'),
     );
 
     expect(struck).toHaveLength(1);
     expect(struck[0].children).toContain('Escrever o convite');
-    expect(dimmed).toHaveLength(1);
-    expect(dimmed[0].children).toContain('Caio');
+    // The dashed box says the state; the name never wears a reproach.
+    expect(absent).toHaveLength(1);
+    expect(flatStyle(absent[0]).color).toBe(lightTheme.colors.muted);
+    expect(flatStyle(absent[0]).fontWeight).toBe('500');
   });
 
-  it('draws one rule only, when the streak note already carries it', () => {
+  it('names the streak beside the title and rules only above the note', () => {
     const closed = [entry('p-1', 'Joana', 'done', 'Escrever o convite')];
     const root = render({
       allDone: true,
@@ -298,11 +316,12 @@ describe('SharedDayBand', () => {
     });
     const ruled = hosts(
       root,
-      node => isText(node) && flatStyle(node).borderTopWidth === 1.5,
+      node => isText(node) && flatStyle(node).borderTopWidth === 1,
     );
 
     expect(ruled).toHaveLength(1);
-    expect(ruled[0].children).toContain(copy.lists.dayBandStreak(4));
+    expect(ruled[0].children).toContain(copy.lists.dayBandOffline);
+    expect(texts(root)).toContain(copy.lists.dayBandStreak(4));
   });
 
   /** The two panels a single account can reach on a device: the empty band
@@ -344,7 +363,7 @@ describe('SharedDayBand', () => {
     const root = render({ entries: [], status: 'offline' });
     const ruled = hosts(
       root,
-      node => isText(node) && flatStyle(node).borderTopWidth === 1.5,
+      node => isText(node) && flatStyle(node).borderTopWidth === 1,
     );
 
     expect(ruled).toHaveLength(0);
@@ -358,8 +377,8 @@ describe('SharedDayBand', () => {
       node => isText(node) && node.children.includes(copy.lists.dayBandOffline),
     )[0];
 
-    expect(flatStyle(note).borderTopWidth).toBe(1.5);
-    expect(flatStyle(note).borderTopColor).toBe(lightTheme.colors.onAccentLine);
+    expect(flatStyle(note).borderTopWidth).toBe(1);
+    expect(flatStyle(note).borderTopColor).toBe(lightTheme.colors.borderSubtle);
   });
 
   it('explains a failed fetch without losing the lines already on the phone', () => {
@@ -530,52 +549,53 @@ describe('SharedDayBand', () => {
     expect(rendered).toContain(copy.lists.dayBandEmptyHint);
   });
 
-  it('reaches back to the project rule and stops at the right gutter', () => {
+  it('is the one card on the screen: white, radius 20, no border, no shadow', () => {
     const root = render({ entries: ALL_FOUR });
     const style = flatStyle(
       hosts(root, node => node.props.testID === 'shared-day-band')[0],
     );
 
-    expect(style.backgroundColor).toBe(lightTheme.colors.accent);
-    // Right edge in line with the cards under it; left edge back across the
-    // indent, onto the rule that carries the project down its tasks.
-    expect(style.marginRight).toBe(0);
-    expect(style.marginLeft).toBe(-lightTheme.spacing.medium);
-    expect(style.borderRadius).toBeUndefined();
+    expect(style.backgroundColor).toBe(lightTheme.colors.card);
+    expect(style.borderTopLeftRadius).toBe(lightTheme.radii.large);
+    expect(style.borderWidth).toBeUndefined();
+    expect(style.shadowOpacity).toBeUndefined();
+    expect(style.marginLeft).toBeUndefined();
   });
 
-  it('rules between lines and never above the first one', () => {
+  it('draws no rule between lines: the boxes alone tell them apart', () => {
     const root = render({ entries: ALL_FOUR });
     const rows = hosts(
       root,
-      node => typeof node.props.accessibilityLabel === 'string',
-    ).filter(node => flatStyle(node).borderTopWidth != null);
+      node =>
+        typeof node.props.testID === 'string' &&
+        node.props.testID.startsWith('shared-day-row-'),
+    );
 
-    expect(rows.map(node => flatStyle(node).borderTopWidth)).toEqual([
-      0, 1.5, 1.5, 1.5,
-    ]);
-    expect(flatStyle(rows[1]).borderTopColor).toBe(
-      lightTheme.colors.onAccentLine,
+    expect(rows).toHaveLength(4);
+    expect(rows.every(node => flatStyle(node).borderTopWidth == null)).toBe(
+      true,
     );
   });
 
-  it('inverts ink and sun on the one control that decides something', () => {
+  it('outlines the one control in ink, with no ground of its own', () => {
     const root = render({ entries: [], onTakeOne: () => undefined });
+    const outlined = hosts(
+      root,
+      node =>
+        flatStyle(node).borderWidth === 1.5 &&
+        flatStyle(node).borderColor === lightTheme.colors.text,
+    );
 
-    // Ink ground, in both modes: `text` goes cream in the dark theme and the
-    // yellow label would vanish on it.
-    expect(
-      hosts(
-        root,
-        node => flatStyle(node).backgroundColor === lightTheme.colors.onAccent,
-      ),
-    ).not.toHaveLength(0);
+    expect(outlined).toHaveLength(1);
+    expect(flatStyle(outlined[0]).backgroundColor).toBeUndefined();
     expect(
       hosts(
         root,
         node =>
-          isText(node) && flatStyle(node).color === lightTheme.colors.accent,
+          isText(node) &&
+          node.children.includes(copy.lists.dayBandTakeOne) &&
+          flatStyle(node).color === lightTheme.colors.text,
       ),
-    ).not.toHaveLength(0);
+    ).toHaveLength(1);
   });
 });

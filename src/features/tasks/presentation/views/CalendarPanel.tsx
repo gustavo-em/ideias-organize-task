@@ -5,6 +5,7 @@ import { DAY_MS, endOfDay, isSameDay, startOfDay } from '../../domain/Day';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
 import { CALENDAR_NAMES } from '../models/dateLabel';
 import { PressableScale } from './PressableScale';
+import { PanelBox, PanelTitle } from './SheetPanel';
 
 interface CalendarPanelProps {
   copy: TaskCopy;
@@ -61,7 +62,8 @@ export function CalendarPanel({
   }
 
   return (
-    <Panel>
+    <PanelBox>
+      <PanelTitle>{copy.capture.datePanelTitle}</PanelTitle>
       <Quick>
         <QuickButton
           $active={selectedMs != null && isSameDay(selectedMs, nowMs)}
@@ -156,36 +158,34 @@ export function CalendarPanel({
           })}
         </Row>
       ))}
-    </Panel>
+    </PanelBox>
   );
 }
 
-const Panel = styled.View`
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
-`;
-
 const Quick = styled.View`
   flex-direction: row;
-  gap: ${({ theme }) => theme.spacing.small - 2}px;
+  gap: ${({ theme }) => theme.spacing.small}px;
 `;
 
+/* The same pill every panel answers with: chosen is ink, the rest are paper. */
 const QuickButton = styled(PressableScale)<{ $active: boolean }>`
   flex: 1;
   align-items: center;
-  padding: 9px 0px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
+  justify-content: center;
+  min-height: 36px;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
   border: 1px solid
     ${({ theme, $active }) =>
-      $active ? theme.colors.accent : theme.colors.border};
+      $active ? theme.colors.text : theme.colors.border};
   background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.accent : 'transparent'};
+    $active ? theme.colors.text : theme.colors.card};
 `;
 
 const QuickText = styled.Text<{ $active: boolean }>`
-  font-size: ${({ theme }) => theme.type.caption + 1}px;
-  font-weight: 700;
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: ${({ $active }) => ($active ? 700 : 600)};
   color: ${({ theme, $active }) =>
-    $active ? theme.colors.onAccent : theme.colors.mutedStrong};
+    $active ? theme.colors.background : theme.colors.mutedStrong};
 `;
 
 const MonthBar = styled.View`
@@ -248,9 +248,9 @@ const Day = styled(PressableScale)<{ $chosen: boolean; $today: boolean }>`
   border-radius: ${({ theme }) => theme.radii.medium}px;
   border: 1.5px solid
     ${({ theme, $today, $chosen }) =>
-      $chosen || !$today ? 'transparent' : theme.colors.accent};
+      $chosen || !$today ? 'transparent' : theme.colors.recognizedText};
   background-color: ${({ theme, $chosen }) =>
-    $chosen ? theme.colors.accent : 'transparent'};
+    $chosen ? theme.colors.text : 'transparent'};
 `;
 
 const DayText = styled.Text<{ $chosen: boolean; $past: boolean }>`
@@ -258,7 +258,7 @@ const DayText = styled.Text<{ $chosen: boolean; $past: boolean }>`
   font-weight: ${({ $chosen }) => ($chosen ? 800 : 500)};
   color: ${({ theme, $chosen, $past }) =>
     $chosen
-      ? theme.colors.onAccent
+      ? theme.colors.background
       : $past
       ? theme.colors.muted
       : theme.colors.text};

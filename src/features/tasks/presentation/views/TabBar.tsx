@@ -73,7 +73,8 @@ export function TabBar<Id extends string>({
           >
             <item.Glyph
               active={selected}
-              color={selected ? theme.colors.accentInk : theme.colors.muted}
+              color={selected ? theme.colors.text : theme.colors.muted}
+              size={22}
             />
             <TabLabel $active={selected}>{item.label}</TabLabel>
           </Tab>
@@ -83,13 +84,17 @@ export function TabBar<Id extends string>({
   );
 }
 
+/* 76 tall, a hairline on top and the mark glued to it: the bar is part of the
+   paper, not a tray sitting on it. */
 const Bar = styled.View`
   flex-direction: row;
   align-items: center;
+  min-height: 76px;
   border-top-width: 1px;
   border-top-color: ${({ theme }) => theme.colors.borderSubtle};
   background-color: ${({ theme }) => theme.colors.background};
   padding-top: ${({ theme }) => theme.spacing.small + 2}px;
+  padding-bottom: ${({ theme }) => theme.spacing.small}px;
 `;
 
 const Indicator = styled(Animated.View)`
@@ -107,10 +112,10 @@ const Indicator = styled(Animated.View)`
  * A glyph pinned to the left of its own label reads as a layout accident. */
 const Tab = styled(PressableScale)`
   flex: 1;
-  min-height: 48px;
+  min-height: 56px;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   padding: 4px 0px;
 `;
 

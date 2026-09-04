@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BackHandler, Modal } from 'react-native';
+import { BackHandler, Modal, Platform } from 'react-native';
 import Animated from 'react-native-reanimated';
 import styled, { useTheme } from 'styled-components/native';
 
@@ -25,9 +25,10 @@ import {
 } from '../../../../app/animation/motion';
 import type { AppLanguage, TaskCopy } from '../localization/taskCopy';
 import { ConfirmDialog } from './ConfirmDialog';
-import { CheckGlyph, LinkGlyph } from './FieldGlyphs';
+import { CheckGlyph, ProjectGlyph } from './FieldGlyphs';
 import { joinHistory } from '../models/joinHistory';
 import { memberDisplayName } from '../models/memberIdentity';
+import { projectTone } from '../models/projectAppearance';
 import { MemberChip } from './MemberChip';
 import { PressableScale } from './PressableScale';
 import {
@@ -36,6 +37,7 @@ import {
   SheetCancelButton,
   SheetPrimaryButton,
 } from './SheetActions';
+import { PanelBox, PanelHead, PanelTitle } from './SheetPanel';
 
 type ShareStatus = 'idle' | 'loading' | 'error';
 
@@ -55,6 +57,10 @@ interface ShareSheetProps {
   } | null;
   status: ShareStatus;
   errorKind: ShareErrorKind | null;
+  /** Opened by the space being made: the sheet is the last step of creating
+   * it, so it says the space is ready and offers the invite — members and
+   * roles wait for the menu of the space itself. Leaving undoes nothing. */
+  justCreated?: boolean;
   onCancel: () => void;
   onCreateLink: (invitedAs: Exclude<ListRole, 'owner'>) => void;
   onChangeInvitedAs: (invitedAs: Exclude<ListRole, 'owner'>) => void;
@@ -79,6 +85,7 @@ export function ShareSheet({
   identity,
   status,
   errorKind,
+  justCreated = false,
   onCancel,
   onCreateLink,
   onChangeInvitedAs,
@@ -193,12 +200,51 @@ export function ShareSheet({
           testID="share-sheet"
         >
           <Grabber />
-          <Title accessibilityRole="header">
-            {`${copy.lists.share} ${list.name}`}
-          </Title>
-          <Hint>{copy.lists.shareHint}</Hint>
+          {justCreated ? (
+            <ReadyHead>
+              <Badge $tone={projectTone(theme, list.color)}>
+                <ProjectGlyph
+                  color={
+                    list.color === 'sun'
+                      ? theme.colors.onAccent
+                      : theme.colors.card
+                  }
+                  icon={list.icon}
+                  size={20}
+                />
+              </Badge>
+              <ReadyTexts>
+                <ReadyTitle accessibilityRole="header">
+                  {copy.lists.readyTitle(list.name)}
+                </ReadyTitle>
+                <ReadySubtitle>{copy.lists.readySubtitle}</ReadySubtitle>
+              </ReadyTexts>
+            </ReadyHead>
+          ) : (
+            <>
+              <Title accessibilityRole="header">
+                {`${copy.lists.share} ${list.name}`}
+              </Title>
+              <Hint>{copy.lists.shareHint}</Hint>
+            </>
+          )}
 
-          {list.share == null ? (
+          {list.share == null && justCreated ? (
+            /* The link was asked for the moment the space was made: the box
+               is already there, waiting for it. */
+            <PanelBox testID="share-link-box">
+              <PanelHead>
+                <PanelTitle>{copy.lists.inviteLinkLabel}</PanelTitle>
+              </PanelHead>
+              <LinkLine>
+                <LinkText $pending>
+                  {status === 'loading'
+                    ? copy.lists.creatingLink
+                    : copy.lists.linkNotPublished}
+                </LinkText>
+              </LinkLine>
+            </PanelBox>
+          ) : list.share == null ? (
             <SheetPrimaryButton
               block
               disabled={status === 'loading'}
@@ -212,38 +258,41 @@ export function ShareSheet({
             />
           ) : (
             <>
-              <LinkRow $pending={notPublished} accessibilityRole="text">
-                <LinkGlyph
-                  color={
-                    notPublished ? theme.colors.muted : theme.colors.accentInk
-                  }
-                  size={16}
-                />
-                <LinkText $pending={notPublished}>
-                  {buildInviteLink(list.share.token)}
-                </LinkText>
-                <CopyButton
-                  $pending={notPublished}
-                  accessibilityLabel={copy.lists.copyLinkAccessible}
-                  accessibilityState={{ disabled: notPublished }}
-                  disabled={notPublished}
-                  hitSlop={8}
-                  onPress={handleCopy}
-                  testID="share-copy-link"
-                >
-                  <CopyText $pending={notPublished}>
-                    {justCopied ? copy.lists.linkCopied : copy.lists.copyLink}
-                  </CopyText>
-                </CopyButton>
-              </LinkRow>
+              <PanelBox testID="share-link-box">
+                <PanelHead>
+                  <PanelTitle>{copy.lists.inviteLinkLabel}</PanelTitle>
+                </PanelHead>
+                <LinkLine accessibilityRole="text">
+                  <LinkText $pending={notPublished}>
+                    {buildInviteLink(list.share.token)}
+                  </LinkText>
+                  <CopyButton
+                    accessibilityLabel={copy.lists.copyLinkAccessible}
+                    accessibilityState={{ disabled: notPublished }}
+                    disabled={notPublished}
+                    hitSlop={8}
+                    onPress={handleCopy}
+                    testID="share-copy-link"
+                  >
+                    <CopyText $pending={notPublished}>
+                      {justCopied ? copy.lists.linkCopied : copy.lists.copyLink}
+                    </CopyText>
+                  </CopyButton>
+                </LinkLine>
+                {notPublished ? (
+                  <LinkNote testID="share-link-pending">
+                    {copy.lists.linkNotPublished}
+                  </LinkNote>
+                ) : (
+                  <LinkNote>
+                    {copy.lists.inviteLinkNote(
+                      list.share.invitedAs === 'editor',
+                    )}
+                  </LinkNote>
+                )}
+              </PanelBox>
 
-              {notPublished ? (
-                <PendingNote testID="share-link-pending">
-                  {copy.lists.linkNotPublished}
-                </PendingNote>
-              ) : null}
-
-              {!isOwner ? null : (
+              {!isOwner || justCreated ? null : (
                 <>
                   <SectionLabel>{copy.lists.invitedAsLabel}</SectionLabel>
                   <RoleRow>
@@ -258,7 +307,7 @@ export function ShareSheet({
                         {invitedAs === 'viewer' ? (
                           <RoleCheck>
                             <CheckGlyph
-                              color={theme.colors.accentInk}
+                              color={theme.colors.onSelected}
                               size={14}
                             />
                           </RoleCheck>
@@ -282,7 +331,7 @@ export function ShareSheet({
                         {invitedAs === 'editor' ? (
                           <RoleCheck>
                             <CheckGlyph
-                              color={theme.colors.accentInk}
+                              color={theme.colors.onSelected}
                               size={14}
                             />
                           </RoleCheck>
@@ -300,10 +349,12 @@ export function ShareSheet({
                 </>
               )}
 
-              <SectionLabel>{`${copy.lists.membersHeader.toUpperCase()} · ${
-                members.length
-              }`}</SectionLabel>
-              {members.map((member, index) => {
+              {justCreated ? null : (
+                <SectionLabel>{`${copy.lists.membersHeader.toUpperCase()} · ${
+                  members.length
+                }`}</SectionLabel>
+              )}
+              {(justCreated ? [] : members).map((member, index) => {
                 // The logged-in person is "Você" in their own list of
                 // members; everybody else is the name and handle they chose.
                 // The session's own uid, however the row got here: an entry
@@ -378,7 +429,7 @@ export function ShareSheet({
                 );
               })}
 
-              {history.entries.length === 0 ? null : (
+              {history.entries.length === 0 || justCreated ? null : (
                 <>
                   <SectionHeader testID="share-join-history">
                     <SectionLabel>{`${copy.lists.joinHistoryHeader.toUpperCase()} · ${
@@ -459,25 +510,45 @@ export function ShareSheet({
             </ErrorBanner>
           )}
 
-          <SheetActionsRow>
-            {isOwner && list.share != null ? (
-              <StopLink
-                accessibilityLabel={copy.lists.stopSharing}
-                onPress={() => setConfirmingStop(true)}
-              >
-                <StopLinkText>{copy.lists.stopSharing}</StopLinkText>
-              </StopLink>
-            ) : null}
-            <SheetActionsSpacer />
-            <SheetCancelButton label={copy.capture.cancel} onPress={onCancel} />
-            {viewer || list.share == null ? null : (
+          {justCreated ? (
+            /* Leaving here undoes nothing — the space exists and so does the
+               link — so the quiet button says "not now", never "cancel". */
+            <SheetActionsRow>
               <SheetPrimaryButton
+                disabled={list.share == null || notPublished}
+                grow
                 label={copy.lists.invite}
-                onPress={() => onInvite(list.share!.token)}
+                onPress={() => {
+                  if (list.share != null) onInvite(list.share.token);
+                }}
                 testID="share-invite"
               />
-            )}
-          </SheetActionsRow>
+              <SheetCancelButton label={copy.lists.notNow} onPress={onCancel} />
+            </SheetActionsRow>
+          ) : (
+            <SheetActionsRow>
+              {isOwner && list.share != null ? (
+                <StopLink
+                  accessibilityLabel={copy.lists.stopSharing}
+                  onPress={() => setConfirmingStop(true)}
+                >
+                  <StopLinkText>{copy.lists.stopSharing}</StopLinkText>
+                </StopLink>
+              ) : null}
+              <SheetActionsSpacer />
+              <SheetCancelButton
+                label={copy.capture.cancel}
+                onPress={onCancel}
+              />
+              {viewer || list.share == null ? null : (
+                <SheetPrimaryButton
+                  label={copy.lists.invite}
+                  onPress={() => onInvite(list.share!.token)}
+                  testID="share-invite"
+                />
+              )}
+            </SheetActionsRow>
+          )}
         </Sheet>
       </Overlay>
 
@@ -541,14 +612,15 @@ const ScrimTouch = styled.Pressable`
   flex: 1;
 `;
 
+/* The same white sheet the space is named on: this is its last step, not
+   another object. */
 const Sheet = styled(Animated.View)`
-  background-color: ${({ theme }) => theme.colors.background};
+  background-color: ${({ theme }) => theme.colors.card};
   border-top-left-radius: ${({ theme }) => theme.radii.extraLarge}px;
   border-top-right-radius: ${({ theme }) => theme.radii.extraLarge}px;
   margin-bottom: -80px;
   max-height: 91%;
-  padding: ${({ theme }) => theme.spacing.medium}px
-    ${({ theme }) => theme.spacing.large}px
+  padding: 12px ${({ theme }) => theme.spacing.medium + 4}px
     ${({ theme }) => theme.spacing.large + 88}px;
 `;
 
@@ -575,47 +647,78 @@ const Hint = styled.Text`
   margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 
-/* Waiting on the server, the row loses the accent it wears when the link is
-   real: quiet ink, never an alarm colour. */
-const LinkRow = styled.View<{ $pending: boolean }>`
+/* The space's own square beside the word that it is ready. */
+const ReadyHead = styled.View`
+  flex-direction: row;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.small + 6}px;
+`;
+
+const Badge = styled.View<{ $tone: string }>`
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background-color: ${({ $tone }) => $tone};
+`;
+
+const ReadyTexts = styled.View`
+  flex: 1;
+`;
+
+const ReadyTitle = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.type.heading}px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+`;
+
+const ReadySubtitle = styled.Text`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.label}px;
+  font-weight: 500;
+  margin-top: 2px;
+`;
+
+const LinkLine = styled.View`
   flex-direction: row;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.small + 2}px;
-  border: 2px solid
-    ${({ theme, $pending }) =>
-      $pending ? theme.colors.border : theme.colors.accent};
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  background-color: ${({ theme }) => theme.colors.card};
-  padding: 13px 14px;
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
 `;
 
+/* Waiting on the server, the link loses its ink: quiet, never an alarm
+   colour. A link is typed out and pasted, so it is set in a typewriter face. */
 const LinkText = styled.Text.attrs({ numberOfLines: 1 })<{ $pending: boolean }>`
   flex: 1;
   color: ${({ theme, $pending }) =>
     $pending ? theme.colors.muted : theme.colors.text};
-  font-size: ${({ theme }) => theme.type.body}px;
-  font-variant: tabular-nums;
+  font-family: ${Platform.OS === 'ios' ? 'Menlo' : 'monospace'};
+  font-size: 14px;
 `;
 
-const CopyButton = styled(PressableScale)<{ $pending: boolean }>`
-  padding: 8px 14px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
-  background-color: ${({ theme, $pending }) =>
-    $pending ? theme.colors.border : theme.colors.accent};
+/* A white pill on the panel's paper: the one thing in the box to press. */
+const CopyButton = styled(PressableScale)`
+  height: 32px;
+  padding: 0px 12px;
+  justify-content: center;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background-color: ${({ theme }) => theme.colors.card};
 `;
 
 const CopyText = styled.Text<{ $pending: boolean }>`
   color: ${({ theme, $pending }) =>
-    $pending ? theme.colors.muted : theme.colors.onAccent};
-  font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: 800;
+    $pending ? theme.colors.muted : theme.colors.text};
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  font-weight: 700;
 `;
 
-const PendingNote = styled.Text`
+const LinkNote = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
-  font-size: ${({ theme }) => theme.type.caption}px;
-  margin-top: ${({ theme }) => theme.spacing.small}px;
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  font-weight: 500;
+  line-height: ${({ theme }) => theme.type.caption + 6}px;
 `;
 
 const SectionLabel = styled.Text`
@@ -682,7 +785,7 @@ const RoleButton = styled(PressableScale)<{ $selected: boolean }>`
       $selected ? theme.colors.accent : theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.pill}px;
   background-color: ${({ theme, $selected }) =>
-    $selected ? theme.colors.cardElevated : theme.colors.card};
+    $selected ? theme.colors.selected : theme.colors.card};
 `;
 
 /** `PressableScale` hands the style to the `Pressable` and keeps the children
@@ -709,7 +812,7 @@ const RoleCheck = styled.View`
 const RoleButtonText = styled.Text<{ $selected: boolean }>`
   flex-shrink: 0;
   color: ${({ theme, $selected }) =>
-    $selected ? theme.colors.accentInk : theme.colors.mutedStrong};
+    $selected ? theme.colors.onSelected : theme.colors.mutedStrong};
   font-size: ${({ theme }) => theme.type.caption + 1}px;
   font-weight: 800;
 `;

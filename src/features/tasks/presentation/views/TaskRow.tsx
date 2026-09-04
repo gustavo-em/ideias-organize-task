@@ -252,7 +252,7 @@ function ReminderRow({
       </Main>
 
       <Fact>
-        <FactText $tone="mutedStrong" $weight={500}>
+        <FactText $tone="mutedStrong" $weight={600}>
           {nextAtMs == null
             ? copy.reminderItem.noNext
             : formatDateLabel(nextAtMs, language, nowMs)}
@@ -293,8 +293,8 @@ function FocusPill({
 const Row = styled(Animated.View)`
   flex-direction: row;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.small + 5}px;
-  padding: ${({ theme }) => theme.spacing.medium - 1}px 0px;
+  gap: ${({ theme }) => theme.spacing.small + 6}px;
+  padding: ${({ theme }) => theme.spacing.small + 5}px 0px;
 `;
 
 /* Exactly the footprint the checkbox leaves, so a list of tasks and reminders
@@ -325,13 +325,15 @@ const SubtaskCount = styled.Text`
   font-variant: tabular-nums;
 `;
 
+/* Body weight, not bold: nine titles in a column set in 700 read as nine
+   headlines shouting at once. The checkbox and the fact do the emphasis. */
 const Title = styled.Text<{ $done: boolean }>`
   flex-shrink: 1;
   color: ${({ theme, $done }) =>
     $done ? theme.colors.muted : theme.colors.text};
-  font-size: ${({ theme }) => theme.type.body + 1}px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
+  font-size: ${({ theme }) => theme.type.body}px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
   text-decoration-line: ${({ $done }) => ($done ? 'line-through' : 'none')};
 `;
 
@@ -349,9 +351,9 @@ const FactText = styled.Text<{
   /* Lateness is not danger: the danger colour belongs to the destructive
      action alone. Emphasis reads through ink and weight, never through alarm. */
   color: ${({ theme, $tone }) =>
-    $tone === 'danger' ? theme.colors.text : theme.colors.mutedStrong};
-  font-size: ${({ theme }) => theme.type.caption + 0.5}px;
-  font-weight: ${({ $weight }) => $weight};
+    $tone === 'danger' ? theme.colors.text : theme.colors.muted};
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  font-weight: ${({ $weight }) => ($weight < 600 ? 600 : $weight)};
 `;
 
 /* A chip, not a card: no border and no shadow, so the list keeps its air. */
@@ -389,6 +391,6 @@ const PillTime = styled.Text.attrs({
 const Earned = styled.Text`
   flex-shrink: 0;
   color: ${({ theme }) => theme.colors.successInk};
-  font-size: ${({ theme }) => theme.type.caption + 0.5}px;
-  font-weight: 600;
+  font-size: ${({ theme }) => theme.type.caption + 1}px;
+  font-weight: 700;
 `;

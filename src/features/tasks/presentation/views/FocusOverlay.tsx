@@ -1,10 +1,15 @@
 import { useEffect, type ReactNode } from 'react';
 import { BackHandler, StyleSheet } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import styled, { useTheme } from 'styled-components/native';
 
-import { contentFadeEnter } from '../../../../app/animation/motion';
+import { contentFadeEnter, GROUND } from '../../../../app/animation/motion';
 import { ChevronGlyph } from './FieldGlyphs';
 import { PressableScale } from './PressableScale';
 
@@ -12,11 +17,14 @@ interface FocusOverlayProps {
   /** The session screen, handed in whole: this layer never reaches into it. */
   children: ReactNode;
   label: string;
-  /** True while a block exists, so the chrome takes the session's ink. */
+  /** True while a block exists, so the ground takes the session's colour. */
   onSessionGround: boolean;
   /** Leaves the session on screen behind the list. Never stops the block. */
   onClose: () => void;
 }
+
+/** The band the back control lives in. The screen under it starts below. */
+const CHROME_HEIGHT = 44;
 
 /**
  * The way in and out of a focus block, and nothing else.
@@ -47,7 +55,21 @@ export function FocusOverlay({
     return () => subscription.remove();
   }, [onClose]);
 
-  const ink = onSessionGround ? theme.colors.onFocus : theme.colors.text;
+  // The layer paints the whole phone, status bar included, so the ground has
+  // to change colour here at the same pace as the screen inside it — or the
+  // strip behind the clock would snap while the rest of the screen fades.
+  const active = useSharedValue(onSessionGround ? 1 : 0);
+  useEffect(() => {
+    active.value = withTiming(onSessionGround ? 1 : 0, GROUND);
+  }, [active, onSessionGround]);
+
+  const groundStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      active.value,
+      [0, 1],
+      [theme.colors.background, theme.colors.focus],
+    ),
+  }));
 
   return (
     <Layer
@@ -55,22 +77,13 @@ export function FocusOverlay({
       entering={contentFadeEnter()}
       style={[
         StyleSheet.absoluteFill,
-        {
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom,
-          // The band above the session shares its ground, so the screen reads
-          // as one surface instead of a strip pasted over another.
-          backgroundColor: onSessionGround
-            ? theme.colors.focus
-            : theme.colors.background,
-        },
+        groundStyle,
+        { paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}
     >
-      {/* A running block is centred and has room to spare, so the chrome
-          floats over it and the frame stays exactly as it was. The idle list
-          starts at the top, where the button would land on the heading, so
-          there the band is reserved. */}
-      <Content $reserveChrome={!onSessionGround}>{children}</Content>
+      {/* The screen starts at the top in both states now, so the band above it
+          is always reserved and the back control never lands on the eyebrow. */}
+      <Content>{children}</Content>
 
       {/* Absolute children ignore the layer's padding, so the safe-area top
           has to be applied here again or the button lands on the clock. */}
@@ -84,9 +97,9 @@ export function FocusOverlay({
           testID="focus-close"
         >
           <BackChevron>
-            <ChevronGlyph color={ink} size={18} up />
+            <ChevronGlyph color={theme.colors.text} size={18} up />
           </BackChevron>
-          <BackLabel style={{ color: ink }}>{label}</BackLabel>
+          <BackLabel>{label}</BackLabel>
         </Back>
       </Chrome>
     </Layer>
@@ -95,11 +108,9 @@ export function FocusOverlay({
 
 const Layer = styled(Animated.View)``;
 
-/* The session keeps the exact frame it had as a tab: the chrome is absolute,
-   so nothing below it moves while a block runs. */
-const Content = styled.View<{ $reserveChrome: boolean }>`
+const Content = styled.View`
   flex: 1;
-  padding-top: ${({ $reserveChrome }) => ($reserveChrome ? 44 : 0)}px;
+  padding-top: ${CHROME_HEIGHT}px;
 `;
 
 const Chrome = styled.View`
@@ -114,7 +125,7 @@ const Back = styled(PressableScale)`
   flex-direction: row;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.tiny}px;
-  min-height: 44px;
+  min-height: ${CHROME_HEIGHT}px;
   padding-right: ${({ theme }) => theme.spacing.small}px;
 `;
 
@@ -123,6 +134,7 @@ const BackChevron = styled.View`
 `;
 
 const BackLabel = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
   font-size: ${({ theme }) => theme.type.label}px;
   font-weight: 700;
 `;

@@ -32,6 +32,8 @@ export interface TaskCopy {
     /** Starts the task from the now band, as opposed to `focus.start`, which
      * talks about the timer. */
     doNow: string;
+    /** The label on the band's second control: closes the task outright. */
+    markDone: string;
     /** How far past the deadline. `overdue` is an adjective and does not
      * conjugate with a number. */
     lateDays: (days: number) => string;
@@ -44,7 +46,6 @@ export interface TaskCopy {
     caughtUpTitle: string;
     caughtUpNext: (title: string) => string;
     caughtUpAllDone: string;
-    caughtUpViewAll: string;
   };
   capture: {
     placeholder: string;
@@ -61,9 +62,14 @@ export interface TaskCopy {
     syntaxTitle: string;
     syntaxHelp: string;
     noList: string;
+    datePanelTitle: string;
+    spacePanelTitle: string;
     previousMonth: string;
     nextMonth: string;
     save: string;
+    /** The primary while a task is still being written: it is added to the
+     * day, not saved back into it. Editing keeps "save". */
+    add: string;
     cancel: string;
     examples: readonly string[];
     priority: Record<'low' | 'medium' | 'high', string>;
@@ -89,6 +95,9 @@ export interface TaskCopy {
        * wrong. */
       blockedHint: string;
       openSettings: string;
+      /** Under the lead-time options: when the phone speaks, and why some
+       * days are missing. */
+      panelHint: string;
     };
     /** What kind of item is being written: work to finish, or something to be
      * reminded of from time to time. */
@@ -168,6 +177,21 @@ export interface TaskCopy {
     duplicateName: string;
     sharedProject: string;
     sharedProjectHint: string;
+    /** The primary action once the space is set to be shared: creating it and
+     * getting the invite are one step. */
+    createAndInvite: string;
+    /** The chip that reopens the starting points, named after the one the
+     * sheet is resting on. */
+    changeTemplate: (name: string) => string;
+    /** The sheet right after a shared space is made: it stays open on the
+     * invite instead of closing. */
+    readyTitle: (name: string) => string;
+    readySubtitle: string;
+    inviteLinkLabel: string;
+    /** What the link gives whoever opens it, and where that can be changed. */
+    inviteLinkNote: (canEdit: boolean) => string;
+    /** Leaving the invite for later undoes nothing, so it never says Cancel. */
+    notNow: string;
     addFirstTask: string;
     addTask: string;
     rename: string;
@@ -258,6 +282,27 @@ export interface TaskCopy {
     dayBandStateFocusing: string;
     dayBandStateOpen: string;
     dayBandStateDone: string;
+    /** Under the closed line: who closed it and at what time. */
+    dayBandClosedAt: (time: string) => string;
+    /** The open space's own heading: who is in it and how much is open —
+     * "Você e Júlia · 9 abertas". `others` never includes the person reading. */
+    spaceSubtitle: (others: readonly string[], open: number) => string;
+    /** The section of an open space that holds its tasks. */
+    inSpaceSection: string;
+    /** Spoken form of the line that leaves the open space. */
+    backToSpaces: string;
+    /** The index of spaces: the inbox card, the two sections and the facts
+     * under each name. */
+    indexSharedSection: string;
+    indexOwnSection: string;
+    indexSpaceCount: (count: number) => string;
+    indexInboxFact: (open: number) => string;
+    indexOpenCount: (open: number) => string;
+    indexInFocus: (name: string) => string;
+    indexPendingInvite: string;
+    indexOverdue: (count: number) => string;
+    indexAllClear: string;
+    indexEmptyHint: string;
     joinInvite: string;
     joinInviteTitle: string;
     joinInviteHint: string;
@@ -309,35 +354,21 @@ export interface TaskCopy {
     openSession: string;
   };
   progress: {
-    /** The small label above the board's title. It names the screen, so it
-     * cannot repeat or contradict the title under it. */
-    eyebrow: string;
-    /** The board's own title. Deliberately steady: a headline that changes with
-     * the numbers turns the screen into a scoreboard that shouts. */
-    boardTitle: string;
-    /** Says out loud that none of this leaves the phone. */
-    privacyHint: string;
-    balanceLabel: string;
-    open: string;
-    closed: string;
-    /** Read out for the ring, which draws a share no screen reader can see. */
-    balanceSummary: (open: number, closed: number) => string;
+    /** Eyebrow of the day's card: the one yellow card on the tab. */
+    today: string;
+    /** The small "of 3" beside the big count. */
+    todayOf: (total: number) => string;
+    /** The day in one sentence, streak included. Neutral when nothing is
+     * planned yet: an empty day is not a failure. */
+    todaySentence: (done: number, total: number, streakDays: number) => string;
+    /** Eyebrow of the seven-day chart. */
     sevenDays: string;
-    closedInWeek: (closed: number) => string;
+    /** Legend on the right of the chart: the weight closed over the week. */
+    weekWeight: (weight: number) => string;
     weekSummary: (closed: number) => string;
-    patterns: string;
-    bestWeekday: string;
-    /** Neutral, never a reproach: nothing closed yet is not a failure. */
-    noPatternYet: string;
-    bestWeekdaySummary: (weekday: string, closed: number) => string;
-    activeProjects: string;
-    activeProjectsOf: (total: number) => string;
-    projectsSummary: (active: number, total: number) => string;
-    /** Level and streak together, in one quiet line at the bottom. */
+    /** Level and streak together, in one quiet line under the name. */
     footnote: (level: number, streakDays: number) => string;
     weekdays: readonly string[];
-    /** Full weekday names, Sunday first, for the best-day line. */
-    weekdayNames: readonly string[];
   };
   settings: {
     title: string;
@@ -371,14 +402,50 @@ export interface TaskCopy {
   onboarding: {
     steps: readonly { title: string; body: string }[];
     next: string;
-    start: string;
     skip: string;
     /** Announced on the scene, so the position in the walk-through is spoken
      * instead of being only a row of dots. */
     stepPosition: (step: number, total: number) => string;
     /** The last step asks for the one thing the app cannot do alone: somebody
-     * else in the same space. Both answers close the walk-through. */
-    invite: { action: string; later: string };
+     * else in the same space. Both answers close the walk-through, and the
+     * note around them names the space by `demo.spaceName` — change the model
+     * and that is the only string that moves. */
+    invite: {
+      noteLead: string;
+      noteTail: string;
+      action: string;
+      later: string;
+    };
+    /** The fixed cast inside the cut-outs. Not chrome: these are the words a
+     * reader sees inside the product shown on each step, so they are written
+     * in the app's language like everything else. */
+    demo: {
+      spacesLabel: string;
+      spaceName: string;
+      spaceMeta: string;
+      spacePill: string;
+      combined: string;
+      countSplit: string;
+      today: string;
+      focusPill: string;
+      you: string;
+      person2: string;
+      taskCar: string;
+      taskCarMeta: string;
+      taskCrib: string;
+      taskCribMeta: string;
+      taskStay: string;
+      taskStayMeta: string;
+      taskFlights: string;
+      taskPassport: string;
+      taskPassportMeta: string;
+      taskRoute: string;
+      scoreYouLabel: string;
+      scoreOtherLabel: string;
+      scoreOf: string;
+      scoreStreak: string;
+      scorePrivate: string;
+    };
   };
   celebration: {
     title: string;
@@ -419,14 +486,14 @@ const ptBR: TaskCopy = {
     },
     agora: 'Agora',
     agoraMore: count => (count === 1 ? 'mais 1 hoje' : `mais ${count} hoje`),
-    doNow: 'Fazer agora',
+    doNow: 'Começar agora',
     lateDays: days => (days === 1 ? '1 dia' : `${days} dias`),
     earned: weight => `+${weight}`,
-    doNowOn: title => `Fazer agora: ${title}`,
+    markDone: 'Concluir',
+    doNowOn: title => `Começar agora: ${title}`,
     caughtUpTitle: 'Você está em dia.',
     caughtUpNext: title => `Próxima: ${title}`,
     caughtUpAllDone: 'Tudo certo por aqui.',
-    caughtUpViewAll: 'Ver tudo',
   },
   capture: {
     placeholder: 'O que precisa ser feito?',
@@ -439,9 +506,12 @@ const ptBR: TaskCopy = {
     syntaxHelp:
       'Nada disso é obrigatório: as fichas fazem o mesmo com um toque.',
     noList: 'sem espaço',
+    datePanelTitle: 'Data',
+    spacePanelTitle: 'Espaço',
     previousMonth: 'Mês anterior',
     nextMonth: 'Próximo mês',
     save: 'Salvar',
+    add: 'Adicionar',
     cancel: 'Cancelar',
     examples: [
       'ligar pro contador sexta 9h !alta #impostos',
@@ -472,6 +542,8 @@ const ptBR: TaskCopy = {
       tooLateHint: 'Sem antecedência possível para este prazo.',
       blockedHint: 'Notificações desativadas no sistema.',
       openSettings: 'Abrir ajustes',
+      panelHint:
+        'Sempre às 9:00 do dia escolhido. Com o prazo em cima, só as opções que ainda cabem aparecem.',
     },
     kind: {
       label: 'Tipo',
@@ -507,14 +579,14 @@ const ptBR: TaskCopy = {
     limitReached: limit => `Limite de ${limit} subtarefas por tarefa.`,
   },
   lists: {
-    title: 'Onde os\nplanos andam.',
+    title: 'Seus espaços',
     subtitle: (lists, tasks) =>
       `${lists} ${lists === 1 ? 'espaço' : 'espaços'} · ${tasks} ${
         tasks === 1 ? 'aberta' : 'abertas'
       }`,
     empty: 'Nenhuma tarefa neste espaço.',
     progress: (done, total) => `${done}/${total}`,
-    addToDay: 'Levar para hoje',
+    addToDay: 'Colocar no dia de hoje',
     inDay: 'No dia',
     newList: 'Novo espaço',
     templatesSubtitle: 'Comece de um destes ou do zero.',
@@ -524,7 +596,7 @@ const ptBR: TaskCopy = {
       bills: { name: 'Contas', description: 'O que vence e quando' },
       market: { name: 'Mercado', description: 'A lista da semana' },
       work: { name: 'Trabalho', description: 'Entregas e responsáveis' },
-      blank: { name: 'Em branco', description: 'Só o nome' },
+      blank: { name: 'Do zero', description: 'Só o nome' },
     },
     renameList: 'Editar espaço',
     create: 'Criar',
@@ -533,6 +605,16 @@ const ptBR: TaskCopy = {
     duplicateName: 'Esse espaço já existe. Escolha outro nome.',
     sharedProject: 'Espaço compartilhado',
     sharedProjectHint: 'Ao salvar, criamos o link de convite.',
+    createAndInvite: 'Criar e convidar',
+    changeTemplate: name => `Modelo: ${name} · trocar`,
+    readyTitle: name => `${name} está pronto.`,
+    readySubtitle: 'Convide alguém e comecem juntos.',
+    inviteLinkLabel: 'Link do convite',
+    inviteLinkNote: canEdit =>
+      canEdit
+        ? 'Quem abrir entra e pode editar. Dá para trocar depois, em Membros.'
+        : 'Quem abrir entra e pode ver. Dá para trocar depois, em Membros.',
+    notNow: 'Agora não',
     addFirstTask: 'Adicionar primeira tarefa',
     addTask: 'Adicionar tarefa',
     rename: 'Editar',
@@ -612,20 +694,18 @@ const ptBR: TaskCopy = {
     unassignPerson: name => `Tirar ${name} da tarefa`,
     assignedAnnouncement: name => `${name} entrou na tarefa`,
     unassignedAnnouncement: name => `${name} saiu da tarefa`,
-    dayBandTitle: 'Hoje, no combinado',
-    dayBandEmpty: 'Ninguém levou nada para hoje ainda.',
+    dayBandTitle: 'O dia de vocês',
+    dayBandEmpty: 'Ninguém escolheu tarefas para hoje ainda.',
     dayBandEmptyHint:
-      'Cada um leva poucas tarefas para o dia. Aqui vocês veem o combinado de todo mundo.',
-    dayBandTakeOne: 'Levar uma para hoje',
+      'Cada um escolhe poucas tarefas para o dia. Aqui vocês veem o que cada um vai fazer.',
+    dayBandTakeOne: 'Escolher uma tarefa para hoje',
     dayBandAllDone: count =>
       count === 1 ? 'Uma pessoa fechou hoje' : `Os ${count} fecharam hoje`,
     dayBandStreak: days =>
-      days === 1
-        ? '1 dia seguido em que todo mundo fechou o que levou.'
-        : `${days} dias seguidos em que todo mundo fechou o que levou.`,
+      days === 1 ? '1 dia seguido' : `${days} dias seguidos`,
     dayBandOffline:
       'Sem conexão agora — mostrando o que já estava no aparelho.',
-    dayBandError: 'Não deu para carregar o combinado de hoje.',
+    dayBandError: 'Não deu para carregar o dia de vocês.',
     dayBandRetry: 'Tentar de novo',
     dayBandRetrying: 'Tentando…',
     dayBandRetryFailed: 'Ainda não deu — tentar de novo',
@@ -633,6 +713,33 @@ const ptBR: TaskCopy = {
     dayBandStateFocusing: 'em foco',
     dayBandStateOpen: 'em aberto',
     dayBandStateDone: 'concluída',
+    dayBandClosedAt: time => `fechou às ${time}`,
+    spaceSubtitle: (others, open) => {
+      const who =
+        others.length === 0
+          ? 'Só você'
+          : others.length === 1
+          ? `Você e ${others[0]}`
+          : `Você, ${others.slice(0, -1).join(', ')} e ${
+              others[others.length - 1]
+            }`;
+
+      return `${who} · ${open} ${open === 1 ? 'aberta' : 'abertas'}`;
+    },
+    inSpaceSection: 'No espaço',
+    backToSpaces: 'Voltar para os espaços',
+    indexSharedSection: 'Compartilhados',
+    indexOwnSection: 'Só seus',
+    indexSpaceCount: count => (count === 1 ? '1 espaço' : `${count} espaços`),
+    indexInboxFact: open =>
+      `Tarefas sem espaço · ${open} ${open === 1 ? 'aberta' : 'abertas'}`,
+    indexOpenCount: open => `${open} ${open === 1 ? 'aberta' : 'abertas'}`,
+    indexInFocus: name => `${name} em foco`,
+    indexPendingInvite: 'convite pendente',
+    indexOverdue: count => (count === 1 ? '1 atrasada' : `${count} atrasadas`),
+    indexAllClear: 'Tudo em dia',
+    indexEmptyHint:
+      'Um espaço para cada combinado: a casa, a viagem, o churrasco.',
     joinInvite: 'Entrar com convite',
     joinInviteTitle: 'Entrar em um espaço',
     joinInviteHint: 'Cole o link que alguém te mandou.',
@@ -665,57 +772,62 @@ const ptBR: TaskCopy = {
     idleScope: 'Aqui ficam as tarefas do dia. Para outra, abra ela na lista.',
     remaining: 'restantes',
     pause: 'Pausar',
-    resume: 'Continuar',
+    resume: 'Retomar',
     finish: 'Encerrar',
     complete: 'Concluir',
     finished: 'Tempo cumprido.',
-    chooseDuration: 'Quanto tempo você quer focar?',
+    chooseDuration: 'Quanto tempo você vai dar pra isso?',
     customDuration: 'Personalizado',
     increaseDuration: 'Aumentar tempo',
     decreaseDuration: 'Diminuir tempo',
     start: 'Começar',
     cancel: 'Cancelar',
     newFocus: 'Novo foco',
-    action: 'Focar',
+    action: 'Começar agora',
     close: 'Voltar',
     rowPaused: 'Pausado',
     rowDone: 'Tempo cumprido',
     openSession: 'Abrir sessão de foco',
   },
   progress: {
-    eyebrow: 'Progresso',
-    boardTitle: 'Seu placar',
-    privacyHint: 'Só neste aparelho',
-    balanceLabel: 'Equilíbrio',
-    open: 'Abertas',
-    closed: 'Fechadas',
-    balanceSummary: (open, closed) =>
-      `${open} ${open === 1 ? 'aberta' : 'abertas'}, ${closed} ${
-        closed === 1 ? 'fechada' : 'fechadas'
-      }`,
-    sevenDays: '7 dias',
-    closedInWeek: closed =>
-      closed === 1
-        ? 'fechada nos últimos 7 dias'
-        : 'fechadas nos últimos 7 dias',
+    today: 'Hoje',
+    todayOf: total => `de ${total}`,
+    todaySentence: (done, total, streakDays) => {
+      const words = [
+        'zero',
+        'uma',
+        'duas',
+        'três',
+        'quatro',
+        'cinco',
+        'seis',
+        'sete',
+        'oito',
+        'nove',
+        'dez',
+      ];
+      const word = (value: number) => words[value] ?? `${value}`;
+      const streak =
+        streakDays === 0
+          ? ''
+          : streakDays === 1
+          ? ' 1 dia seguido.'
+          : ` ${streakDays} dias seguidos.`;
+
+      if (total === 0) return `Dia ainda em aberto.${streak}`;
+
+      const head = word(done);
+
+      return `${head.charAt(0).toUpperCase()}${head.slice(1)} de ${word(
+        total,
+      )}.${streak}`;
+    },
+    sevenDays: 'Semana',
+    weekWeight: weight => `peso fechado · ${weight}`,
     weekSummary: closed =>
       closed === 1
         ? '1 tarefa fechada nos últimos 7 dias'
         : `${closed} tarefas fechadas nos últimos 7 dias`,
-    patterns: 'Padrões',
-    bestWeekday: 'Melhor dia',
-    noPatternYet: 'Ainda sem dados',
-    bestWeekdaySummary: (weekday, closed) =>
-      closed === 1
-        ? `Melhor dia: ${weekday}, com 1 fechada`
-        : `Melhor dia: ${weekday}, com ${closed} fechadas`,
-    activeProjects: 'Espaços ativos',
-    activeProjectsOf: total =>
-      total === 1 ? 'de 1 espaço' : `de ${total} espaços`,
-    projectsSummary: (active, total) =>
-      active === 1
-        ? `1 espaço ativo de ${total}`
-        : `${active} espaços ativos de ${total}`,
     footnote: (level, streakDays) =>
       streakDays === 0
         ? `Nível ${level}`
@@ -723,15 +835,6 @@ const ptBR: TaskCopy = {
         ? `Nível ${level} · 1 dia seguido`
         : `Nível ${level} · ${streakDays} dias seguidos`,
     weekdays: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'],
-    weekdayNames: [
-      'domingo',
-      'segunda',
-      'terça',
-      'quarta',
-      'quinta',
-      'sexta',
-      'sábado',
-    ],
   },
   settings: {
     title: 'Ajustes',
@@ -766,23 +869,55 @@ const ptBR: TaskCopy = {
   onboarding: {
     steps: [
       {
-        title: 'A vida a dois, combinada',
-        body: 'Planejem as tarefas da semana juntos — e deixem o app lembrar as datas de vocês: aniversário de namoro, de casamento, do par.',
+        title: 'Um espaço para a vida que vocês dividem.',
+        body: 'A casa, a viagem, as contas — no mesmo dia, para os dois.',
       },
       {
-        title: 'Um espaço para cada plano',
-        body: 'Anote em segundos, dê prazo e prioridade — e organize tudo em espaços: a casa, a viagem, o churrasco de sábado. Todo mundo dentro vê as mesmas tarefas e o combinado do dia.',
+        title: 'O dia de vocês, numa tela.',
+        body: 'O que cada um levou, o que fechou, quem está em foco. Sem “e aquilo?”.',
       },
       {
-        title: 'Convide quem divide a rotina',
-        body: 'Um espaço compartilhado guarda o combinado de vocês: família, casa, amigos. Quem abrir o link entra e vê o mesmo dia.',
+        title: 'Sem placar entre vocês.',
+        body: 'Cada um leva três. Seu progresso é seu — o espaço mostra, não compara.',
       },
     ],
-    next: 'Continuar',
-    start: 'Começar',
+    next: 'Próximo',
     skip: 'Pular',
     stepPosition: (step, total) => `Passo ${step} de ${total}`,
-    invite: { action: 'Convidar alguém', later: 'Agora não' },
+    invite: {
+      noteLead: 'Vamos criar o espaço',
+      noteTail:
+        'para você. Chame quem divide ele com você — um link, sem cadastro antes.',
+      action: 'Convidar quem divide o espaço',
+      later: 'Começar sozinho por enquanto',
+    },
+    demo: {
+      spacesLabel: 'ESPAÇOS',
+      spaceName: 'Casa',
+      spaceMeta: 'Você e Júlia · 9 abertas',
+      spacePill: 'Casa · Você e Júlia',
+      combined: 'Hoje, no combinado',
+      countSplit: '3 + 3',
+      today: 'HOJE',
+      focusPill: 'Léo está em foco · 18:40',
+      you: 'Você',
+      person2: 'Léo',
+      taskCar: 'Levar o carro na revisão',
+      taskCarMeta: 'Marcos · fechou às 9:12',
+      taskCrib: 'Montar o berço',
+      taskCribMeta: 'Júlia · em foco',
+      taskStay: 'Reservar a pousada',
+      taskStayMeta: 'Léo · fechou às 8:40',
+      taskFlights: 'Comprar as passagens',
+      taskPassport: 'Renovar o passaporte',
+      taskPassportMeta: 'Você · fechou às 11:05',
+      taskRoute: 'Fechar o roteiro dos três dias',
+      scoreYouLabel: 'VOCÊ · HOJE',
+      scoreOtherLabel: 'JÚLIA · HOJE',
+      scoreOf: 'de 3',
+      scoreStreak: '12 dias seguidos',
+      scorePrivate: 'só ela vê o dela',
+    },
   },
   celebration: {
     title: 'Dia fechado.',
@@ -826,14 +961,14 @@ const enUS: TaskCopy = {
     },
     agora: 'Now',
     agoraMore: count => (count === 1 ? '1 more today' : `${count} more today`),
-    doNow: 'Do it now',
+    doNow: 'Start now',
     lateDays: days => (days === 1 ? '1 day' : `${days} days`),
     earned: weight => `+${weight}`,
-    doNowOn: title => `Do it now: ${title}`,
+    markDone: 'Mark done',
+    doNowOn: title => `Start now: ${title}`,
     caughtUpTitle: "You're caught up.",
     caughtUpNext: title => `Next: ${title}`,
     caughtUpAllDone: 'All clear here.',
-    caughtUpViewAll: 'View all',
   },
   capture: {
     placeholder: 'What needs doing?',
@@ -845,9 +980,12 @@ const enUS: TaskCopy = {
     syntaxTitle: 'Writing shortcuts',
     syntaxHelp: 'None of this is required: the chips do the same with one tap.',
     noList: 'no space',
+    datePanelTitle: 'Date',
+    spacePanelTitle: 'Space',
     previousMonth: 'Previous month',
     nextMonth: 'Next month',
     save: 'Save',
+    add: 'Add',
     cancel: 'Cancel',
     examples: [
       'call the accountant friday 9h !high #taxes',
@@ -876,6 +1014,8 @@ const enUS: TaskCopy = {
       tooLateHint: 'No lead time available for this due date.',
       blockedHint: 'Notifications are turned off in the system.',
       openSettings: 'Open settings',
+      panelHint:
+        'Always at 9:00 on the chosen day. Close to the deadline, only the lead times that still fit are offered.',
     },
     kind: {
       label: 'Type',
@@ -911,12 +1051,12 @@ const enUS: TaskCopy = {
     limitReached: limit => `Limit of ${limit} subtasks per task.`,
   },
   lists: {
-    title: 'Where plans\nmove forward.',
+    title: 'Your spaces',
     subtitle: (lists, tasks) =>
       `${lists} ${lists === 1 ? 'space' : 'spaces'} · ${tasks} open`,
     empty: 'No tasks in this space.',
     progress: (done, total) => `${done}/${total}`,
-    addToDay: 'Move into today',
+    addToDay: 'Add to today',
     inDay: 'In the day',
     newList: 'New space',
     templatesSubtitle: 'Start from one of these, or from scratch.',
@@ -926,7 +1066,7 @@ const enUS: TaskCopy = {
       bills: { name: 'Bills', description: 'What is due and when' },
       market: { name: 'Groceries', description: 'This week’s list' },
       work: { name: 'Work', description: 'Deliverables and owners' },
-      blank: { name: 'Blank', description: 'Just the name' },
+      blank: { name: 'From scratch', description: 'Just the name' },
     },
     renameList: 'Edit space',
     create: 'Create',
@@ -935,6 +1075,16 @@ const enUS: TaskCopy = {
     duplicateName: 'That space already exists. Choose another name.',
     sharedProject: 'Shared space',
     sharedProjectHint: 'Saving creates the invite link.',
+    createAndInvite: 'Create and invite',
+    changeTemplate: name => `Template: ${name} · change`,
+    readyTitle: name => `${name} is ready.`,
+    readySubtitle: 'Invite someone and start together.',
+    inviteLinkLabel: 'Invite link',
+    inviteLinkNote: canEdit =>
+      canEdit
+        ? 'Whoever opens it joins and can edit. You can change that later, in Members.'
+        : 'Whoever opens it joins and can view. You can change that later, in Members.',
+    notNow: 'Not now',
     addFirstTask: 'Add first task',
     addTask: 'Add task',
     rename: 'Edit',
@@ -1014,20 +1164,18 @@ const enUS: TaskCopy = {
     unassignPerson: name => `Take ${name} off this task`,
     assignedAnnouncement: name => `${name} joined the task`,
     unassignedAnnouncement: name => `${name} left the task`,
-    dayBandTitle: 'Today, together',
-    dayBandEmpty: 'Nobody took anything for today yet.',
+    dayBandTitle: 'Your day together',
+    dayBandEmpty: 'Nobody has picked tasks for today yet.',
     dayBandEmptyHint:
-      'Each person takes a few tasks for the day. Here you see what everyone took.',
-    dayBandTakeOne: 'Take one for today',
+      'Each person picks a few tasks for the day. Here you see what everyone will do.',
+    dayBandTakeOne: 'Pick a task for today',
     dayBandAllDone: count =>
       count === 1 ? 'One person closed today' : `All ${count} closed today`,
     dayBandStreak: days =>
-      days === 1
-        ? '1 day in a row where everybody closed what they took.'
-        : `${days} days in a row where everybody closed what they took.`,
+      days === 1 ? '1 day in a row' : `${days} days in a row`,
     dayBandOffline:
       'No connection right now — showing what was already on the phone.',
-    dayBandError: "Could not load today's plan.",
+    dayBandError: "Could not load your day together.",
     dayBandRetry: 'Try again',
     dayBandRetrying: 'Trying…',
     dayBandRetryFailed: 'Still no luck — try again',
@@ -1035,6 +1183,32 @@ const enUS: TaskCopy = {
     dayBandStateFocusing: 'in focus',
     dayBandStateOpen: 'open',
     dayBandStateDone: 'done',
+    dayBandClosedAt: time => `closed at ${time}`,
+    spaceSubtitle: (others, open) => {
+      const who =
+        others.length === 0
+          ? 'Just you'
+          : others.length === 1
+          ? `You and ${others[0]}`
+          : `You, ${others.slice(0, -1).join(', ')} and ${
+              others[others.length - 1]
+            }`;
+
+      return `${who} · ${open} open`;
+    },
+    inSpaceSection: 'In the space',
+    backToSpaces: 'Back to spaces',
+    indexSharedSection: 'Shared',
+    indexOwnSection: 'Just yours',
+    indexSpaceCount: count => (count === 1 ? '1 space' : `${count} spaces`),
+    indexInboxFact: open => `Tasks without a space · ${open} open`,
+    indexOpenCount: open => `${open} open`,
+    indexInFocus: name => `${name} in focus`,
+    indexPendingInvite: 'invite pending',
+    indexOverdue: count => (count === 1 ? '1 overdue' : `${count} overdue`),
+    indexAllClear: 'All caught up',
+    indexEmptyHint:
+      'A space for every plan: the house, the trip, the barbecue.',
     joinInvite: 'Join with invite',
     joinInviteTitle: 'Join a space',
     joinInviteHint: 'Paste the link someone sent you.',
@@ -1071,47 +1245,58 @@ const enUS: TaskCopy = {
     finish: 'Stop',
     complete: 'Complete',
     finished: 'Time served.',
-    chooseDuration: 'How long do you want to focus?',
+    chooseDuration: 'How long are you giving this?',
     customDuration: 'Custom',
     increaseDuration: 'Increase time',
     decreaseDuration: 'Decrease time',
     start: 'Start',
     cancel: 'Cancel',
     newFocus: 'New focus',
-    action: 'Focus',
+    action: 'Start now',
     close: 'Back',
     rowPaused: 'Paused',
     rowDone: 'Time served',
     openSession: 'Open focus session',
   },
   progress: {
-    eyebrow: 'Progress',
-    boardTitle: 'Your board',
-    privacyHint: 'Stays on this phone',
-    balanceLabel: 'Balance',
-    open: 'Open',
-    closed: 'Closed',
-    balanceSummary: (open, closed) => `${open} open, ${closed} closed`,
-    sevenDays: '7 days',
-    closedInWeek: () => 'closed in the last 7 days',
+    today: 'Today',
+    todayOf: total => `of ${total}`,
+    todaySentence: (done, total, streakDays) => {
+      const words = [
+        'zero',
+        'one',
+        'two',
+        'three',
+        'four',
+        'five',
+        'six',
+        'seven',
+        'eight',
+        'nine',
+        'ten',
+      ];
+      const word = (value: number) => words[value] ?? `${value}`;
+      const streak =
+        streakDays === 0
+          ? ''
+          : streakDays === 1
+          ? ' 1 day in a row.'
+          : ` ${streakDays} days in a row.`;
+
+      if (total === 0) return `The day is still open.${streak}`;
+
+      const head = word(done);
+
+      return `${head.charAt(0).toUpperCase()}${head.slice(1)} of ${word(
+        total,
+      )}.${streak}`;
+    },
+    sevenDays: 'Week',
+    weekWeight: weight => `weight closed · ${weight}`,
     weekSummary: closed =>
       closed === 1
         ? '1 task closed in the last 7 days'
         : `${closed} tasks closed in the last 7 days`,
-    patterns: 'Patterns',
-    bestWeekday: 'Best day',
-    noPatternYet: 'No data yet',
-    bestWeekdaySummary: (weekday, closed) =>
-      closed === 1
-        ? `Best day: ${weekday}, with 1 closed`
-        : `Best day: ${weekday}, with ${closed} closed`,
-    activeProjects: 'Active spaces',
-    activeProjectsOf: total =>
-      total === 1 ? 'of 1 space' : `of ${total} spaces`,
-    projectsSummary: (active, total) =>
-      active === 1
-        ? `1 active space of ${total}`
-        : `${active} active spaces of ${total}`,
     footnote: (level, streakDays) =>
       streakDays === 0
         ? `Level ${level}`
@@ -1119,15 +1304,6 @@ const enUS: TaskCopy = {
         ? `Level ${level} · 1 day in a row`
         : `Level ${level} · ${streakDays} days in a row`,
     weekdays: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
-    weekdayNames: [
-      'Sunday',
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-    ],
   },
   settings: {
     title: 'Settings',
@@ -1162,23 +1338,55 @@ const enUS: TaskCopy = {
   onboarding: {
     steps: [
       {
-        title: 'Life together, agreed on',
-        body: 'Plan the week’s tasks together — and let the app remember your dates: dating and wedding anniversaries, each other’s birthday.',
+        title: 'A space for the life you share.',
+        body: 'The house, the trip, the bills — on the same day, for both of you.',
       },
       {
-        title: 'A space for every plan',
-        body: 'Jot it down in seconds, give it a date and a priority — and keep everything in spaces: the home, the trip, Saturday’s barbecue. Everyone in a space sees the same tasks and the day’s agreement.',
+        title: 'Your day, on one screen.',
+        body: 'What each of you took on, what got closed, who is in focus. No more “and that other thing?”.',
       },
       {
-        title: 'Invite whoever shares your routine',
-        body: 'A shared space holds what you agreed on: family, housemates, friends. Whoever opens the link joins and sees the same day.',
+        title: 'No scoreboard between you.',
+        body: 'You each take three. Your progress is yours — the space shows, it does not compare.',
       },
     ],
-    next: 'Continue',
-    start: 'Start',
+    next: 'Next',
     skip: 'Skip',
     stepPosition: (step, total) => `Step ${step} of ${total}`,
-    invite: { action: 'Invite someone', later: 'Not now' },
+    invite: {
+      noteLead: 'We’ll create the',
+      noteTail:
+        'space for you. Invite whoever shares it with you — a link, no sign-up first.',
+      action: 'Invite whoever shares the space',
+      later: 'Start on my own for now',
+    },
+    demo: {
+      spacesLabel: 'SPACES',
+      spaceName: 'Home',
+      spaceMeta: 'You and Júlia · 9 open',
+      spacePill: 'Home · You and Júlia',
+      combined: 'Today, as agreed',
+      countSplit: '3 + 3',
+      today: 'TODAY',
+      focusPill: 'Léo is in focus · 18:40',
+      you: 'You',
+      person2: 'Léo',
+      taskCar: 'Take the car in for service',
+      taskCarMeta: 'Marcos · closed at 9:12',
+      taskCrib: 'Put the crib together',
+      taskCribMeta: 'Júlia · in focus',
+      taskStay: 'Book the guesthouse',
+      taskStayMeta: 'Léo · closed at 8:40',
+      taskFlights: 'Buy the tickets',
+      taskPassport: 'Renew the passport',
+      taskPassportMeta: 'You · closed at 11:05',
+      taskRoute: 'Settle the three-day route',
+      scoreYouLabel: 'YOU · TODAY',
+      scoreOtherLabel: 'JÚLIA · TODAY',
+      scoreOf: 'of 3',
+      scoreStreak: '12 days running',
+      scorePrivate: 'only she sees hers',
+    },
   },
   celebration: {
     title: 'Day closed.',

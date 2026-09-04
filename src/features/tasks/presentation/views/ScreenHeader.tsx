@@ -3,7 +3,6 @@ import Animated from 'react-native-reanimated';
 import styled from 'styled-components/native';
 
 import { screenEnter } from '../../../../app/animation/motion';
-import { HairlineRule } from './HairlineRule';
 
 interface ScreenHeaderProps {
   eyebrow: string;
@@ -50,7 +49,7 @@ export function ScreenHeader({
           <Eyebrow>{eyebrow}</Eyebrow>
           {count == null ? null : <EyebrowCount>{count}</EyebrowCount>}
         </EyebrowGroup>
-        <HairlineRule />
+        <TopLineSpacer />
         {trailing}
       </TopLine>
       {title == null ? null : <Title accessibilityRole="header">{title}</Title>}
@@ -77,19 +76,26 @@ const EyebrowGroup = styled.View`
   gap: ${({ theme }) => theme.spacing.small}px;
 `;
 
+/* Takes the width between the eyebrow and whatever sits on the right. No
+   rule up here: the eyebrow names the screen, it does not head a section. */
+const TopLineSpacer = styled.View`
+  flex: 1;
+  min-width: 0px;
+`;
+
 const EyebrowCount = styled.Text`
   flex-shrink: 0;
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
-  font-weight: 700;
+  font-weight: 600;
 `;
 
 const Eyebrow = styled.Text`
   flex-shrink: 1;
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.caption}px;
-  font-weight: 700;
-  letter-spacing: 1.6px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
   text-transform: uppercase;
 `;
 
@@ -98,12 +104,13 @@ const Title = styled.Text`
   font-size: ${({ theme }) => theme.type.display}px;
   font-weight: 800;
   letter-spacing: -1.1px;
-  line-height: ${({ theme }) => theme.type.display + 3}px;
+  line-height: ${({ theme }) => theme.type.display + 2}px;
   margin-top: ${({ theme }) => theme.spacing.small}px;
 `;
 
 const Subtitle = styled.Text`
   color: ${({ theme }) => theme.colors.muted};
   font-size: ${({ theme }) => theme.type.label}px;
-  margin-top: ${({ theme }) => theme.spacing.small}px;
+  font-weight: 500;
+  margin-top: ${({ theme }) => theme.spacing.small - 2}px;
 `;

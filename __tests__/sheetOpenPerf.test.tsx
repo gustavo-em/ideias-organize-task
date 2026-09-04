@@ -270,8 +270,12 @@ describe('what it costs to open a sheet', () => {
     expect(cost.cards).toBe(0);
   });
 
-  it('opens the invite sheet without re-rendering the open project', () => {
+  it('opens the invite sheet without re-rendering the projects', () => {
+    // The way in with a link lives at the end of the index, not over an open
+    // space: back to the list first, then the sheet.
     const cost = openCost('JoinInviteSheet', root => {
+      press(root, 'list-back-l-0');
+      resetRenderCounts();
       press(root, 'join-invite');
     });
 

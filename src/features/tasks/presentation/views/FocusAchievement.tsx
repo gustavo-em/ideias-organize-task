@@ -29,10 +29,12 @@ interface FocusAchievementProps {
 
 export function FocusAchievement({ testID }: FocusAchievementProps) {
   const theme = useTheme();
+  // The ring's own colour, the brand's, and the gain's: the burst is made of
+  // what was already on screen.
   const colors = [
-    theme.colors.success,
+    theme.colors.reminder,
     theme.colors.accent,
-    theme.colors.focusInk,
+    theme.colors.success,
   ];
 
   return (

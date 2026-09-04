@@ -2,6 +2,7 @@ import styled from 'styled-components/native';
 
 import type { TaskCopy } from '../localization/taskCopy';
 import { PressableScale } from './PressableScale';
+import { PanelBox, PanelHead, PanelMeta, PanelTitle } from './SheetPanel';
 
 interface ReminderPanelProps {
   copy: TaskCopy;
@@ -9,6 +10,9 @@ interface ReminderPanelProps {
    * the deadline is today or already past. */
   options: readonly number[];
   selected: number | null;
+  /** The morning the chosen lead time lands on, already written out. Shown
+   * beside the title so the number of days is never the only answer. */
+  scheduledLabel: string | null;
   /** True once the phone has refused notifications: the choice is still
    * honoured and saved, and the panel says what is off. */
   blocked: boolean;
@@ -28,6 +32,7 @@ export function ReminderPanel({
   copy,
   options,
   selected,
+  scheduledLabel,
   blocked,
   onSelect,
   onOpenSettings,
@@ -36,20 +41,30 @@ export function ReminderPanel({
 
   if (options.length === 0) {
     return (
-      <Panel>
+      <PanelBox>
+        <PanelHead>
+          <PanelTitle>{reminder.label}</PanelTitle>
+        </PanelHead>
         <Hint>{reminder.tooLateHint}</Hint>
-      </Panel>
+      </PanelBox>
     );
   }
 
   return (
-    <Panel>
+    <PanelBox>
+      <PanelHead>
+        <PanelTitle>{reminder.label}</PanelTitle>
+        {scheduledLabel == null ? null : (
+          <PanelMeta>{scheduledLabel}</PanelMeta>
+        )}
+      </PanelHead>
       <Options>
         <Option
           $active={selected == null}
           accessibilityLabel={reminder.noReminder}
           accessibilityRole="button"
           accessibilityState={{ selected: selected == null }}
+          hitSlop={{ top: 6, bottom: 6 }}
           onPress={() => onSelect(null)}
           testID="reminder-option-none"
         >
@@ -67,6 +82,7 @@ export function ReminderPanel({
               accessibilityLabel={reminder.daysBefore(days)}
               accessibilityRole="button"
               accessibilityState={{ selected: isChosen }}
+              hitSlop={{ top: 6, bottom: 6 }}
               key={days}
               onPress={() => onSelect(days)}
               testID={`reminder-option-${days}`}
@@ -78,6 +94,8 @@ export function ReminderPanel({
           );
         })}
       </Options>
+
+      <Hint>{reminder.panelHint}</Hint>
 
       {blocked ? (
         <Blocked>
@@ -92,14 +110,9 @@ export function ReminderPanel({
           </Settings>
         </Blocked>
       ) : null}
-    </Panel>
+    </PanelBox>
   );
 }
-
-const Panel = styled.View`
-  margin-top: ${({ theme }) => theme.spacing.medium}px;
-  gap: ${({ theme }) => theme.spacing.small}px;
-`;
 
 const Options = styled.View`
   flex-direction: row;
@@ -107,26 +120,26 @@ const Options = styled.View`
   gap: ${({ theme }) => theme.spacing.small - 2}px;
 `;
 
-/* Same shape as the list options above it: one language for "pick one of
-   these", used twice. */
+/* Same pill as the space and calendar panels: one language for "pick one of
+   these". The chosen one is ink, the rest are paper. */
 const Option = styled(PressableScale)<{ $active: boolean }>`
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  padding: 0px ${({ theme }) => theme.spacing.medium}px;
-  border-radius: ${({ theme }) => theme.radii.medium}px;
+  min-height: 36px;
+  padding: 0px 14px;
+  border-radius: ${({ theme }) => theme.radii.pill}px;
   border: 1px solid
     ${({ theme, $active }) =>
-      $active ? theme.colors.accent : theme.colors.border};
+      $active ? theme.colors.text : theme.colors.border};
   background-color: ${({ theme, $active }) =>
-    $active ? theme.colors.cardElevated : 'transparent'};
+    $active ? theme.colors.text : theme.colors.card};
 `;
 
 const OptionText = styled.Text<{ $active: boolean }>`
   font-size: ${({ theme }) => theme.type.label}px;
-  font-weight: ${({ $active }) => ($active ? 800 : 500)};
+  font-weight: ${({ $active }) => ($active ? 700 : 600)};
   color: ${({ theme, $active }) =>
-    $active ? theme.colors.text : theme.colors.mutedStrong};
+    $active ? theme.colors.background : theme.colors.mutedStrong};
 `;
 
 const Blocked = styled.View`
