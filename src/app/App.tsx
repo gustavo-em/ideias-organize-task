@@ -73,7 +73,9 @@ function AppContent({
   app,
   auth,
   bus,
+  incomingInviteToken,
   inviteIntent,
+  onIncomingInviteHandled,
   onInviteIntentDone,
   onReady,
   onReplayOnboarding,
@@ -81,6 +83,10 @@ function AppContent({
   app: AppViewModel;
   auth: AuthViewModel;
   bus: TaskEventBus;
+  /** A token from a tapped invite link, held by the shell so it survives the
+   * sign-in between the tap and this screen. */
+  incomingInviteToken: string | null;
+  onIncomingInviteHandled: () => void;
   /** Somebody asked to invite on the walk-through and has an account now: the
    * space and its invite are made here, without another question. */
   inviteIntent: boolean;
@@ -244,13 +250,11 @@ function AppContent({
 
   // A tapped invite link goes to the same place, for the same reason: the
   // sheet that opens on it lives on the spaces tab.
-  const incomingInvite = useIncomingInvite();
-
   useEffect(() => {
-    if (incomingInvite.token == null || !tasks.isRestored) return;
+    if (incomingInviteToken == null || !tasks.isRestored) return;
 
     selectTab('lists');
-  }, [incomingInvite.token, selectTab, tasks.isRestored]);
+  }, [incomingInviteToken, selectTab, tasks.isRestored]);
 
   // Leaving the account leaves its data alone. Each account's keys carry its
   // own uid, so the next person to sign in on this phone reads their own set
@@ -307,10 +311,10 @@ function AppContent({
             <ListsScreen
               autoInvite={inviteIntent}
               copy={app.copy}
-              incomingInviteToken={incomingInvite.token}
+              incomingInviteToken={incomingInviteToken}
               language={app.language}
               onAutoInviteDone={onInviteIntentDone}
-              onIncomingInviteHandled={incomingInvite.clear}
+              onIncomingInviteHandled={onIncomingInviteHandled}
               notificationPrompt={{
                 // The ask happens where the news comes from, and only for
                 // someone who actually shares a project.
@@ -466,6 +470,10 @@ function AppShell({
   // Nothing of this account may be drawn before this answers: the walk from
   // the pre-namespace keys, and the restore from the server backup when this
   // device has nothing of its own, both happen behind it.
+  // Um convite tocado fora do app. Fica aqui, no shell, porque entre o toque e
+  // a tela que sabe o que fazer com ele há um login inteiro — e quem entra por
+  // convite normalmente ainda não tem conta.
+  const incomingInvite = useIncomingInvite();
   const workspaceStatus = useLocalWorkspace(
     authStatus === 'signedIn' ? personId : null,
     firestoreWorkspaceBackup,
@@ -521,10 +529,12 @@ function AppShell({
             app={app}
             auth={auth}
             bus={bus}
+            incomingInviteToken={incomingInvite.token}
             inviteIntent={inviteIntent}
             /* One account, one mount: remounting on the uid drops the previous
                session's tasks from memory, not only from storage. */
             key={personId ?? 'anon'}
+            onIncomingInviteHandled={incomingInvite.clear}
             onInviteIntentDone={clearInviteIntent}
             onReady={handleContentReady}
             onReplayOnboarding={replayOnboarding}
@@ -538,6 +548,9 @@ function AppShell({
             /* The entrance shows the same space the walk-through does, so the
                words inside its cut-out come from the one dictionary. */
             demo={app.copy.onboarding.demo}
+            /* Um convite tocado antes da conta: a entrada mostra o que é,
+               e o token segue guardado até a tela de espaços consumi-lo. */
+            inviteToken={incomingInvite.token}
             onReady={handleContentReady}
           />
         ) : null}

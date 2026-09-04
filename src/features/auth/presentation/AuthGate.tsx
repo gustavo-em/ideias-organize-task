@@ -18,6 +18,10 @@ interface AuthGateProps {
   /** The words inside the entrance's cut-out, from the app's dictionary: the
    * fake screen there shows the same space the walk-through does. */
   demo: CutoutDemo;
+  /** Set when the app was opened by an invite link while nobody was signed in.
+   * The entrance leads with the invite; the token is consumed by the spaces
+   * screen once there is an account. */
+  inviteToken?: string | null;
   /** Called once, right after mount: signed-out screens have nothing else to
    * wait on, so the shell's splash can finish as soon as this is on screen. */
   onReady: () => void;
@@ -32,7 +36,13 @@ interface AuthGateProps {
  * screen here is something it opens. Back — the gesture on Android, the link
  * on iOS — always returns to it.
  */
-export function AuthGate({ auth, copy, demo, onReady }: AuthGateProps) {
+export function AuthGate({
+  auth,
+  copy,
+  demo,
+  inviteToken = null,
+  onReady,
+}: AuthGateProps) {
   const [stage, setStage] = useState<AuthStage>('entrance');
 
   useEffect(() => {
@@ -77,6 +87,7 @@ export function AuthGate({ auth, copy, demo, onReady }: AuthGateProps) {
         copy={copy}
         demo={demo}
         googleState={auth.google}
+        inviteToken={inviteToken}
         onApple={auth.signInWithApple}
         onEmail={() => setStage('login')}
         onGoogle={auth.signInWithGoogle}
