@@ -372,9 +372,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
       // the network call is still on its way. Repairing a name is not sharing
       // a project: `renameMemberIdentity` says only that, so the haptic and
       // the telemetry hear nothing.
-      run(
-        renameMemberIdentity(current.current, list.id, renamed, clock.now()),
-      );
+      run(renameMemberIdentity(current.current, list.id, renamed, clock.now()));
 
       shareGateway.updateMemberIdentity(share, renamed).catch(() => {
         // Being called by an older name for a while is not worth an error

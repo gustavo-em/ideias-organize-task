@@ -6,16 +6,16 @@ abre o navegador numa página em branco não é um convite, é um beco.
 
 ## O que já está no repositório
 
-| Peça | Onde | Estado |
-| --- | --- | --- |
-| Página e JSON do convite | `functions/invite.js` | pronta, falta o deploy |
-| Rewrite `/e/**` → função | `firebase.json` | pronto |
-| Associação iOS | `public/.well-known/apple-app-site-association` | pronta |
-| Associação Android | `public/.well-known/assetlinks.json` | pronta (release + debug) |
-| Link gerado pelo app | `src/features/tasks/domain/TaskList.ts` | `https://ideiasorganizetask.web.app/e/<token>` |
-| Abrir o app pelo link | `src/app/session/useIncomingInvite.ts` | pronto |
-| Filtro de intent Android | `android/app/src/main/AndroidManifest.xml` | pronto |
-| Capability iOS | `ios/…/IdeiasOrganizeTask.entitlements` | pronta |
+| Peça                     | Onde                                            | Estado                                         |
+| ------------------------ | ----------------------------------------------- | ---------------------------------------------- |
+| Página e JSON do convite | `functions/invite.js`                           | pronta, falta o deploy                         |
+| Rewrite `/e/**` → função | `firebase.json`                                 | pronto                                         |
+| Associação iOS           | `public/.well-known/apple-app-site-association` | pronta                                         |
+| Associação Android       | `public/.well-known/assetlinks.json`            | pronta (release + debug)                       |
+| Link gerado pelo app     | `src/features/tasks/domain/TaskList.ts`         | `https://ideiasorganizetask.web.app/e/<token>` |
+| Abrir o app pelo link    | `src/app/session/useIncomingInvite.ts`          | pronto                                         |
+| Filtro de intent Android | `android/app/src/main/AndroidManifest.xml`      | pronto                                         |
+| Capability iOS           | `ios/…/IdeiasOrganizeTask.entitlements`         | pronta                                         |
 
 ## Publicar
 
@@ -43,7 +43,7 @@ Google reassina o APK e é o certificado dele que os aparelhos verificam — o
 keystore local passa a ser só a chave de upload.
 
 Play Console → Configuração → Integridade do app → Assinatura de apps →
-*Certificado da chave de assinatura do app* → SHA-256. Se esse valor for
+_Certificado da chave de assinatura do app_ → SHA-256. Se esse valor for
 diferente do primeiro da lista, acrescente-o: o campo aceita vários, e os que
 já estão lá continuam servindo para os builds locais.
 

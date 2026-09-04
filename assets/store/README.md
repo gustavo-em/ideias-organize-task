@@ -17,11 +17,11 @@ Design file `Play Store - screenshots.dc.html`: a flat brand ground, the symbol
 stacked over the wordmark, one short sentence set tight and heavy beside it.
 No rule, no watermark, no gradient.
 
-| File | Ground | Line | Comes from |
-| --- | --- | --- | --- |
-| `feature-graphic-sol.png` | Sol `#FFC107` | Um espaço para a vida que vocês dividem. | 3a, tela 1 |
-| `feature-graphic-ink.png` | Ink `#1D1D1B` | O dia de vocês, numa tela. | 3a, tela 2 |
-| `feature-graphic-papel.png` | Cream `#F6F3EC` | Quem faz o quê, sem cobrança. | 1a Papel |
+| File                        | Ground          | Line                                     | Comes from |
+| --------------------------- | --------------- | ---------------------------------------- | ---------- |
+| `feature-graphic-sol.png`   | Sol `#FFC107`   | Um espaço para a vida que vocês dividem. | 3a, tela 1 |
+| `feature-graphic-ink.png`   | Ink `#1D1D1B`   | O dia de vocês, numa tela.               | 3a, tela 2 |
+| `feature-graphic-papel.png` | Cream `#F6F3EC` | Quem faz o quê, sem cobrança.            | 1a Papel   |
 
 Symbol and wordmark come straight out of `assets/brand` — scaled, never
 redrawn. Everything that has to be read sits inside a 72 × 56 margin, because
