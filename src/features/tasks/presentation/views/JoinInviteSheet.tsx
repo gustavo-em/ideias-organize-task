@@ -26,9 +26,6 @@ interface JoinInviteSheetProps {
   copy: TaskCopy;
   status: 'idle' | 'loading' | 'error';
   errorKind: ShareErrorKind | null;
-  /** Filled in when the sheet was opened by a link rather than by the button:
-   * the person tapped the invite, so retyping it is work they already did. */
-  initialValue?: string;
   onCancel: () => void;
   onJoin: (pastedInput: string) => void | Promise<boolean>;
   onPasteFromClipboard: () => Promise<string>;
@@ -42,7 +39,6 @@ export function JoinInviteSheet({
   copy,
   status,
   errorKind,
-  initialValue = '',
   onCancel,
   onJoin,
   onPasteFromClipboard,
@@ -50,7 +46,7 @@ export function JoinInviteSheet({
 }: JoinInviteSheetProps) {
   const traceOpen = useSheetOpenTrace('JoinInviteSheet');
   const theme = useTheme();
-  const [value, setValue] = useState(initialValue);
+  const [value, setValue] = useState('');
 
   // The sheet stands on the keys when they are up. Without this it stayed
   // where it was and the keyboard covered the field, the error and both

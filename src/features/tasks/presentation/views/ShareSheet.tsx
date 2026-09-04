@@ -64,8 +64,11 @@ interface ShareSheetProps {
   onCancel: () => void;
   onCreateLink: (invitedAs: Exclude<ListRole, 'owner'>) => void;
   onChangeInvitedAs: (invitedAs: Exclude<ListRole, 'owner'>) => void;
-  onCopyLink: (token: string) => void;
-  onInvite: (token: string) => void;
+  /** The role goes out with the token: what the message tells the other
+   * person they will be able to do has to be the role the link carries, not
+   * the one the sheet had when it opened. */
+  onCopyLink: (token: string, invitedAs: Exclude<ListRole, 'owner'>) => void;
+  onInvite: (token: string, invitedAs: Exclude<ListRole, 'owner'>) => void;
   onRemoveMember: (personId: string) => void;
   onStopSharing: () => void;
 }
@@ -146,7 +149,7 @@ export function ShareSheet({
   function handleCopy() {
     if (list.share == null) return;
 
-    onCopyLink(list.share.token);
+    onCopyLink(list.share.token, list.share.invitedAs);
     setJustCopied(true);
     if (copiedTimer.current != null) clearTimeout(copiedTimer.current);
     copiedTimer.current = setTimeout(() => setJustCopied(false), 1200);
@@ -519,35 +522,47 @@ export function ShareSheet({
                 grow
                 label={copy.lists.invite}
                 onPress={() => {
-                  if (list.share != null) onInvite(list.share.token);
+                  if (list.share != null)
+                    onInvite(list.share.token, list.share.invitedAs);
                 }}
                 testID="share-invite"
               />
               <SheetCancelButton label={copy.lists.notNow} onPress={onCancel} />
             </SheetActionsRow>
           ) : (
-            <SheetActionsRow>
+            <>
+              {/* Its own line, on purpose. In the actions row the three
+                  Portuguese labels did not fit, and the only control allowed
+                  to shrink was Cancel — so it collapsed to "C.", a button
+                  that says nothing. A destructive word also reads better
+                  apart from the pair it is not part of. */}
               {isOwner && list.share != null ? (
-                <StopLink
-                  accessibilityLabel={copy.lists.stopSharing}
-                  onPress={() => setConfirmingStop(true)}
-                >
-                  <StopLinkText>{copy.lists.stopSharing}</StopLinkText>
-                </StopLink>
+                <StopRow>
+                  <StopLink
+                    accessibilityLabel={copy.lists.stopSharing}
+                    onPress={() => setConfirmingStop(true)}
+                  >
+                    <StopLinkText>{copy.lists.stopSharing}</StopLinkText>
+                  </StopLink>
+                </StopRow>
               ) : null}
-              <SheetActionsSpacer />
-              <SheetCancelButton
-                label={copy.capture.cancel}
-                onPress={onCancel}
-              />
-              {viewer || list.share == null ? null : (
-                <SheetPrimaryButton
-                  label={copy.lists.invite}
-                  onPress={() => onInvite(list.share!.token)}
-                  testID="share-invite"
+              <SheetActionsRow>
+                <SheetActionsSpacer />
+                <SheetCancelButton
+                  label={copy.capture.cancel}
+                  onPress={onCancel}
                 />
-              )}
-            </SheetActionsRow>
+                {viewer || list.share == null ? null : (
+                  <SheetPrimaryButton
+                    label={copy.lists.invite}
+                    onPress={() =>
+                      onInvite(list.share!.token, list.share!.invitedAs)
+                    }
+                    testID="share-invite"
+                  />
+                )}
+              </SheetActionsRow>
+            </>
           )}
         </Sheet>
       </Overlay>
@@ -890,6 +905,14 @@ const RetryText = styled.Text`
   color: ${({ theme }) => theme.colors.accentInk};
   font-size: ${({ theme }) => theme.type.caption}px;
   font-weight: 800;
+`;
+
+/* The negative margin cancels the link's own touch padding, so the word lines
+   up with the sheet's left edge instead of sitting one notch inside it. */
+const StopRow = styled.View`
+  flex-direction: row;
+  margin-top: ${({ theme }) => theme.spacing.medium}px;
+  margin-left: -${({ theme }) => theme.spacing.small}px;
 `;
 
 const StopLink = styled(PressableScale)`
