@@ -49,11 +49,15 @@ import {
   OnboardingScreen,
   type OnboardingOutcome,
 } from './components/OnboardingScreen';
+import { ReviewInvitation } from './components/ReviewInvitation';
 import { APP_VERSION } from './config/appMetadata';
 import { createBreadcrumbSubscriber } from './infrastructure/crash/createBreadcrumbSubscriber';
 import { firebaseCrashReporter } from './infrastructure/crash/firebaseCrashReporter';
 import { asyncStoragePreferencesStore } from './infrastructure/preferences/asyncStoragePreferencesStore';
+import { asyncStorageReviewInvitationStore } from './infrastructure/review/asyncStorageReviewInvitationStore';
+import { systemAppReviewPrompter } from './infrastructure/review/systemAppReviewPrompter';
 import { useIncomingInvite } from './session/useIncomingInvite';
+import { useReviewInvitation } from './session/useReviewInvitation';
 import { useLocalWorkspace } from './session/useLocalWorkspace';
 import { useWorkspaceBackup } from './session/useWorkspaceBackup';
 import { getAppTheme } from './theme/theme';
@@ -171,6 +175,11 @@ function AppContent({
     onRemoteProject: activity.onRemoteProject,
   });
   const focus = useFocusViewModel({ bus, clock: systemClock });
+  // Counting closed tasks towards the one question the app ever asks about
+  // itself. It listens to the same bus everything else does, so no screen has
+  // to remember to report anything.
+  const review = useReviewInvitation(bus, asyncStorageReviewInvitationStore);
+
   const [durationTask, setDurationTask] = useState<Task | null>(null);
   const [isFocusOpen, setIsFocusOpen] = useState(false);
 
@@ -407,6 +416,25 @@ function AppContent({
           streakDays={tasks.celebratingStreak}
         />
       )}
+
+      {/* Never on top of the celebration: the third task of a day is both the
+          moment the trio closes and the moment this is due, and two cards over
+          each other would make the good news the thing in the way. The flag
+          stays raised, so the question arrives once the celebration is out. */}
+      {review.isInviting && tasks.celebratingStreak == null ? (
+        <ReviewInvitation
+          copy={app.copy}
+          onDismiss={review.dismiss}
+          onNever={review.decline}
+          onRate={() => {
+            review.accept();
+            systemAppReviewPrompter
+              .requestReview()
+              .catch(() => undefined)
+              .finally(review.dismiss);
+          }}
+        />
+      ) : null}
 
       {/* The profile is a screen of its own, over the tab bar: naming yourself
           is typing, and typing needs the whole window. */}
