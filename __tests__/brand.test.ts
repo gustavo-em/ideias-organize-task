@@ -27,36 +27,41 @@ describe('brand contract', () => {
       white: '#FFFFFF',
     });
     expect(SPLASH_TIMING).toEqual({
-      mark: 320,
-      settle: 520,
-      draw: 620,
-      sunDelay: 640,
-      sun: 220,
-      wordmark: 260,
-      wordmarkDelay: 900,
-      minVisible: 1250,
-      fade: 180,
-      compact: 120,
-      reducedFade: 80,
-      slowState: 1500,
+      total: 1560,
+      letterOpen: 530,
+      rowsIn: 265,
+      rowsLit: 390,
+      rowsFly: 875,
+      raysTakeOver: 970,
+      wordmark: 1250,
+      wipe: 1310,
+      shortFrom: 900,
+      reduced: 360,
     });
-    // The whole sequence has to be over before the floor that holds it on
-    // screen, so the mark is never cut mid-sequence.
-    expect(
-      SPLASH_TIMING.wordmarkDelay + SPLASH_TIMING.wordmark,
-    ).toBeLessThanOrEqual(SPLASH_TIMING.minVisible);
-    // The stroke finishes drawing before the sun lights over it.
-    expect(SPLASH_TIMING.draw).toBeLessThanOrEqual(SPLASH_TIMING.sunDelay);
-    // The sun lights up before the wordmark answers it.
-    expect(SPLASH_TIMING.sunDelay + SPLASH_TIMING.sun).toBeLessThanOrEqual(
-      SPLASH_TIMING.wordmarkDelay,
+    // The rows light up while they are still: crossing the ink letter in ink
+    // would hide the whole gesture for the length of the flight.
+    expect(SPLASH_TIMING.rowsLit).toBeLessThan(SPLASH_TIMING.rowsFly);
+    // They arrive before they light, and light before they leave.
+    expect(SPLASH_TIMING.rowsIn).toBeLessThan(SPLASH_TIMING.rowsLit);
+    // The mark's own rays take over as the flying rows fade, so the last
+    // frame is the store icon rather than a gap where the rays should be.
+    expect(SPLASH_TIMING.raysTakeOver).toBeGreaterThanOrEqual(
+      SPLASH_TIMING.rowsFly,
     );
-    // The opening, floor and exit together stay inside the 1.2s–1.6s band.
-    const opening = SPLASH_TIMING.minVisible + SPLASH_TIMING.fade;
-    expect(opening).toBeGreaterThanOrEqual(1200);
-    expect(opening).toBeLessThanOrEqual(1600);
-    // Ready before the floor means a shorter exit, never a longer one.
-    expect(SPLASH_TIMING.compact).toBeLessThan(SPLASH_TIMING.fade);
+    // The wordmark answers a mark that is already whole.
+    expect(SPLASH_TIMING.wordmark).toBeGreaterThan(SPLASH_TIMING.raysTakeOver);
+    // Nothing is ever cut mid-morph: the wipe is last, and it is what ends it.
+    expect(SPLASH_TIMING.wipe).toBeGreaterThanOrEqual(SPLASH_TIMING.wordmark);
+    expect(SPLASH_TIMING.wipe).toBeLessThan(SPLASH_TIMING.total);
+    // The second opening of the day starts after the morph, never inside it.
+    expect(SPLASH_TIMING.shortFrom).toBeGreaterThanOrEqual(
+      SPLASH_TIMING.raysTakeOver - SPLASH_TIMING.total * 0.05,
+    );
+    // The whole opening stays inside a band a person will sit through.
+    expect(SPLASH_TIMING.total).toBeGreaterThanOrEqual(1200);
+    expect(SPLASH_TIMING.total).toBeLessThanOrEqual(1800);
+    // Reduced motion is a cross-fade, not a shortened morph.
+    expect(SPLASH_TIMING.reduced).toBeLessThan(SPLASH_TIMING.total / 3);
   });
 
   it('writes the same ink on Sol in both modes', () => {
