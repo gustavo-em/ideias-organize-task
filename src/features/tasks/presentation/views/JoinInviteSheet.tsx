@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { BackHandler, Keyboard, Modal } from 'react-native';
-import Animated from 'react-native-reanimated';
-import styled from 'styled-components/native';
+import Animated, {
+  useAnimatedKeyboard,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
+import styled, { useTheme } from 'styled-components/native';
 
 import {
   scrimEnter,
@@ -23,6 +26,9 @@ interface JoinInviteSheetProps {
   copy: TaskCopy;
   status: 'idle' | 'loading' | 'error';
   errorKind: ShareErrorKind | null;
+  /** Filled in when the sheet was opened by a link rather than by the button:
+   * the person tapped the invite, so retyping it is work they already did. */
+  initialValue?: string;
   onCancel: () => void;
   onJoin: (pastedInput: string) => void | Promise<boolean>;
   onPasteFromClipboard: () => Promise<string>;
@@ -36,13 +42,31 @@ export function JoinInviteSheet({
   copy,
   status,
   errorKind,
+  initialValue = '',
   onCancel,
   onJoin,
   onPasteFromClipboard,
   onDismissError,
 }: JoinInviteSheetProps) {
   const traceOpen = useSheetOpenTrace('JoinInviteSheet');
-  const [value, setValue] = useState('');
+  const theme = useTheme();
+  const [value, setValue] = useState(initialValue);
+
+  // The sheet stands on the keys when they are up. Without this it stayed
+  // where it was and the keyboard covered the field, the error and both
+  // buttons — everything the sheet exists to show. At rest the deeper floor
+  // comes back, and the negative margin with it, so the sheet still runs off
+  // the bottom of the screen instead of ending in a seam above the gesture
+  // bar.
+  const keyboard = useAnimatedKeyboard();
+  const lift = useAnimatedStyle(() => ({
+    transform: [{ translateY: -keyboard.height.value }],
+    paddingBottom:
+      keyboard.height.value > 0
+        ? theme.spacing.large
+        : theme.spacing.large + 88,
+    marginBottom: keyboard.height.value > 0 ? 0 : -80,
+  }));
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -56,8 +80,16 @@ export function JoinInviteSheet({
     return () => subscription.remove();
   }, [onCancel]);
 
+  // A refusal is not a bad link. Collapsing every failure into "check the
+  // link" sent people to re-read a link that was correct, while the real
+  // answer was that the server said no — the same distinction ShareSheet
+  // already makes on the other side of the invite.
   const errorMessage =
-    errorKind === 'network' ? copy.lists.noNetwork : copy.lists.invalidInvite;
+    errorKind === 'network'
+      ? copy.lists.noNetwork
+      : errorKind === 'invalid-invite'
+      ? copy.lists.invalidInvite
+      : copy.lists.shareRefused;
 
   function submit() {
     if (value.trim().length === 0) return;
@@ -88,6 +120,7 @@ export function JoinInviteSheet({
           entering={sheetEnter()}
           exiting={sheetExit()}
           onLayout={traceOpen}
+          style={lift}
         >
           <Grabber />
           <Title accessibilityRole="header">{copy.lists.joinInviteTitle}</Title>
@@ -173,11 +206,10 @@ const Sheet = styled(Animated.View)`
   background-color: ${({ theme }) => theme.colors.background};
   border-top-left-radius: ${({ theme }) => theme.radii.extraLarge}px;
   border-top-right-radius: ${({ theme }) => theme.radii.extraLarge}px;
-  margin-bottom: -80px;
   max-height: 91%;
-  padding: ${({ theme }) => theme.spacing.medium}px
-    ${({ theme }) => theme.spacing.large}px
-    ${({ theme }) => theme.spacing.large + 88}px;
+  padding-top: ${({ theme }) => theme.spacing.medium}px;
+  padding-left: ${({ theme }) => theme.spacing.large}px;
+  padding-right: ${({ theme }) => theme.spacing.large}px;
 `;
 
 const Grabber = styled.View`
@@ -205,7 +237,7 @@ const Hint = styled.Text`
 
 const FieldRow = styled.View`
   flex-direction: row;
-  align-items: center;
+  align-items: stretch;
   gap: ${({ theme }) => theme.spacing.small}px;
   margin-top: ${({ theme }) => theme.spacing.medium}px;
 `;
@@ -217,12 +249,15 @@ const Field = styled.TextInput.attrs(({ theme }) => ({
   selectionColor: theme.colors.accent,
 }))`
   flex: 1;
+  min-height: 48px;
   border: 2px solid ${({ theme }) => theme.colors.accent};
   border-radius: ${({ theme }) => theme.radii.medium}px;
   background-color: ${({ theme }) => theme.colors.card};
   color: ${({ theme }) => theme.colors.text};
   font-size: ${({ theme }) => theme.type.body}px;
-  padding: 13px 14px;
+  padding: 0px 14px;
+  /* Android puts single-line text at the top of a box taller than it. */
+  text-align-vertical: center;
 `;
 
 const PasteButton = styled(PressableScale)`
