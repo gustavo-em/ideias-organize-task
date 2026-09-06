@@ -17,9 +17,11 @@ jest.mock('../src/features/tasks/presentation/views/ListNameSheet', () => {
   return {
     ProjectEditorSheet: ({
       shareOption,
+      onCancel,
       onSubmit,
     }: {
       shareOption?: { value: boolean; onChange: (value: boolean) => void };
+      onCancel: () => void;
       onSubmit: (
         name: string,
         appearance: { color: string; icon: string },
@@ -33,8 +35,13 @@ jest.mock('../src/features/tasks/presentation/views/ListNameSheet', () => {
           testID: 'mock-toggle-shared',
         }),
         createElement(Pressable, {
-          onPress: () =>
-            onSubmit('Lançamento', { color: 'sun', icon: 'layers' }),
+          // The real sheet closes itself on a name the screen took, which is
+          // what hands the screen over to the invite sheet.
+          onPress: () => {
+            if (onSubmit('Lançamento', { color: 'sun', icon: 'layers' })) {
+              onCancel();
+            }
+          },
           testID: 'mock-submit',
         }),
       ),
@@ -171,7 +178,23 @@ function has(root: ReactTestInstance, testID: string) {
   return root.findAll(node => node.props.testID === testID).length > 0;
 }
 
+/** The beat the screen waits before the invite sheet, so that iOS is never
+ * asked to show one sheet while another is still leaving. */
+function settle() {
+  act(() => {
+    jest.advanceTimersByTime(500);
+  });
+}
+
 describe('creating a project that is already a group', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('asks for the link and shows the invite right after saving', () => {
     const calls: Array<[string, string]> = [];
     const root = render({
@@ -185,6 +208,14 @@ describe('creating a project that is already a group', () => {
     press(root, 'mock-submit');
 
     expect(calls).toEqual([['lancamento', 'editor']]);
+    // The two sheets never share the screen: the editor is gone, and the
+    // invite comes after it. Asked for together, iOS drops the second one and
+    // leaves the space behind them untouchable.
+    expect(has(root, 'mock-editor-sheet')).toBe(false);
+    expect(has(root, 'mock-share-sheet')).toBe(false);
+
+    settle();
+
     expect(has(root, 'mock-share-sheet')).toBe(true);
   });
 

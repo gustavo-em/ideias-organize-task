@@ -10,6 +10,7 @@ import {
   rowExit,
   rowLayout,
   screenEnter,
+  SHEET_EXIT,
 } from '../../../../app/animation/motion';
 import { markSheetPress, useRenderCount } from '../../../../app/perf/sheetPerf';
 import { sortedReminders } from '../../domain/Reminder';
@@ -195,6 +196,13 @@ export function ListsScreen({
   );
   const [actionsForListId, setActionsForListId] = useState<string | null>(null);
   const [sharingList, setSharingList] = useState<TaskList | null>(null);
+  // The space just made, waiting for its invite sheet. iOS refuses to present
+  // a modal while another one is still going away: asking for the share sheet
+  // in the same commit that closes the editor left a sheet that never arrived
+  // and a scrim that stayed, invisible, swallowing every touch on the space
+  // behind it. The space is opened at once; the sheet follows a beat later,
+  // once the editor's window is gone.
+  const [pendingShare, setPendingShare] = useState<TaskList | null>(null);
   const [leavingList, setLeavingList] = useState<TaskList | null>(null);
   const [joiningInvite, setJoiningInvite] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -208,6 +216,22 @@ export function ListsScreen({
     sharingList == null
       ? null
       : viewModel.lists.find(list => list.id === sharingList.id) ?? sharingList;
+
+  // The invite sheet, once the editor that asked for it is gone. A modal
+  // asking to be shown while another is still leaving is dropped by iOS
+  // without a word: the wait is what keeps the sheet from being lost.
+  useEffect(() => {
+    if (pendingShare == null || creatingList) return;
+
+    const timer = setTimeout(() => {
+      markSheetPress('ShareSheet');
+      setShareJustCreated(true);
+      setSharingList(pendingShare);
+      setPendingShare(null);
+    }, SHEET_EXIT.duration);
+
+    return () => clearTimeout(timer);
+  }, [creatingList, pendingShare]);
 
   const personId = viewModel.identity?.personId ?? null;
   const autoInviteRan = useRef(false);
@@ -729,9 +753,9 @@ export function ListsScreen({
             // sheet takes over from here with the invite, or with the error
             // and the button to try again.
             if (created != null && createShared) {
-              markSheetPress('ShareSheet');
-              setShareJustCreated(true);
-              setSharingList(created);
+              // The link is asked for now — the network has nothing to do with
+              // the sheet's timing, and the box is already waiting for it.
+              setPendingShare(created);
               viewModel.createShareLink(created.id, createInvitedAs);
             }
             // A refused name keeps the sheet open, and the choice in it.
