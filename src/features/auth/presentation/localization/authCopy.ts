@@ -223,6 +223,10 @@ const pt: AuthCopy = {
     cancelled: '',
     'play-services-unavailable':
       'O Google Play Services não está disponível neste aparelho. Dá para entrar com e-mail e senha.',
+    // Names what is wrong rather than asking for another try: trying again
+    // never fixes an install Google does not recognise.
+    'provider-misconfigured':
+      'Esta instalação do app não está autorizada para o login do Google (assinatura não registrada). Dá para entrar com e-mail e senha.',
     'provider-unavailable':
       'Esta forma de entrar está indisponível agora. Dá para entrar com e-mail e senha.',
     'account-exists-with-different-credential':
@@ -372,6 +376,8 @@ const en: AuthCopy = {
     cancelled: '',
     'play-services-unavailable':
       'Google Play Services is not available on this device. Email and password still works.',
+    'provider-misconfigured':
+      'This install is not authorised for Google sign-in (its signature is not registered). Email and password still works.',
     'provider-unavailable':
       'This way in is unavailable right now. Email and password still works.',
     'account-exists-with-different-credential':

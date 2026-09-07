@@ -1,4 +1,4 @@
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import appleAuth from '@invertase/react-native-apple-authentication';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { getApp } from '@react-native-firebase/app';
@@ -92,6 +92,33 @@ async function run(operation: () => Promise<unknown>): Promise<void> {
   }
 }
 
+/**
+ * What a provider refused with, written where a build can be read from
+ * outside: `adb logcat -s ReactNativeJS` on Android, the Xcode console on
+ * iOS. The screen says one sentence in the person's language; this line keeps
+ * the code and the message the SDK actually raised, which is the only thing
+ * that tells a misconfigured install apart from a bad night on the network.
+ *
+ * `DEVELOPER_ERROR` (status 10) gets a line of its own: it means the package
+ * name and signing certificate of this build are not the pair registered for
+ * the OAuth client, and nobody guesses that from the code alone.
+ */
+function reportProviderFailure(provider: 'google' | 'apple', error: unknown) {
+  const code = readErrorCode(error) ?? 'no-code';
+  const message = error instanceof Error ? error.message : String(error);
+
+  console.warn(`[auth] ${provider} sign-in failed code=${code}`, message);
+
+  if (provider === 'google' && (code === 'DEVELOPER_ERROR' || code === '10')) {
+    console.warn(
+      '[auth] this build is signed with a certificate that is not registered ' +
+        'for its Google OAuth client. Add the SHA-1 of the keystore that ' +
+        'signed it to the Firebase console and download google-services.json ' +
+        'again.',
+    );
+  }
+}
+
 /** The chooser, and the token it hands back. Signing in and proving the same
  * account again before erasing it are the same conversation with Google, so
  * they ask for it in the same place. */
@@ -127,13 +154,7 @@ async function signInWithGoogle(): Promise<void> {
   } catch (error) {
     if (error instanceof AuthOperationError) throw error;
 
-    Alert.alert(
-      'DIAG google',
-      JSON.stringify(error, Object.getOwnPropertyNames(Object(error))).slice(
-        0,
-        900,
-      ),
-    );
+    reportProviderFailure('google', error);
     throw new AuthOperationError(toGoogleErrorKind(readErrorCode(error)));
   }
 }
@@ -196,13 +217,7 @@ async function signInWithApple(): Promise<void> {
   } catch (error) {
     if (error instanceof AuthOperationError) throw error;
 
-    Alert.alert(
-      'DIAG apple',
-      JSON.stringify(error, Object.getOwnPropertyNames(Object(error))).slice(
-        0,
-        900,
-      ),
-    );
+    reportProviderFailure('apple', error);
     throw new AuthOperationError(toAppleErrorKind(readErrorCode(error)));
   }
 }

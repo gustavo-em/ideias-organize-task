@@ -12,6 +12,11 @@ export type AuthErrorKind =
    * screen ever renders a message for this one. */
   | 'cancelled'
   | 'play-services-unavailable'
+  /** The install itself is not authorised for the provider: on Android, the
+   * signing certificate of this build is not registered against the app's
+   * OAuth client. Nothing the person does fixes it, so the screen says so
+   * instead of blaming the network or the account. */
+  | 'provider-misconfigured'
   | 'provider-unavailable'
   | 'account-exists-with-different-credential'
   /** The session is too old for something Firebase only lets a fresh one do —

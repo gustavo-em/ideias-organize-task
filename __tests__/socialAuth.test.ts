@@ -93,11 +93,18 @@ describe('provider error mapping', () => {
 
   it('never falls back to the generic message on the Google button', () => {
     expect(toGoogleErrorKind('12500')).toBe('provider-unavailable');
-    expect(toGoogleErrorKind('10')).toBe('provider-unavailable');
     expect(toGoogleErrorKind('NULL_PRESENTER')).toBe('provider-unavailable');
     expect(toGoogleErrorKind(undefined)).toBe('provider-unavailable');
     expect(toGoogleErrorKind('7')).toBe('network');
     expect(toGoogleErrorKind('auth/network-request-failed')).toBe('network');
+  });
+
+  it('tells an install Google does not recognise apart from a bad moment', () => {
+    // DEVELOPER_ERROR reaches whoever installs a build signed with a key that
+    // is not registered for the OAuth client. "Try again" is the one thing
+    // that never works, so it does not share the message with the outages.
+    expect(toGoogleErrorKind('DEVELOPER_ERROR')).toBe('provider-misconfigured');
+    expect(toGoogleErrorKind('10')).toBe('provider-misconfigured');
   });
 
   it('names a provider the owner has not switched on yet', () => {

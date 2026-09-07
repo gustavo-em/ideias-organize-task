@@ -26,6 +26,12 @@ const GOOGLE_PLAY_SERVICES = [
   '18',
 ];
 const GOOGLE_NETWORK = ['7'];
+/** DEVELOPER_ERROR, and the numeric `10` the Android bridge sends for it: the
+ * package name and signing certificate of this build are not the pair
+ * registered for the OAuth client. It reaches whoever installs a build signed
+ * with an unregistered key — a local release APK, most often — and never
+ * changes on its own. */
+const GOOGLE_MISCONFIGURED = ['DEVELOPER_ERROR', '10'];
 
 /** Apple's `ASAuthorizationError` codes, as strings. */
 const APPLE_CANCELLED = ['1001', 'ERR_REQUEST_CANCELED'];
@@ -79,11 +85,12 @@ export function toGoogleErrorKind(code: string | undefined): AuthErrorKind {
   if (GOOGLE_CANCELLED.includes(code)) return 'cancelled';
   if (GOOGLE_PLAY_SERVICES.includes(code)) return 'play-services-unavailable';
   if (GOOGLE_NETWORK.includes(code)) return 'network';
+  if (GOOGLE_MISCONFIGURED.includes(code)) return 'provider-misconfigured';
   if (code.startsWith('auth/')) return toFirebaseErrorKind(code);
 
-  // Everything else the module can raise — DEVELOPER_ERROR, SIGN_IN_FAILED,
-  // NULL_PRESENTER, a numeric status this version does not name — is still a
-  // fact about this way in, not about the person or the app in general. The
+  // Everything else the module can raise — SIGN_IN_FAILED, NULL_PRESENTER, a
+  // numeric status this version does not name — is still a fact about this
+  // way in, not about the person or the app in general. The
   // screen says Google is unavailable and points at email and password,
   // instead of the generic "Algo não funcionou".
   return 'provider-unavailable';
