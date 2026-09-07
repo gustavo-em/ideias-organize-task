@@ -57,6 +57,16 @@
     "cleanUrls": true,
     "redirects": [
       {
+        "source": "/lesingo/support",
+        "destination": "/lesingo/suporte#en",
+        "type": 301
+      },
+      {
+        "source": "/lesingo/privacy",
+        "destination": "/lesingo/privacidade#en",
+        "type": 301
+      },
+      {
         "source": "/support",
         "destination": "/suporte#en",
         "type": 301

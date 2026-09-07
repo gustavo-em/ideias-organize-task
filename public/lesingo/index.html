@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lesingo — aponte a câmera, aprenda o nome</title>
+    <meta
+      name="description"
+      content="Lesingo transforma a câmera do celular em um professor de inglês: aponte para qualquer objeto e receba a palavra, o significado e a pronúncia. Tudo no aparelho, sem enviar imagens."
+    />
+    <meta property="og:title" content="Lesingo" />
+    <meta
+      property="og:description"
+      content="Point your phone at anything. Learn what it is called."
+    />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:image"
+      content="https://ideiasorganizetask.web.app/lesingo/img/android-camera-card.png"
+    />
+    <style>
+      :root {
+        --accent: #5e41d2;
+        --accent-soft: #a796ee;
+        --bg: #070e18;
+        --card: #101a28;
+        --border: #243044;
+        --text: #f2f6fc;
+        --muted: #8195af;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+          sans-serif;
+        line-height: 1.65;
+      }
+      .wrap {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 22px;
+      }
+      a {
+        color: var(--accent-soft);
+      }
+      .langs {
+        padding-top: 26px;
+        font-size: 0.9em;
+      }
+      .langs a {
+        margin-right: 14px;
+      }
+      header.hero {
+        padding: 34px 0 10px;
+      }
+      .mark {
+        display: inline-block;
+        font-size: 0.78em;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent-soft);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 4px 12px;
+      }
+      h1 {
+        font-size: clamp(2em, 6vw, 3.1em);
+        line-height: 1.1;
+        margin: 18px 0 10px;
+      }
+      .lead {
+        font-size: 1.15em;
+        color: var(--muted);
+        max-width: 34em;
+      }
+      .hero-grid {
+        display: flex;
+        gap: 34px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 26px;
+      }
+      .hero-grid img {
+        width: 260px;
+        max-width: 60vw;
+        border-radius: 22px;
+        border: 1px solid var(--border);
+      }
+      .badges span {
+        display: inline-block;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 5px 11px;
+        margin: 0 8px 8px 0;
+        font-size: 0.85em;
+        color: var(--muted);
+      }
+      h2 {
+        font-size: 1.4em;
+        margin: 2.4em 0 0.2em;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 16px;
+        margin-top: 18px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 16px 18px;
+      }
+      .card h3 {
+        margin: 0 0 6px;
+        font-size: 1.02em;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.94em;
+      }
+      .shots {
+        display: flex;
+        gap: 16px;
+        overflow-x: auto;
+        padding: 20px 0 6px;
+      }
+      .shots figure {
+        margin: 0;
+        flex: 0 0 auto;
+        width: 190px;
+      }
+      .shots img {
+        width: 100%;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        display: block;
+      }
+      .shots figcaption {
+        color: var(--muted);
+        font-size: 0.85em;
+        margin-top: 8px;
+      }
+      .privacy {
+        background: linear-gradient(180deg, #16113a, #101a28);
+        border: 1px solid var(--accent);
+        border-radius: 16px;
+        padding: 20px 22px;
+        margin-top: 26px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 14px;
+        font-size: 0.95em;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      hr.sep {
+        margin: 4em 0 0;
+        border: none;
+        border-top: 1px solid var(--border);
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.87em;
+        padding: 30px 0 50px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="langs">
+        <a href="#pt-br">Português</a> | <a href="#en">English</a>
+      </p>
+
+      <section id="pt-br" lang="pt-BR">
+        <header class="hero">
+          <span class="mark">Inglês pela câmera</span>
+          <h1>Aponte o celular para qualquer coisa. Aprenda como se chama.</h1>
+          <p class="lead">
+            O Lesingo reconhece os objetos à sua frente e coloca ao lado de cada
+            um uma carta com a palavra em inglês, a tradução, uma frase de
+            exemplo e a pronúncia. Toque em ouvir, repita em voz alta e descubra
+            na hora se acertou.
+          </p>
+          <div class="hero-grid">
+            <img
+              src="/lesingo/img/android-camera-card.png"
+              alt="Carta de aprendizado ao lado de um notebook reconhecido pela câmera"
+            />
+            <div class="badges">
+              <span>100% no aparelho</span>
+              <span>Nenhuma imagem sai do celular</span>
+              <span>Funciona sem conta</span>
+              <span>Android e iOS</span>
+            </div>
+          </div>
+        </header>
+
+        <h2>Como funciona</h2>
+        <div class="cards">
+          <div class="card">
+            <h3>1. Ver</h3>
+            <p>
+              Uma rede neural de 4,4 MB embarcada no app lê cada quadro da
+              câmera e devolve uma caixa em volta de cada objeto reconhecido.
+            </p>
+          </div>
+          <div class="card">
+            <h3>2. Nomear</h3>
+            <p>
+              Cada objeto vira uma carta: palavra, tradução, significado, frase
+              de exemplo e escrita fonética. São 80 objetos do dia a dia.
+            </p>
+          </div>
+          <div class="card">
+            <h3>3. Falar</h3>
+            <p>
+              O aparelho fala a palavra, ouve você repetir e registra se a
+              pronúncia bateu — usando a voz e o reconhecedor do sistema.
+            </p>
+          </div>
+        </div>
+
+        <h2>As telas</h2>
+        <div class="shots">
+          <figure>
+            <img src="/lesingo/img/android-camera-card.png" alt="Tela da câmera" />
+            <figcaption>Câmera — uma carta por objeto, do tamanho da distância até ele</figcaption>
+          </figure>
+          <figure>
+            <img src="/lesingo/img/android-collection.png" alt="Tela de coleção" />
+            <figcaption>Coleção — sequência, nível e um cômodo por conjunto de objetos</figcaption>
+          </figure>
+          <figure>
+            <img src="/lesingo/img/android-speak.png" alt="Tela de pronúncia" />
+            <figcaption>Falar — diga a palavra e compare com o reconhecedor do aparelho</figcaption>
+          </figure>
+          <figure>
+            <img src="/lesingo/img/android-history.png" alt="Tela de histórico" />
+            <figcaption>Histórico — cada palavra encontrada, colorida pela pronúncia</figcaption>
+          </figure>
+          <figure>
+            <img src="/lesingo/img/android-quiz.png" alt="Tela de prática" />
+            <figcaption>Prática — dez perguntas por rodada, só de palavras já vistas</figcaption>
+          </figure>
+        </div>
+
+        <div class="privacy">
+          <strong>A câmera fica no aparelho.</strong>
+          <p style="margin: 8px 0 0">
+            Nenhuma imagem ou gravação é enviada ou salva: cada quadro é
+            analisado na memória e descartado. Você pode usar o app sem conta.
+            Se entrar com uma, o progresso é sincronizado para continuar em
+            outro aparelho — e pode ser apagado a qualquer momento pela tela da
+            conta. Detalhes na
+            <a href="/lesingo/privacidade">Política de Privacidade</a>.
+          </p>
+        </div>
+
+        <h2>Medido em aparelho de verdade</h2>
+        <table>
+          <tr>
+            <th>Aparelho</th>
+            <th>Detecções por segundo</th>
+            <th>Inferência mediana</th>
+          </tr>
+          <tr>
+            <td>iPhone 13 (A15)</td>
+            <td>49,9</td>
+            <td>33 ms</td>
+          </tr>
+          <tr>
+            <td>Samsung SM-M536B</td>
+            <td>~30 (limitado pela câmera)</td>
+            <td>—</td>
+          </tr>
+        </table>
+
+        <h2>Precisa de ajuda?</h2>
+        <p>
+          Escreva para
+          <a href="mailto:gustavo.emanuel01@outlook.com"
+            >gustavo.emanuel01@outlook.com</a
+          >
+          ou veja as perguntas frequentes no
+          <a href="/lesingo/suporte">suporte</a>.
+        </p>
+      </section>
+
+      <hr class="sep" />
+
+      <section id="en" lang="en">
+        <header class="hero">
+          <span class="mark">English through the camera</span>
+          <h1>Point your phone at anything. Learn what it is called.</h1>
+          <p class="lead">
+            Lesingo recognises the objects in front of you and stands a card
+            beside each one — the English word, the translation, an example
+            sentence and the pronunciation. Tap to listen, say it back out loud,
+            and find out straight away whether you got it right.
+          </p>
+          <div class="hero-grid">
+            <img
+              src="/lesingo/img/android-camera-card.png"
+              alt="A learning card standing beside a laptop detected in the camera"
+            />
+            <div class="badges">
+              <span>100% on-device</span>
+              <span>No image leaves the phone</span>
+              <span>Works without an account</span>
+              <span>Android and iOS</span>
+            </div>
+          </div>
+        </header>
+
+        <h2>How it works</h2>
+        <div class="cards">
+          <div class="card">
+            <h3>1. See</h3>
+            <p>
+              A 4.4 MB neural network bundled with the app reads every camera
+              frame and returns a box around each object it recognises.
+            </p>
+          </div>
+          <div class="card">
+            <h3>2. Name</h3>
+            <p>
+              Each object becomes a card: word, translation, meaning, example
+              sentence and phonetic spelling — 80 everyday objects.
+            </p>
+          </div>
+          <div class="card">
+            <h3>3. Say</h3>
+            <p>
+              The device speaks the word, listens to you repeat it and records
+              whether it matched, using the system voice and recogniser.
+            </p>
+          </div>
+        </div>
+
+        <h2>The screens</h2>
+        <div class="shots">
+          <figure>
+            <img src="/lesingo/img/android-camera-card.png" alt="Camera screen" />
+            <figcaption>Camera — a card per object, sized by how near it is</figcaption>
+          </figure>
+          <figure>
+            <img src="/lesingo/img/android-collection.png" alt="Collection screen" />
+            <figcaption>Collection — streak, level, and one room per set of objects</figcaption>
+          </figure>
+          <figure>
+            <img src="/lesingo/img/android-speak.png" alt="Speak screen" />
+            <figcaption>Speak — say the word and compare it with the device recogniser</figcaption>
+          </figure>
+          <figure>
+            <img src="/lesingo/img/android-history.png" alt="History screen" />
+            <figcaption>History — every word you met, coloured by how it was said</figcaption>
+          </figure>
+          <figure>
+            <img src="/lesingo/img/android-quiz.png" alt="Practice screen" />
+            <figcaption>Practice — ten questions a round, only words already seen</figcaption>
+          </figure>
+        </div>
+
+        <div class="privacy">
+          <strong>The camera stays on the device.</strong>
+          <p style="margin: 8px 0 0">
+            No image or recording is uploaded or saved: each frame is analysed
+            in memory and discarded. You can use the app with no account. If you
+            sign in, your progress syncs so you can continue on another device —
+            and can be deleted at any time from the account screen. Details in
+            the <a href="/lesingo/privacidade#en">Privacy Policy</a>.
+          </p>
+        </div>
+
+        <h2>Measured on real phones</h2>
+        <table>
+          <tr>
+            <th>Device</th>
+            <th>Detections per second</th>
+            <th>Median inference</th>
+          </tr>
+          <tr>
+            <td>iPhone 13 (A15)</td>
+            <td>49.9</td>
+            <td>33 ms</td>
+          </tr>
+          <tr>
+            <td>Samsung SM-M536B</td>
+            <td>~30 (capped by the camera)</td>
+            <td>—</td>
+          </tr>
+        </table>
+
+        <h2>Need help?</h2>
+        <p>
+          Write to
+          <a href="mailto:gustavo.emanuel01@outlook.com"
+            >gustavo.emanuel01@outlook.com</a
+          >
+          or read the FAQ on the
+          <a href="/lesingo/suporte#en">support page</a>.
+        </p>
+      </section>
+
+      <footer>
+        <p>
+          Lesingo · <a href="/lesingo/suporte">Suporte / Support</a> ·
+          <a href="/lesingo/privacidade">Privacidade / Privacy</a>
+        </p>
+        <p>© 2026 Gustavo Rosa</p>
+      </footer>
+    </div>
+  </body>
+</html>
