@@ -7,6 +7,12 @@
 	     pela App Store. -->
 	<key>aps-environment</key>
 	<string>development</string>
+	<!-- App Check. App Attest é a prova de que a chamada veio deste app neste
+	     aparelho; "production" vale para TestFlight e App Store, e o Xcode usa
+	     o ambiente de desenvolvimento sozinho num build de debug. O App ID
+	     precisa ter a capability "App Attest" ligada no portal da Apple. -->
+	<key>com.apple.developer.devicecheck.appattest-environment</key>
+	<string>production</string>
 	<key>com.apple.developer.applesignin</key>
 	<array>
 		<string>Default</string>

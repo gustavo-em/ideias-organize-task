@@ -1,6 +1,7 @@
 import { getApp } from '@react-native-firebase/app';
 import { getAuth } from '@react-native-firebase/auth';
 
+import { appCheckHeaders } from '../../../../shared/firebase/appCheck';
 import { ShareOperationError } from '../../domain/ShareError';
 
 /**
@@ -89,7 +90,11 @@ export function fromFirestoreFields(
 
 /** The session's own token, the way every call out of this app authenticates.
  * Exported so the avatar upload speaks to Storage with the same session,
- * without a second copy of this rule anywhere. */
+ * without a second copy of this rule anywhere.
+ *
+ * It travels next to a second proof, the App Check header: the session says
+ * who is calling, App Check says what is calling. The SDKs add the second one
+ * by themselves; these REST calls have to ask for it (`appCheckHeaders`). */
 export async function firebaseIdToken(forceRefresh = false): Promise<string> {
   return idToken(forceRefresh);
 }
@@ -196,6 +201,7 @@ export async function firestoreCommit(
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
+          ...(await appCheckHeaders()),
         },
         body,
       });
@@ -244,7 +250,10 @@ export async function firestoreCommit(
 }
 
 interface FirestoreRequestOptions {
-  method?: 'GET' | 'PATCH' | 'DELETE';
+  /** `POST` creates a document under `path` as a collection, with an id
+   * Firestore draws itself — 20 characters from a cryptographic source, which
+   * is more than this JavaScript engine can offer without a native module. */
+  method?: 'GET' | 'PATCH' | 'DELETE' | 'POST';
   fields?: Record<string, unknown>;
   /** Only these top-level keys are written; everything else on the document
    * is left as it is. */
@@ -253,12 +262,16 @@ interface FirestoreRequestOptions {
 
 /** One authenticated call to a single document, with the timeout and error
  * mapping every gateway method shares. `path` is relative, e.g.
- * `sharedLists/7k2xazjm`. */
+ * `sharedLists/7k2xazjm` — or, for `POST`, the collection the new document
+ * goes into. */
 export async function firestoreDocument(
   path: string,
   options: FirestoreRequestOptions = {},
 ): Promise<{
   status: number;
+  /** The document's full resource name, whose last segment is its id: the
+   * only way to learn the id of a document Firestore named itself. */
+  name: string | null;
   fields: Record<string, unknown> | null;
   /** Server timestamp of the read, to hand back as a write precondition. */
   updateTime: string | null;
@@ -286,6 +299,7 @@ export async function firestoreDocument(
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
+          ...(await appCheckHeaders()),
         },
         body:
           options.fields == null
@@ -300,18 +314,26 @@ export async function firestoreDocument(
     if (response.status === 401) response = await send(true);
 
     if (response.status === 404) {
-      return { status: 404, fields: null, updateTime: null, rawFields: null };
+      return {
+        status: 404,
+        name: null,
+        fields: null,
+        updateTime: null,
+        rawFields: null,
+      };
     }
     if (response.status === 403) throw new ShareOperationError('forbidden');
     if (!response.ok) throw new ShareOperationError('unknown');
 
     const body = (await response.json()) as {
+      name?: string;
       fields?: Record<string, FirestoreValue>;
       updateTime?: string;
     };
 
     return {
       status: response.status,
+      name: body.name ?? null,
       fields: body.fields == null ? {} : fromFirestoreFields(body.fields),
       updateTime: body.updateTime ?? null,
       rawFields: body.fields ?? null,
@@ -354,7 +376,10 @@ export async function firestoreCollectionIds(
         return fetch(`${BASE_URL}/${path}${query}`, {
           method: 'GET',
           signal: controller.signal,
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            ...(await appCheckHeaders()),
+          },
         });
       };
 

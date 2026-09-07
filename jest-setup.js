@@ -141,6 +141,24 @@ jest.mock('@react-native-firebase/crashlytics', () => ({
   setUserId: jest.fn(async () => null),
 }));
 
+// The default app is registered by the native side at launch; here it is a
+// name, which is all the modules above it ever pass along.
+jest.mock('@react-native-firebase/app', () => ({
+  __esModule: true,
+  getApp: jest.fn(() => ({ name: '[DEFAULT]' })),
+}));
+
+// App Check is native attestation; the suite only needs the calls to exist
+// and the header helper to answer. No test asserts on the token itself.
+jest.mock('@react-native-firebase/app-check', () => ({
+  __esModule: true,
+  ReactNativeFirebaseAppCheckProvider: jest.fn().mockImplementation(() => ({
+    configure: jest.fn(),
+  })),
+  initializeAppCheck: jest.fn(() => ({})),
+  getToken: jest.fn(async () => ({ token: 'test-app-check-token' })),
+}));
+
 jest.mock('@react-native-firebase/messaging', () => ({
   __esModule: true,
   getMessaging: jest.fn(() => ({})),
