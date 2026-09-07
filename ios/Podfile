@@ -23,6 +23,54 @@ use_frameworks! :linkage => linkage
 $RNFirebaseDisableSPM = true
 $RNFirebaseAsStaticFramework = true
 
+# React Native 0.87 ships its core, its dependencies and Hermes prebuilt, each
+# in a Debug and a Release variant that a build phase swaps according to the
+# configuration, keyed on a dotfile (`.last_build_configuration`) inside the
+# pod. The dotfile does not always survive `pod install` while the variant it
+# described does, and with no dotfile the swap assumes Debug. After a Release
+# archive that assumption is false, and the next Debug build fails to link:
+# `typeinfo for facebook::react::Props` and friends are missing from every
+# third-party Fabric component (RNSVG, RNGoogleSignin), because the Release
+# core does not export them.
+#
+# So every install ends by putting the Debug variant back, through React
+# Native's own swap scripts: the pod is marked Release and asked for Debug,
+# which re-extracts the local debug tarball and writes a truthful marker. A
+# Release build swaps to Release again, exactly as it always did. It costs a
+# few seconds per install, which is nothing next to a link failure nobody can
+# explain.
+require 'json'
+require 'open3'
+
+def restore_prebuilt_debug_variant(installer, react_native_path)
+  pods_root = installer.sandbox.root.to_s
+  # `use_native_modules!` hands the path relative to this Podfile; the scripts
+  # run from inside Pods/, where that relative path points at nothing.
+  react_native_path = File.expand_path(react_native_path, __dir__)
+  rn_version = JSON.parse(File.read(File.join(react_native_path, 'package.json')))['version']
+  hermes_spec = installer.analysis_result.specifications.find { |spec| spec.name == 'hermes-engine' }
+
+  [
+    ['React-Core-prebuilt', 'scripts/replace-rncore-version.js', rn_version],
+    ['ReactNativeDependencies', 'third-party-podspecs/replace_dependencies_version.js', rn_version],
+    ['hermes-engine', 'sdks/hermes-engine/utils/replace_hermes_version.js', hermes_spec&.version.to_s],
+  ].each do |pod, script, version|
+    pod_dir = File.join(pods_root, pod)
+    next unless Dir.exist?(pod_dir) && !version.to_s.empty?
+
+    File.write(File.join(pod_dir, '.last_build_configuration'), 'Release')
+    output, status = Dir.chdir(pods_root) do
+      Open3.capture2e('node', File.join(react_native_path, script), '-c', 'Debug', '-r', version, '-p', pods_root)
+    end
+
+    if status.success?
+      Pod::UI.puts "#{pod}: Debug variant in place".green
+    else
+      Pod::UI.warn "#{pod}: could not put the Debug variant back; a Debug build may fail to link until a Release build runs once\n#{output}"
+    end
+  end
+end
+
 target 'IdeiasOrganizeTask' do
   config = use_native_modules!
 
@@ -39,5 +87,6 @@ target 'IdeiasOrganizeTask' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+    restore_prebuilt_debug_variant(installer, config[:reactNativePath])
   end
 end
