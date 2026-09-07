@@ -302,7 +302,7 @@ function AppContent({
           try {
             await (owned
               ? firestoreShareGateway.revokeLink(share)
-              : firestoreShareGateway.removeMember(share, personId));
+              : firestoreShareGateway.leave(share, personId));
           } catch {
             // Nothing to report: the account is going either way, and this
             // row is not worth stopping it over.

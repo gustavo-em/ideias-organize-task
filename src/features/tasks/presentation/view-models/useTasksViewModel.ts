@@ -769,7 +769,7 @@ export function useTasksViewModel(dependencies: TasksDependencies) {
       const list = findListById(current.current.lists, listId);
       if (list?.share == null || identity == null) return;
 
-      shareGateway.removeMember(list.share, identity.personId).catch(() => {
+      shareGateway.leave(list.share, identity.personId).catch(() => {
         // The device has already left locally either way — the remote
         // membership will fall out of date until the owner's next pull.
       });

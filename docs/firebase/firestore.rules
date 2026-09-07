@@ -40,7 +40,11 @@ service cloud.firestore {
           (request.resource.data.photoURL is string &&
             request.resource.data.photoURL.size() < 200000)) &&
         request.resource.data.handle is string &&
-        request.resource.data.handle.matches('^[a-z0-9_]{3,20}$');
+        request.resource.data.handle.matches('^[a-z0-9_]{3,20}$') &&
+        // O app corta o nome em 40; o teto aqui é só contra um documento
+        // inflado de propósito por um cliente que não é o app.
+        request.resource.data.displayName is string &&
+        request.resource.data.displayName.size() <= 120;
       allow delete: if request.auth != null && request.auth.uid == uid;
 
       // Camada B — push real. Um documento por aparelho, com o próprio token
@@ -72,7 +76,16 @@ service cloud.firestore {
               request.resource.data.tasks.size() < 900000)) &&
           (!('lists' in request.resource.data.keys()) ||
             (request.resource.data.lists is string &&
-              request.resource.data.lists.size() < 900000));
+              request.resource.data.lists.size() < 900000)) &&
+          (!('progress' in request.resource.data.keys()) ||
+            (request.resource.data.progress is string &&
+              request.resource.data.progress.size() < 900000)) &&
+          (!('trio' in request.resource.data.keys()) ||
+            (request.resource.data.trio is string &&
+              request.resource.data.trio.size() < 900000)) &&
+          (!('groupStreaks' in request.resource.data.keys()) ||
+            (request.resource.data.groupStreaks is string &&
+              request.resource.data.groupStreaks.size() < 900000));
       }
     }
 
@@ -111,6 +124,14 @@ service cloud.firestore {
           request.auth.uid == resource.data.ownerId;
       }
 
+      // Quem o dono tirou do projeto. O link continua o mesmo depois de uma
+      // remoção, e a pessoa continua com ele na conversa — sem esta lista, o
+      // token sozinho seguia lendo o projeto para sempre. Sair por vontade
+      // própria não entra aqui: quem saiu pode voltar pelo mesmo link.
+      function wasRemoved() {
+        return request.auth.uid in resource.data.get('removedIds', []);
+      }
+
       function onlyChanges(fields) {
         return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
       }
@@ -126,7 +147,7 @@ service cloud.firestore {
       // "owner cria/revoga link, muda papel, remove membro" — só o dono.
       function isMembershipUpdate() {
         return isOwner() &&
-          onlyChanges(['members', 'memberIds', 'editorIds', 'invitedAs']);
+          onlyChanges(['members', 'memberIds', 'editorIds', 'invitedAs', 'removedIds']);
       }
 
       // Ao entrar, o mapa do membro passa a levar `joinedAtMs` (quando o
@@ -137,22 +158,33 @@ service cloud.firestore {
       // publicadas continua entrando normalmente. Membro antigo simplesmente
       // não tem o campo, e a tela mostra "—" em vez de inventar data.
       //
+      // O papel de quem entra é o do link, não o que o cliente escreve: um
+      // link "Ver" nunca acrescenta ninguém a `editorIds`, e um link "Editar"
+      // acrescenta exatamente quem está entrando — nunca promove outra
+      // pessoa. Sem isto, bastava um cliente alterado para entrar como editor
+      // por um convite de leitura.
+      function joinsWithInvitedRole() {
+        return resource.data.get('invitedAs', 'editor') == 'viewer'
+          ? request.resource.data.editorIds == resource.data.editorIds
+          : (request.resource.data.editorIds.hasAll(resource.data.editorIds) &&
+            request.resource.data.editorIds
+              .removeAll(resource.data.editorIds)
+              .hasOnly([request.auth.uid]));
+      }
+
       // Entrar é a única escrita permitida a quem ainda não é membro, e só
-      // pode adicionar o próprio uid — nunca remover ou trocar quem já está,
-      // e o único uid que `editorIds` pode ganhar aqui é o de quem está
-      // entrando (nunca promove outra pessoa).
+      // pode adicionar o próprio uid — nunca remover ou trocar quem já está.
+      // Quem o dono removeu não entra de novo por aqui.
       function isJoining() {
         return request.auth != null &&
+          !wasRemoved() &&
           !(request.auth.uid in resource.data.memberIds) &&
           request.auth.uid in request.resource.data.memberIds &&
           onlyChanges(['members', 'memberIds', 'editorIds']) &&
           request.resource.data.memberIds.size() ==
             resource.data.memberIds.size() + 1 &&
           request.resource.data.memberIds.hasAll(resource.data.memberIds) &&
-          request.resource.data.editorIds.hasAll(resource.data.editorIds) &&
-          request.resource.data.editorIds
-            .removeAll(resource.data.editorIds)
-            .hasOnly([request.auth.uid]);
+          joinsWithInvitedRole();
       }
 
       // Sair do projeto: o inverso exato de `isJoining`. Só o próprio uid
@@ -216,13 +248,21 @@ service cloud.firestore {
       // nova levava 403 e via "esse convite não é válido".
       //
       // O token continua sendo o segredo. Ele é o id do documento, `list` é
-      // `false`, e são 10 caracteres — não há como enumerar, e quem tem o
-      // token já ia entrar de qualquer jeito.
-      allow get: if request.auth != null;
+      // `false`, e é sorteado pelo próprio Firestore (20 caracteres) — não há
+      // como enumerar, e quem tem o token já ia entrar de qualquer jeito. A
+      // única exceção é quem o dono tirou: para essa pessoa o link morre.
+      // `resource == null` deixa passar para que um link inexistente continue
+      // respondendo "não encontrado", e não "recusado".
+      allow get: if request.auth != null &&
+        (resource == null || !wasRemoved());
       allow list: if false; // nunca por consulta — só pelo token do link.
+      // Um projeto nasce só com o dono dentro: ninguém é posto num projeto
+      // alheio, nem como membro nem como editor, sem ter entrado por um link.
       allow create: if request.auth != null &&
-        request.auth.uid in request.resource.data.memberIds &&
-        request.auth.uid == request.resource.data.ownerId;
+        request.auth.uid == request.resource.data.ownerId &&
+        request.resource.data.memberIds == [request.auth.uid] &&
+        request.resource.data.editorIds == [request.auth.uid] &&
+        request.resource.data.invitedAs in ['editor', 'viewer'];
       allow update: if isContentUpdate() || isMembershipUpdate() ||
         isJoining() || isLeaving() || isMemberIdentityUpdate() ||
         isOwnerAssignmentUpdate() || isSelfAssignmentUpdate();

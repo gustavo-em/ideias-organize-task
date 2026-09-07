@@ -38,13 +38,14 @@ const DAYS = 'days';
  * letter — the write is refused as INVALID_ARGUMENT otherwise. */
 const maskKey = (segment: string) => `\`${segment}\``;
 
-/** Only has to be unguessable enough that nobody stumbles onto a project by
- * accident — the security rule, not the token's length, is what actually
- * keeps a non-member out. */
-function createShareToken(): string {
-  return Array.from({ length: 10 }, () =>
-    Math.floor(Math.random() * 36).toString(36),
-  ).join('');
+/** Those the owner put out of the project, as the document keeps them. The
+ * security rule reads this list to refuse the link to whoever is on it. */
+function removedIdsOf(fields: Record<string, unknown> | null): string[] {
+  const raw = fields?.removedIds;
+
+  return Array.isArray(raw)
+    ? raw.filter((id): id is string => typeof id === 'string')
+    : [];
 }
 
 function taskToRecord(task: Task): Record<string, unknown> {
@@ -248,13 +249,31 @@ async function hydrateMembers(
   });
 }
 
+/** Whoever left takes their assignments with them. It is a separate write
+ * because membership and assignment are two different rules, and each one
+ * allows only its own field. */
+async function clearAssignments(token: string, personId: string) {
+  await firestoreDocument(`${COLLECTION}/${token}`, {
+    method: 'PATCH',
+    updateMask: [`assignments.${maskKey(personId)}`],
+    fields: { assignments: { [personId]: [] } },
+  }).catch(() => {
+    // The person is already out of the project; a stale entry in the map
+    // simply resolves to nobody on the next pull.
+  });
+}
+
 export const firestoreShareGateway: ShareGateway = {
   async createLink(list, tasks, invitedAs, owner) {
-    const token = createShareToken();
     const auth = getAuth(getApp());
 
-    await firestoreDocument(`${COLLECTION}/${token}`, {
-      method: 'PATCH',
+    // The token is the whole secret of the link: reading the project asks for
+    // a session and this id, nothing else. So it is Firestore that draws it —
+    // 20 characters from a cryptographic source — rather than `Math.random`,
+    // which has no such guarantee and whose next draws can be worked out from
+    // a few earlier ones.
+    const { name } = await firestoreDocument(COLLECTION, {
+      method: 'POST',
       fields: {
         ownerId: auth.currentUser?.uid ?? owner.personId,
         originId: list.id,
@@ -270,6 +289,11 @@ export const firestoreShareGateway: ShareGateway = {
         updatedAtMs: Date.now(),
       },
     });
+    const token = name?.split('/').pop() ?? '';
+
+    if (token.length === 0) {
+      throw new ShareOperationError('unknown', 'documento criado sem nome');
+    }
 
     return { token, invitedAs, members: [owner] };
   },
@@ -281,10 +305,40 @@ export const firestoreShareGateway: ShareGateway = {
   },
 
   async removeMember(share, personId) {
+    // Being removed is not the same as leaving: the person still has the link
+    // in a chat somewhere, and the link alone used to read the project for
+    // ever. `removedIds` is what the rule checks before answering a read, so
+    // the list on the document is fetched and extended rather than replaced
+    // — the owner's device does not keep it.
+    const { fields } = await firestoreDocument(`${COLLECTION}/${share.token}`);
+    const removedIds = removedIdsOf(fields);
     const members = share.members.filter(
       member => member.personId !== personId,
     );
 
+    await firestoreDocument(`${COLLECTION}/${share.token}`, {
+      method: 'PATCH',
+      updateMask: ['members', 'memberIds', 'editorIds', 'removedIds'],
+      fields: {
+        members,
+        memberIds: members.map(member => member.personId),
+        editorIds: editorIdsOf(members),
+        removedIds: removedIds.includes(personId)
+          ? removedIds
+          : [...removedIds, personId],
+      },
+    });
+
+    await clearAssignments(share.token, personId);
+  },
+
+  async leave(share, personId) {
+    const members = share.members.filter(
+      member => member.personId !== personId,
+    );
+
+    // Only the member list: the rule for leaving allows nothing else, and
+    // whoever walks out is free to come back through the same link.
     await firestoreDocument(`${COLLECTION}/${share.token}`, {
       method: 'PATCH',
       updateMask: ['members', 'memberIds', 'editorIds'],
@@ -295,17 +349,7 @@ export const firestoreShareGateway: ShareGateway = {
       },
     });
 
-    // Whoever left takes their assignments with them. It is a separate write
-    // because membership and assignment are two different rules, and each one
-    // allows only its own field.
-    await firestoreDocument(`${COLLECTION}/${share.token}`, {
-      method: 'PATCH',
-      updateMask: [`assignments.${maskKey(personId)}`],
-      fields: { assignments: { [personId]: [] } },
-    }).catch(() => {
-      // The person is already out of the project; a stale entry in the map
-      // simply resolves to nobody on the next pull.
-    });
+    await clearAssignments(share.token, personId);
   },
 
   async updateMemberIdentity(share, member) {

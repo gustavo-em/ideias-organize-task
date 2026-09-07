@@ -107,6 +107,18 @@ describe('shared project rules', () => {
     expect(parseInviteToken('https://aluza.app/e/')).toBeNull();
   });
 
+  it('keeps the case of a token Firestore drew itself', () => {
+    // New links carry the 20-character id Firestore assigns, which mixes
+    // upper and lower case. The document id is case-sensitive, so the parser
+    // must hand it back exactly as received, never folded.
+    const drawn = 'Ab3dEf9hIjKlMnOpQr2s';
+
+    expect(parseInviteToken(drawn)).toBe(drawn);
+    expect(parseInviteToken(`https://aluza.app/e/${drawn}?s=whatsapp`)).toBe(
+      drawn,
+    );
+  });
+
   it('reads the token out of the whole invite message, pasted as received', () => {
     // Nobody selects the URL out of a WhatsApp bubble: they long-press the
     // message and copy all of it. The paste that reaches the join sheet is

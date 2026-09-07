@@ -26,7 +26,15 @@ export interface ShareGateway {
   ): Promise<ListShare>;
   /** Takes the project off the network; local tasks are untouched. */
   revokeLink(share: ListShare): Promise<void>;
+  /** The owner puts somebody out. Beyond leaving the member list, the person
+   * is remembered as removed, and the link stops reading for them: an invite
+   * they still have in a chat is not a way back in. */
   removeMember(share: ListShare, personId: string): Promise<void>;
+  /** The caller walks out on their own — "Sair do espaço", or the account
+   * being erased. Only the member list changes: whoever leaves keeps the
+   * right to come back through the same link, which is the difference
+   * between leaving and being removed. */
+  leave(share: ListShare, personId: string): Promise<void>;
   /** Rewrites how the caller is named inside a project they already belong
    * to: the name and handle other members read. Roles and who is in the
    * project are never touched. */

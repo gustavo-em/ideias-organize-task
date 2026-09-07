@@ -18,6 +18,21 @@ export function createInMemoryShareGateway(): ShareGateway {
   const assignments = new Map<string, AssignmentMap>();
   let sequence = 0;
 
+  function dropMember(token: string, personId: string) {
+    const project = projects.get(token);
+    if (project?.list.share == null) return;
+
+    project.list = {
+      ...project.list,
+      share: {
+        ...project.list.share,
+        members: project.list.share.members.filter(
+          member => member.personId !== personId,
+        ),
+      },
+    };
+  }
+
   return {
     async createLink(list, tasks, invitedAs, owner) {
       sequence += 1;
@@ -51,18 +66,11 @@ export function createInMemoryShareGateway(): ShareGateway {
     },
 
     async removeMember(share, personId) {
-      const project = projects.get(share.token);
-      if (project?.list.share == null) return;
+      dropMember(share.token, personId);
+    },
 
-      project.list = {
-        ...project.list,
-        share: {
-          ...project.list.share,
-          members: project.list.share.members.filter(
-            member => member.personId !== personId,
-          ),
-        },
-      };
+    async leave(share, personId) {
+      dropMember(share.token, personId);
     },
 
     async setAssignment(share, personId, taskIds) {
