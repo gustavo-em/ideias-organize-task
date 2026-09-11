@@ -8,7 +8,9 @@
 
 Clean Architecture · MVVM · domain event bus · offline-first · pt-BR / en-US
 
-[Architecture](docs/ARCHITECTURE.md) · [Decision records](docs/adr) · [Perf baseline](docs/perf/sheets-baseline.md) · [Brand & motion spec](docs/design/identidade-e-telas.html)
+<a href="https://apps.apple.com/us/app/aluza-shared-to-do-list/id6808513680"><img alt="Live on the App Store" src="https://img.shields.io/badge/App%20Store-live-0D96F6?style=for-the-badge&logo=apple&logoColor=white"></a>
+
+[App Store](https://apps.apple.com/us/app/aluza-shared-to-do-list/id6808513680) · [Architecture](docs/ARCHITECTURE.md) · [Decision records](docs/adr) · [Perf baseline](docs/perf/sheets-baseline.md) · [Brand & motion spec](docs/design/identidade-e-telas.html)
 
 </div>
 
